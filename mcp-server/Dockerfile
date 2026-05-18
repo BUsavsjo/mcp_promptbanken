@@ -15,6 +15,11 @@ COPY server ./server
 COPY prompts ./prompts
 COPY skills.json ./skills.json
 
+RUN adduser --disabled-password --gecos "" --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 8000
 
 CMD ["python", "-m", "server.http_server"]

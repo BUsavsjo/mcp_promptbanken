@@ -8,5 +8,12 @@ services:
       MCP_LOG_LEVEL: INFO
       PROMPTBANKEN_MCP_API_KEY: ${PROMPTBANKEN_MCP_API_KEY:-}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

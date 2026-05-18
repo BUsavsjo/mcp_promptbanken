@@ -4,6 +4,41 @@ Minimal MCP-server som exponerar Promptbankens kommunala promptar som skills.
 
 Servern kor ingen AI-modell sjalv. Den levererar skill-metadata, prompttext, enkel routing och riskkontroll till en MCP-klient.
 
+## Data och integritet
+
+Promptbanken MCP ar en read-only prompt- och skill-server.
+
+Servern sparar inte anvandarens text, promptanrop eller svar i databas eller fil. Den har ingen databas och ingen skrivande lagring for anvandarinput.
+
+Det servern laser fran disk:
+
+- `skills.json` med skill-metadata
+- `prompts/*.txt` med prompttexter
+
+Det servern bearbetar i minnet nar ett tool anropas:
+
+- uppgiftstext i `route_skill`
+- eventuell `user_task` och `user_input` i `compile_skill_prompt`
+- text i `check_input_risk`
+
+Bearbetningen anvands bara for att:
+
+- valja relevant skill
+- bygga en prompt att skicka tillbaka till MCP-klienten
+- kontrollera enkla monster som personnummer, e-postadress, telefonnummer och arendenummer
+
+Servern kor ingen AI-modell och skickar inte vidare anvandarinput till nagon extern AI-leverantor.
+
+Docker-containern ar hardad for read-only drift:
+
+- `read_only: true`
+- ingen publik direktport, bara `127.0.0.1:8000`
+- `no-new-privileges:true`
+- alla Linux capabilities tas bort med `cap_drop: ALL`
+- temporar skrivyta endast via `tmpfs` pa `/tmp`
+
+Loggning ska hallas teknisk. Logga inte `user_input`, `user_task`, hela prompts eller personuppgifter. For publik demo: be anvandare att inte skicka personuppgifter eller sekretessbelagd information.
+
 ## Struktur
 
 ```text
@@ -81,7 +116,13 @@ Stoppa:
 docker compose down
 ```
 
-Containern lyssnar pa port `8000`.
+Containern publiceras bara pa VPS:ens localhost:
+
+```text
+127.0.0.1:8000
+```
+
+Publik trafik ska ga via Caddy, inte direkt till Docker-porten.
 
 ## VPS
 
@@ -91,7 +132,9 @@ Skapa DNS:
 mcp.promptbanken.se -> VPS:ens publika IP
 ```
 
-Satt API-nyckel pa VPS i `.env` bredvid `docker-compose.yml`:
+For publik demo kan servern koras utan API-nyckel. Da utelamnas `.env` eller lamnas variabeln tom.
+
+For intern eller langre drift, satt API-nyckel pa VPS i `.env` bredvid `docker-compose.yml`:
 
 ```env
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
@@ -104,6 +147,8 @@ mcp.promptbanken.se {
     reverse_proxy 127.0.0.1:8000
 }
 ```
+
+For demo utan API-nyckel: publicera bara promptar som ar avsedda att vara offentliga, logga inte anvandarinput och skriv tydligt att anvandare inte ska skicka personuppgifter eller sekretessbelagd information.
 
 Starta pa VPS:
 
