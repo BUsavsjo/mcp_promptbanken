@@ -5,6 +5,7 @@
   "description": "Minimal Promptbanken MCP skill router",
   "scripts": {
     "dev": "node scripts/run-mcp.js",
+    "serve": "node scripts/serve-http.js",
     "setup:python": "node scripts/setup-python.js",
     "check:python": "node scripts/check-python.js"
   }

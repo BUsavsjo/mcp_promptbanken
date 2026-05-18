@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
+import anyio
+import uvicorn
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
 
 from .risk_checker import RiskChecker
 from .skill_repository import SkillRepository
@@ -15,7 +23,12 @@ repository = SkillRepository(repo_root=repo_root)
 router = SkillRouter(repository=repository)
 risk_checker = RiskChecker()
 
-mcp = FastMCP("promptbanken-skill-router")
+mcp = FastMCP(
+    "promptbanken-skill-router",
+    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    port=int(os.getenv("MCP_PORT", "8000")),
+    log_level=os.getenv("MCP_LOG_LEVEL", "INFO"),
+)
 
 
 @mcp.tool()
@@ -66,5 +79,69 @@ def check_input_risk(text: str) -> dict[str, object]:
     return risk_checker.check(text).to_dict()
 
 
-if __name__ == "__main__":
+def run_stdio() -> None:
     mcp.run(transport="stdio")
+
+
+def _api_key() -> str | None:
+    return os.getenv("PROMPTBANKEN_MCP_API_KEY") or os.getenv("MCP_API_KEY")
+
+
+async def _healthz(_: Request) -> JSONResponse:
+    return JSONResponse({"status": "ok", "service": "promptbanken-mcp"})
+
+
+class BearerAuthMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        token = _api_key()
+        if scope.get("type") == "http" and token and scope.get("path") != "/healthz":
+            headers = dict(scope.get("headers") or [])
+            authorization = headers.get(b"authorization", b"").decode("utf-8")
+            if authorization != f"Bearer {token}":
+                response = JSONResponse({"detail": "Unauthorized"}, status_code=401)
+                await response(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
+
+
+async def run_sse_async() -> None:
+    sse = SseServerTransport("/messages/")
+
+    async def handle_sse(request: Request) -> None:
+        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+            await mcp._mcp_server.run(  # noqa: SLF001 - FastMCP 1.2 exposes no public ASGI app hook.
+                streams[0],
+                streams[1],
+                mcp._mcp_server.create_initialization_options(),  # noqa: SLF001
+            )
+
+    app = Starlette(
+        debug=mcp.settings.debug,
+        routes=[
+            Route("/healthz", endpoint=_healthz),
+            Route("/sse", endpoint=handle_sse),
+            Mount("/messages/", app=sse.handle_post_message),
+        ],
+    )
+    app = BearerAuthMiddleware(app)
+
+    config = uvicorn.Config(
+        app,
+        host=mcp.settings.host,
+        port=mcp.settings.port,
+        log_level=mcp.settings.log_level.lower(),
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+def run_sse() -> None:
+    anyio.run(run_sse_async)
+
+
+if __name__ == "__main__":
+    run_stdio()

@@ -8,6 +8,7 @@ Servern kor ingen AI-modell sjalv. Den levererar skill-metadata, prompttext, enk
 
 ```text
 mcp-server/
+  Dockerfile
   package.json
   requirements.txt
   skills.json
@@ -18,26 +19,101 @@ mcp-server/
 
 Rotens `package.json` ar en tunn genvag till `mcp-server/`.
 
-## Starta
+## Lokal utveckling
 
-Fran repo-roten:
+Stdio-lage for lokal MCP-klient:
 
 ```powershell
 npm run setup:python
 npm run dev
 ```
 
-Eller direkt i MCP-paketet:
+HTTP/SSE-lage for lokal VPS-test:
 
 ```powershell
-cd mcp-server
 npm run setup:python
-npm run dev
+npm run serve
 ```
 
-`npm run dev` startar en MCP stdio-server. Den ska normalt startas av din MCP-klient och kan se ut att vanta i terminalen.
+Health check:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/healthz
+```
+
+## Produktionsadress
+
+Rekommenderad publik adress:
+
+```text
+https://mcp.promptbanken.se/sse
+```
+
+Nuvarande server anvander MCP over HTTP/SSE:
+
+```text
+GET  /sse
+POST /messages/
+GET  /healthz
+```
+
+`/sse` ar MCP-klientens anslutningspunkt. `/messages/` anvands internt av MCP-transporten. `/healthz` ar for driftkontroll.
+
+Pa sikt kan endpointen bli:
+
+```text
+https://mcp.promptbanken.se/mcp
+```
+
+Det kraver uppgradering till nyare MCP Streamable HTTP-transport.
+
+## Docker
+
+Bygg och starta:
+
+```powershell
+docker compose up -d --build
+```
+
+Stoppa:
+
+```powershell
+docker compose down
+```
+
+Containern lyssnar pa port `8000`.
+
+## VPS
+
+Skapa DNS:
+
+```text
+mcp.promptbanken.se -> VPS:ens publika IP
+```
+
+Satt API-nyckel pa VPS i `.env` bredvid `docker-compose.yml`:
+
+```env
+PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
+```
+
+Exempel med Caddy:
+
+```caddyfile
+mcp.promptbanken.se {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+Starta pa VPS:
+
+```bash
+docker compose up -d --build
+```
 
 ## MCP-konfiguration
+
+Lokal stdio:
 
 ```json
 {
@@ -51,6 +127,23 @@ npm run dev
 }
 ```
 
+Remote HTTP/SSE:
+
+```json
+{
+  "mcpServers": {
+    "promptbanken": {
+      "url": "https://mcp.promptbanken.se/sse",
+      "headers": {
+        "Authorization": "Bearer byt-till-en-lang-slumpad-nyckel"
+      }
+    }
+  }
+}
+```
+
+Om ingen `PROMPTBANKEN_MCP_API_KEY` ar satt pa servern kan `headers` utelamnas.
+
 ## Tools
 
 - `list_skills`
@@ -63,4 +156,5 @@ npm run dev
 
 ```powershell
 npm run check:python
+docker compose config --quiet
 ```
