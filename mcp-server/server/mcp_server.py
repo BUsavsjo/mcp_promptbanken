@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any
+import logging
 
 import anyio
 import uvicorn
@@ -14,7 +16,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from .risk_checker import RiskChecker
-from .skill_repository import SkillRepository
+from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
 
 
@@ -22,6 +24,17 @@ repo_root = Path(__file__).resolve().parents[1]
 repository = SkillRepository(repo_root=repo_root)
 router = SkillRouter(repository=repository)
 risk_checker = RiskChecker()
+
+
+def _log_level() -> str:
+    return os.getenv("MCP_LOG_LEVEL", "INFO").upper()
+
+
+logging.basicConfig(
+    level=getattr(logging, _log_level(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("promptbanken_mcp")
 
 
 def _server_mode() -> str:
@@ -32,32 +45,68 @@ def _server_mode() -> str:
 
 
 SERVER_MODE = _server_mode()
+SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.1.0")
+logger.info("server_config mode=%s skill_count=%s", SERVER_MODE, len(repository.list_skills()))
 
 mcp = FastMCP(
     "promptbanken-skill-router",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=int(os.getenv("MCP_PORT", "8000")),
-    log_level=os.getenv("MCP_LOG_LEVEL", "INFO"),
+    log_level=_log_level(),
 )
 
 
 @mcp.tool()
 def list_skills() -> list[dict[str, Any]]:
     """List all Promptbanken skills with metadata, excluding full prompt text."""
+    logger.info("tool_call name=list_skills")
     return [skill.to_dict() for skill in repository.list_skills()]
+
+
+def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "safe_to_show_user": safe_to_show_user,
+        }
+    }
 
 
 @mcp.tool()
 def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
     """Get one skill by id, optionally including the full prompt text."""
-    skill = repository.get_skill(skill_id)
-    prompt = repository.get_prompt(skill_id) if include_prompt else None
+    if not repository.is_valid_skill_id(skill_id):
+        logger.info("tool_call name=get_skill result=invalid_skill_id include_prompt=%s", include_prompt)
+        return _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
+
+    logger.info("tool_call name=get_skill skill_id=%s include_prompt=%s", skill_id, include_prompt)
+    try:
+        skill = repository.get_skill(skill_id)
+        prompt = repository.get_prompt(skill_id) if include_prompt else None
+    except KeyError:
+        logger.info("tool_call name=get_skill skill_id=%s result=not_found", skill_id)
+        return _error("SKILL_NOT_FOUND", "Skill not found")
     return skill.to_dict(include_prompt=include_prompt, prompt=prompt)
+
+
+@mcp.tool()
+def health_check() -> dict[str, Any]:
+    """Return lightweight service status without loading prompt text."""
+    logger.info("tool_call name=health_check")
+    return {
+        "status": "ok",
+        "service": "promptbanken-mcp",
+        "version": SERVICE_VERSION,
+        "mode": SERVER_MODE,
+        "skills_count": len(repository.list_skills()),
+    }
 
 
 @mcp.tool()
 def get_client_routing_instructions() -> dict[str, Any]:
     """Return instructions for client-side skill routing without sending user text to the MCP server."""
+    logger.info("tool_call name=get_client_routing_instructions")
     return {
         "mode": SERVER_MODE,
         "privacy_instruction": (
@@ -70,6 +119,7 @@ def get_client_routing_instructions() -> dict[str, Any]:
             "Hamta skill-metadata med list_skills.",
             "Matcha anvandarens uppgift lokalt mot name, description, intents, roles och audiences.",
             "Hamta vald promptmall med get_skill(skill_id, include_prompt=True).",
+            "Anvand skillens output_schema som stod for forvantad svarsstruktur.",
             "Kontrollera och anonymisera anvandarens text lokalt innan den anvands.",
             "Satt ihop promptmall, uppgift och eventuell indata lokalt i MCP-klienten.",
             "Skicka inte anvandarens radata till hosted MCP-tools.",
@@ -134,6 +184,7 @@ if SERVER_MODE == "local":
     @mcp.tool()
     def route_skill(task: str, role: str | None = None, audience: str | None = None) -> dict[str, Any]:
         """Route a user task to the most relevant Promptbanken skill."""
+        logger.info("tool_call name=route_skill mode=local has_role=%s has_audience=%s", bool(role), bool(audience))
         matches = router.route(task=task, role=role, audience=audience)
         return {
             "recommended": matches[0].to_dict() if matches else None,
@@ -143,8 +194,19 @@ if SERVER_MODE == "local":
     @mcp.tool()
     def compile_skill_prompt(skill_id: str, user_task: str = "", user_input: str = "") -> dict[str, Any]:
         """Return a ready-to-use prompt assembled from a skill and optional user context."""
-        skill = repository.get_skill(skill_id)
-        prompt = repository.get_prompt(skill_id)
+        logger.info(
+            "tool_call name=compile_skill_prompt mode=local skill_id=%s has_user_task=%s has_user_input=%s",
+            skill_id,
+            bool(user_task),
+            bool(user_input),
+        )
+        try:
+            skill = repository.get_skill(skill_id)
+            prompt = repository.get_prompt(skill_id)
+        except InvalidSkillIdError:
+            return _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
+        except KeyError:
+            return _error("SKILL_NOT_FOUND", "Skill not found")
         risk = risk_checker.check(user_input or user_task)
         compiled = prompt
         if user_task:
@@ -160,6 +222,7 @@ if SERVER_MODE == "local":
     @mcp.tool()
     def check_input_risk(text: str) -> dict[str, object]:
         """Check text for common personal-data patterns before using a prompt."""
+        logger.info("tool_call name=check_input_risk mode=local has_text=%s", bool(text))
         return risk_checker.check(text).to_dict()
 
 
@@ -172,7 +235,16 @@ def _api_key() -> str | None:
 
 
 async def _healthz(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "promptbanken-mcp"})
+    logger.info("http_request path=/healthz status=200")
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "promptbanken-mcp",
+            "version": SERVICE_VERSION,
+            "mode": SERVER_MODE,
+            "skills_count": len(repository.list_skills()),
+        }
+    )
 
 
 class BearerAuthMiddleware:
@@ -185,6 +257,7 @@ class BearerAuthMiddleware:
             headers = dict(scope.get("headers") or [])
             authorization = headers.get(b"authorization", b"").decode("utf-8")
             if authorization != f"Bearer {token}":
+                logger.warning("auth_denied path=%s", scope.get("path"))
                 response = JSONResponse({"detail": "Unauthorized"}, status_code=401)
                 await response(scope, receive, send)
                 return
@@ -196,12 +269,18 @@ async def run_sse_async() -> None:
     sse = SseServerTransport("/messages/")
 
     async def handle_sse(request: Request) -> None:
+        logger.info("sse_connect path=/sse")
         async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
-            await mcp._mcp_server.run(  # noqa: SLF001 - FastMCP 1.2 exposes no public ASGI app hook.
-                streams[0],
-                streams[1],
-                mcp._mcp_server.create_initialization_options(),  # noqa: SLF001
-            )
+            started_at = time.monotonic()
+            try:
+                await mcp._mcp_server.run(  # noqa: SLF001 - FastMCP 1.2 exposes no public ASGI app hook.
+                    streams[0],
+                    streams[1],
+                    mcp._mcp_server.create_initialization_options(),  # noqa: SLF001
+                )
+            finally:
+                duration_ms = int((time.monotonic() - started_at) * 1000)
+                logger.info("sse_disconnect path=/sse duration_ms=%s", duration_ms)
 
     app = Starlette(
         debug=mcp.settings.debug,
@@ -212,6 +291,7 @@ async def run_sse_async() -> None:
         ],
     )
     app = BearerAuthMiddleware(app)
+    logger.info("http_server_start host=%s port=%s mode=%s", mcp.settings.host, mcp.settings.port, SERVER_MODE)
 
     config = uvicorn.Config(
         app,

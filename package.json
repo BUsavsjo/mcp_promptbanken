@@ -7,6 +7,7 @@
     "dev": "node mcp-server/scripts/run-mcp.js",
     "serve": "node mcp-server/scripts/serve-http.js",
     "setup:python": "node mcp-server/scripts/setup-python.js",
-    "check:python": "node mcp-server/scripts/check-python.js"
+    "check:python": "node mcp-server/scripts/check-python.js",
+    "logs:summary": "node mcp-server/scripts/log-summary.js"
   }
 }

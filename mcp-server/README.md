@@ -17,6 +17,7 @@ I hosted-lage bearbetar servern inte anvandarens uppgiftstext i minnet. Den expo
 
 - `list_skills`
 - `get_skill`
+- `health_check`
 - `get_client_routing_instructions`
 
 MCP-klienten ska i stallet hamta skill-metadata och promptmallar och sedan gora routing, riskkontroll, anonymisering och promptkompilering lokalt.
@@ -94,6 +95,7 @@ MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
+PROMPTBANKEN_MCP_VERSION=1.1.0
 ```
 
 Tillatna lagen:
@@ -161,12 +163,14 @@ Hosted:
 
 - `list_skills`
 - `get_skill`
+- `health_check`
 - `get_client_routing_instructions`
 
 Local:
 
 - `list_skills`
 - `get_skill`
+- `health_check`
 - `get_client_routing_instructions`
 - `route_skill`
 - `compile_skill_prompt`

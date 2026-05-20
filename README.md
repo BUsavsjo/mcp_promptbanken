@@ -48,6 +48,7 @@ I `hosted`-lage exponeras bara tools som returnerar metadata, promptmallar och k
 
 - `list_skills`
 - `get_skill`
+- `health_check`
 - `get_client_routing_instructions`
 
 Klienten ska da gora skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte anvandarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till hosted-servern.
@@ -127,6 +128,16 @@ npm run check:python
 docker compose config --quiet
 ```
 
+Loggsammanfattning:
+
+```powershell
+npm run logs:summary
+npm run logs:summary -- --tail 2000
+npm run logs:summary -- --summary-only
+```
+
+Skriptet laser Docker Compose-loggar och visar senaste loggrader, antal tool-anrop och vilka promptar som hamtas oftast via `get_skill`. Det bygger pa tekniska loggrader och laser inte request body, prompttext eller anvandartext.
+
 ## Miljovariabler
 
 ```text
@@ -135,6 +146,7 @@ MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
+PROMPTBANKEN_MCP_VERSION=1.1.0
 ```
 
 Tillatna varden for `PROMPTBANKEN_MCP_MODE`:
