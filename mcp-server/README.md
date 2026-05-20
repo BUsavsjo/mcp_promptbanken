@@ -2,70 +2,101 @@
 
 Minimal MCP-server som exponerar Promptbankens promptar som skills.
 
-Hosted-versionen anvander client-side skill routing. Det betyder att MCP-servern bara skickar metadata, promptmallar och instruktioner till klienten. Anvandarens uppgift, dokumenttext och annan indata ska inte skickas till hosted-servern.
+Hosted-versionen använder client-side skill routing. Det betyder att MCP-servern bara skickar metadata, promptmallar, hälsostatus och instruktioner till klienten. Användarens uppgift, dokumenttext och annan indata ska inte skickas till hosted-servern.
 
 ## Data och integritet
 
-Servern ar read-only och sparar inte anvandarens text, promptanrop eller svar i databas eller fil.
+Servern är read-only och sparar inte användarens text, promptanrop eller svar i databas eller fil.
 
-Den laser bara:
+Den läser bara:
 
 - `skills.json`
 - `prompts/*.txt`
 
-I hosted-lage bearbetar servern inte anvandarens uppgiftstext i minnet. Den exponerar bara:
+I hosted-läge bearbetar servern inte användarens uppgiftstext i minnet. Den exponerar bara:
 
 - `list_skills`
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
 
-MCP-klienten ska i stallet hamta skill-metadata och promptmallar och sedan gora routing, riskkontroll, anonymisering och promptkompilering lokalt.
-
-Client-side routing ska filtrera bort vanliga stopwords som `skriv`, `ett`, `till`, `som` och `vanligt`. Vikta traffar hogst i skill-id och skillens namn, darefter intents, description och sist ovrig metadata. En explicit traff pa exempelvis `informationsutskick` ska darfor ranka den skillen fore generiska alternativ.
-
-I local-lage, nar anvandaren installerar och kor servern pa egen maskin, kan servern aven exponera:
+I local-läge kan servern även exponera:
 
 - `route_skill`
 - `compile_skill_prompt`
 - `check_input_risk`
 
-Dessa tools tar emot anvandartext och bearbetar den i minnet pa den lokala maskinen. Bearbetningen anvands for routing, promptkompilering och enkel riskkontroll av monster som personnummer, e-postadress, telefonnummer och arendenummer.
+Dessa local-tools tar emot användartext och ska bara användas på användarens egen maskin.
 
-Servern kor ingen AI-modell och skickar inte vidare anvandarinput till externa AI-leverantorer.
+## Säkerhet
 
-Docker-driften ar hardad for demo:
+- Servern kör ingen AI-modell.
+- Hosted-läget tar inte emot rå användartext.
+- `skill_id` valideras med `^[a-z0-9_-]{2,50}$`.
+- `get_skill` returnerar strukturerade fel för ogiltigt eller saknat skill-id.
+- Promptmallarna instruerar modellen att behandla användarens underlag som data, inte instruktioner.
+- Skill-metadata innehåller `output_schema`.
+- Docker-driften är read-only, kör som icke-root, binder bara till `127.0.0.1:8000`, använder `no-new-privileges:true` och tar bort Linux capabilities med `cap_drop: ALL`.
 
-- containern kor som icke-root
-- filsystemet ar read-only
-- porten binds bara till `127.0.0.1:8000`
-- `no-new-privileges:true`
-- `cap_drop: ALL`
-- `/tmp` ar temporar `tmpfs`
+## Loggning
 
-Logga inte `user_input`, `user_task`, hela prompts eller personuppgifter.
+Loggningen ska vara teknisk och payload-fri.
+
+Loggas:
+
+- serverstart, driftläge och antal skills
+- `/healthz`
+- SSE connect/disconnect och varaktighet
+- tool-namn
+- validerat `skill_id` vid `get_skill`
+- `include_prompt`
+- nekad auth som teknisk händelse
+- i local-läge: booleska flaggor som `has_user_input`, inte fri text
+
+Loggas inte:
+
+- request body
+- användartext
+- prompttext
+- kompilerade prompts
+- personuppgifter
+- headers, bearer tokens eller klient-IP
+
+Visa loggar:
+
+```bash
+docker compose logs -f --tail=100 promptbanken-mcp
+```
+
+Visa sammanfattning:
+
+```bash
+npm run logs:summary
+npm run logs:summary -- --tail 2000
+npm run logs:summary -- --summary-only
+```
 
 ## Starta lokalt
 
-Stdio-lage:
+Stdio-läge:
 
 ```powershell
 npm run setup:python
 npm run dev
 ```
 
-`npm run dev` satter `PROMPTBANKEN_MCP_MODE=local` om variabeln inte redan ar satt.
+`npm run dev` sätter `PROMPTBANKEN_MCP_MODE=local` om variabeln inte redan är satt.
 
-HTTP/SSE-lage:
+HTTP/SSE-läge:
 
 ```powershell
 npm run setup:python
 npm run serve
 ```
 
-Servern lyssnar som standard pa port `8000`.
+Servern lyssnar som standard på port `8000`.
 
-`npm run serve` satter `PROMPTBANKEN_MCP_MODE=hosted` om variabeln inte redan ar satt.
+`npm run serve` sätter `PROMPTBANKEN_MCP_MODE=hosted` om variabeln inte redan är satt.
 
 ## HTTP-endpoints
 
@@ -75,35 +106,29 @@ POST /messages/
 GET  /healthz
 ```
 
-Nuvarande Python-SDK anvander MCP SSE-transport for remote HTTP. Rekommenderad publik URL ar:
+Nuvarande Python-SDK använder MCP SSE-transport för remote HTTP. Rekommenderad publik URL är:
 
 ```text
 https://mcp.promptbanken.se/sse
 ```
 
-Om klienten enbart accepterar nyare Streamable HTTP behover transporten uppgraderas. Da blir sannolik endpoint:
-
-```text
-https://mcp.promptbanken.se/mcp
-```
-
-## Miljo
+## Miljö
 
 ```text
 MCP_HOST=0.0.0.0
 MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
-PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
+PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 PROMPTBANKEN_MCP_VERSION=1.1.0
 ```
 
-Tillatna lagen:
+Tillåtna lägen:
 
-- `hosted`: publicerat lage, ingen tool-yta som tar emot anvandartext
-- `local`: lokal installation, tools for routing, promptkompilering och riskkontroll aktiveras
+- `hosted`: publicerat läge utan tools som tar emot användartext
+- `local`: lokal installation där tools för routing, promptkompilering och riskkontroll aktiveras
 
-Om `PROMPTBANKEN_MCP_API_KEY` ar satt kravs:
+Om `PROMPTBANKEN_MCP_API_KEY` är satt krävs:
 
 ```text
 Authorization: Bearer <nyckel>
@@ -111,20 +136,13 @@ Authorization: Bearer <nyckel>
 
 ## Docker
 
-Fran repo-roten:
+Från repo-roten:
 
 ```powershell
 docker compose up -d --build
 ```
 
-Eller direkt:
-
-```powershell
-docker build -t promptbanken-mcp ./mcp-server
-docker run -p 8000:8000 --name promptbanken-mcp promptbanken-mcp
-```
-
-I `docker-compose.yml` binds porten bara till `127.0.0.1:8000`, sa publik trafik ska ga via Caddy. Containern kor som icke-root, read-only, utan extra capabilities och med `no-new-privileges`.
+I `docker-compose.yml` binds porten bara till `127.0.0.1:8000`, så publik trafik ska gå via reverse proxy.
 
 ## MCP-konfiguration
 
@@ -150,7 +168,7 @@ Remote HTTP/SSE:
     "promptbanken": {
       "url": "https://mcp.promptbanken.se/sse",
       "headers": {
-        "Authorization": "Bearer byt-till-en-lang-slumpad-nyckel"
+        "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
       }
     }
   }
