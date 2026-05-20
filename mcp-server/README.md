@@ -2,6 +2,8 @@
 
 Minimal MCP-server som exponerar Promptbankens promptar som skills.
 
+Hosted-versionen anvander client-side skill routing. Det betyder att MCP-servern bara skickar metadata, promptmallar och instruktioner till klienten. Anvandarens uppgift, dokumenttext och annan indata ska inte skickas till hosted-servern.
+
 ## Data och integritet
 
 Servern ar read-only och sparar inte anvandarens text, promptanrop eller svar i databas eller fil.
@@ -11,13 +13,23 @@ Den laser bara:
 - `skills.json`
 - `prompts/*.txt`
 
-Den bearbetar foljande data i minnet vid anrop:
+I hosted-lage bearbetar servern inte anvandarens uppgiftstext i minnet. Den exponerar bara:
 
-- `task` i `route_skill`
-- `user_task` och `user_input` i `compile_skill_prompt`
-- `text` i `check_input_risk`
+- `list_skills`
+- `get_skill`
+- `get_client_routing_instructions`
 
-Bearbetningen anvands for routing, promptkompilering och enkel riskkontroll av monster som personnummer, e-postadress, telefonnummer och arendenummer.
+MCP-klienten ska i stallet hamta skill-metadata och promptmallar och sedan gora routing, riskkontroll, anonymisering och promptkompilering lokalt.
+
+Client-side routing ska filtrera bort vanliga stopwords som `skriv`, `ett`, `till`, `som` och `vanligt`. Vikta traffar hogst i skill-id och skillens namn, darefter intents, description och sist ovrig metadata. En explicit traff pa exempelvis `informationsutskick` ska darfor ranka den skillen fore generiska alternativ.
+
+I local-lage, nar anvandaren installerar och kor servern pa egen maskin, kan servern aven exponera:
+
+- `route_skill`
+- `compile_skill_prompt`
+- `check_input_risk`
+
+Dessa tools tar emot anvandartext och bearbetar den i minnet pa den lokala maskinen. Bearbetningen anvands for routing, promptkompilering och enkel riskkontroll av monster som personnummer, e-postadress, telefonnummer och arendenummer.
 
 Servern kor ingen AI-modell och skickar inte vidare anvandarinput till externa AI-leverantorer.
 
@@ -41,6 +53,8 @@ npm run setup:python
 npm run dev
 ```
 
+`npm run dev` satter `PROMPTBANKEN_MCP_MODE=local` om variabeln inte redan ar satt.
+
 HTTP/SSE-lage:
 
 ```powershell
@@ -49,6 +63,8 @@ npm run serve
 ```
 
 Servern lyssnar som standard pa port `8000`.
+
+`npm run serve` satter `PROMPTBANKEN_MCP_MODE=hosted` om variabeln inte redan ar satt.
 
 ## HTTP-endpoints
 
@@ -76,8 +92,14 @@ https://mcp.promptbanken.se/mcp
 MCP_HOST=0.0.0.0
 MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
+PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lang-slumpad-nyckel
 ```
+
+Tillatna lagen:
+
+- `hosted`: publicerat lage, ingen tool-yta som tar emot anvandartext
+- `local`: lokal installation, tools for routing, promptkompilering och riskkontroll aktiveras
 
 Om `PROMPTBANKEN_MCP_API_KEY` ar satt kravs:
 
@@ -135,8 +157,17 @@ Remote HTTP/SSE:
 
 ## Tools
 
+Hosted:
+
 - `list_skills`
 - `get_skill`
+- `get_client_routing_instructions`
+
+Local:
+
+- `list_skills`
+- `get_skill`
+- `get_client_routing_instructions`
 - `route_skill`
 - `compile_skill_prompt`
 - `check_input_risk`

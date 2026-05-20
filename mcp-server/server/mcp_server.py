@@ -23,6 +23,16 @@ repository = SkillRepository(repo_root=repo_root)
 router = SkillRouter(repository=repository)
 risk_checker = RiskChecker()
 
+
+def _server_mode() -> str:
+    mode = os.getenv("PROMPTBANKEN_MCP_MODE", "hosted").strip().lower()
+    if mode not in {"hosted", "local"}:
+        return "hosted"
+    return mode
+
+
+SERVER_MODE = _server_mode()
+
 mcp = FastMCP(
     "promptbanken-skill-router",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
@@ -46,37 +56,111 @@ def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
 
 
 @mcp.tool()
-def route_skill(task: str, role: str | None = None, audience: str | None = None) -> dict[str, Any]:
-    """Route a user task to the most relevant Promptbanken skill."""
-    matches = router.route(task=task, role=role, audience=audience)
+def get_client_routing_instructions() -> dict[str, Any]:
+    """Return instructions for client-side skill routing without sending user text to the MCP server."""
     return {
-        "recommended": matches[0].to_dict() if matches else None,
-        "alternatives": [match.to_dict() for match in matches[1:]],
+        "mode": SERVER_MODE,
+        "privacy_instruction": (
+            "I hosted lage ska MCP-klienten inte skicka anvandarens uppgift, indata, dokumenttext, "
+            "personuppgifter eller sekretessbelagd information till Promptbanken MCP. Gor routing, "
+            "riskkontroll och promptkompilering pa klientsidan. Anropa bara list_skills och get_skill "
+            "for att hamta metadata och promptmallar."
+        ),
+        "client_flow": [
+            "Hamta skill-metadata med list_skills.",
+            "Matcha anvandarens uppgift lokalt mot name, description, intents, roles och audiences.",
+            "Hamta vald promptmall med get_skill(skill_id, include_prompt=True).",
+            "Kontrollera och anonymisera anvandarens text lokalt innan den anvands.",
+            "Satt ihop promptmall, uppgift och eventuell indata lokalt i MCP-klienten.",
+            "Skicka inte anvandarens radata till hosted MCP-tools.",
+        ],
+        "routing_algorithm": {
+            "normalize": "Gor text gemen, trimma whitespace och vik svenska tecken till a/o vid jamforelse.",
+            "stopwords": [
+                "att",
+                "av",
+                "de",
+                "den",
+                "det",
+                "du",
+                "en",
+                "ett",
+                "for",
+                "fran",
+                "gor",
+                "har",
+                "hur",
+                "i",
+                "jag",
+                "kan",
+                "med",
+                "och",
+                "om",
+                "pa",
+                "ska",
+                "skriv",
+                "skriva",
+                "som",
+                "till",
+                "var",
+                "vara",
+                "vi",
+            ],
+            "score": [
+                "Ta bort stopwords och ord kortare an tre tecken innan scoring.",
+                "Ge 30 poang om skill-id forekommer i anvandarens uppgift, till exempel informationsutskick.",
+                "Ge 20 poang om hela eller stor del av skillens name forekommer som fras i uppgiften.",
+                "Ge 12 poang per exakt intent-traff eller svensk intent-synonym, till exempel information_notice/informationsutskick.",
+                "Ge 6 poang per traff i skillens name.",
+                "Ge 4 poang per traff i skillens description.",
+                "Ge 2 poang per traff i ovriga metadatafalt.",
+                "Ge 3 poang om anvandarens roll matchar skill.roles.",
+                "Ge 2 poang om malgrupp matchar skill.audiences.",
+                "Vid lika score, valj den skill som har flest traffar i id, name och intents fore description och audiences.",
+                "Valj hogst poang och visa upp till tva alternativ.",
+                "Om ingen tydlig match hittas, foresla klarsprak, sammanfattning och mejl som fallback.",
+            ],
+        },
+        "local_mode_note": (
+            "Vid lokal installation kan klienten anvanda route_skill, compile_skill_prompt och "
+            "check_input_risk, eftersom texten da behandlas pa anvandarens egen maskin."
+        ),
+        "skills": [skill.to_dict() for skill in repository.list_skills()],
     }
 
 
-@mcp.tool()
-def compile_skill_prompt(skill_id: str, user_task: str = "", user_input: str = "") -> dict[str, Any]:
-    """Return a ready-to-use prompt assembled from a skill and optional user context."""
-    skill = repository.get_skill(skill_id)
-    prompt = repository.get_prompt(skill_id)
-    risk = risk_checker.check(user_input or user_task)
-    compiled = prompt
-    if user_task:
-        compiled += f"\n\nUppgift:\n{user_task.strip()}"
-    if user_input:
-        compiled += f"\n\nIndata:\n{user_input.strip()}"
-    return {
-        "skill": skill.to_dict(),
-        "compiled_prompt": compiled,
-        "risk_check": risk.to_dict(),
-    }
+if SERVER_MODE == "local":
 
+    @mcp.tool()
+    def route_skill(task: str, role: str | None = None, audience: str | None = None) -> dict[str, Any]:
+        """Route a user task to the most relevant Promptbanken skill."""
+        matches = router.route(task=task, role=role, audience=audience)
+        return {
+            "recommended": matches[0].to_dict() if matches else None,
+            "alternatives": [match.to_dict() for match in matches[1:]],
+        }
 
-@mcp.tool()
-def check_input_risk(text: str) -> dict[str, object]:
-    """Check text for common personal-data patterns before using a prompt."""
-    return risk_checker.check(text).to_dict()
+    @mcp.tool()
+    def compile_skill_prompt(skill_id: str, user_task: str = "", user_input: str = "") -> dict[str, Any]:
+        """Return a ready-to-use prompt assembled from a skill and optional user context."""
+        skill = repository.get_skill(skill_id)
+        prompt = repository.get_prompt(skill_id)
+        risk = risk_checker.check(user_input or user_task)
+        compiled = prompt
+        if user_task:
+            compiled += f"\n\nUppgift:\n{user_task.strip()}"
+        if user_input:
+            compiled += f"\n\nIndata:\n{user_input.strip()}"
+        return {
+            "skill": skill.to_dict(),
+            "compiled_prompt": compiled,
+            "risk_check": risk.to_dict(),
+        }
+
+    @mcp.tool()
+    def check_input_risk(text: str) -> dict[str, object]:
+        """Check text for common personal-data patterns before using a prompt."""
+        return risk_checker.check(text).to_dict()
 
 
 def run_stdio() -> None:
