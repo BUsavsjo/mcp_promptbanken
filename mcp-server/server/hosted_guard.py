@@ -10,6 +10,12 @@ class HostedMetadataGuard:
     def __init__(self, repository: SkillRepository) -> None:
         self.repository = repository
         self.allowed_methods = {
+            "initialize",
+            "notifications/initialized",
+            "notifications/cancelled",
+            "ping",
+            "resources/list",
+            "tools/list",
             "tools/call",
             "list_skills",
             "list_skills_simple",
@@ -49,6 +55,8 @@ class HostedMetadataGuard:
             return None
         if method not in self.allowed_methods:
             return {"reason": "unexpected_method", "method": method, "id": request_id}
+        if method in {"initialize", "notifications/initialized", "notifications/cancelled", "ping", "resources/list", "tools/list"}:
+            return None
         if method == "tools/call":
             params = message.get("params")
             if not isinstance(params, dict):

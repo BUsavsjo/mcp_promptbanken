@@ -190,6 +190,8 @@ Tolkning:
 - `invalid_skill_id`: klienten skickar ett ogiltigt skill-id.
 - `invalid_json` eller `invalid_message_shape`: något skickar trasigt eller oväntat format.
 
+Normala MCP-protokollmetoder som `initialize`, `notifications/initialized`, `tools/list`, `resources/list` och `ping` ska inte räknas som rå användartext. De behövs för att klienten ska kunna ansluta och upptäcka tools.
+
 4. Sammanfatta loggar efter en tids drift:
 
 ```bash
