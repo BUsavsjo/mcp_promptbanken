@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
@@ -15,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
+from .hosted_guard import HostedMetadataGuard
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -46,6 +48,7 @@ def _server_mode() -> str:
 
 SERVER_MODE = _server_mode()
 SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.1.0")
+HOSTED_GUARD_MODE = os.getenv("PROMPTBANKEN_MCP_HOSTED_GUARD", "warn").strip().lower()
 logger.info("server_config mode=%s skill_count=%s", SERVER_MODE, len(repository.list_skills()))
 
 mcp = FastMCP(
@@ -106,6 +109,17 @@ def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str,
             "message": message,
             "safe_to_show_user": safe_to_show_user,
         }
+    }
+
+
+def _json_rpc_error(request_id: Any, code: int, message: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": error,
     }
 
 
@@ -305,6 +319,59 @@ class BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
 
+class HostedMetadataGuardMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+        self.guard = HostedMetadataGuard(repository)
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if SERVER_MODE != "hosted" or scope.get("type") != "http" or scope.get("path") != "/messages/":
+            await self.app(scope, receive, send)
+            return
+
+        body_parts: list[bytes] = []
+        more_body = True
+        while more_body:
+            message = await receive()
+            if message.get("type") != "http.request":
+                continue
+            body_parts.append(message.get("body", b""))
+            more_body = bool(message.get("more_body", False))
+
+        body = b"".join(body_parts)
+        warning = self.guard.inspect_body(body)
+        if warning is not None:
+            logger.warning(
+                "hosted_payload_warning path=/messages reason=%s method=%s tool=%s",
+                warning["reason"],
+                warning.get("method", "unknown"),
+                warning.get("tool", "unknown"),
+            )
+            if HOSTED_GUARD_MODE == "block":
+                response = JSONResponse(
+                    _json_rpc_error(
+                        warning.get("id"),
+                        -32602,
+                        "Hosted MCP only accepts metadata requests. Do not send user text.",
+                        {
+                            "code": "HOSTED_METADATA_ONLY",
+                            "safe_to_show_user": True,
+                        },
+                    ),
+                    status_code=200,
+                )
+                await response(scope, receive, send)
+                return
+
+        async def replay_receive() -> dict[str, Any]:
+            return {
+                "type": "http.request",
+                "body": body,
+                "more_body": False,
+            }
+
+        await self.app(scope, replay_receive, send)
+
 async def run_sse_async() -> None:
     sse = SseServerTransport("/messages/")
 
@@ -330,8 +397,14 @@ async def run_sse_async() -> None:
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
-    app = BearerAuthMiddleware(app)
-    logger.info("http_server_start host=%s port=%s mode=%s", mcp.settings.host, mcp.settings.port, SERVER_MODE)
+    app = BearerAuthMiddleware(HostedMetadataGuardMiddleware(app))
+    logger.info(
+        "http_server_start host=%s port=%s mode=%s hosted_guard=%s",
+        mcp.settings.host,
+        mcp.settings.port,
+        SERVER_MODE,
+        HOSTED_GUARD_MODE,
+    )
 
     config = uvicorn.Config(
         app,

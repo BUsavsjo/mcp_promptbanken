@@ -33,6 +33,7 @@ Dessa local-tools tar emot användartext och ska bara användas på användarens
 
 - Servern kör ingen AI-modell.
 - Hosted-läget tar inte emot rå användartext.
+- Hosted-läget har en metadata-guard på `/messages/` som varnar payload-fritt om klienten skickar oväntade tools eller argument.
 - `skill_id` valideras med `^[a-z0-9_-]{2,50}$`.
 - `get_skill` returnerar strukturerade fel för ogiltigt eller saknat skill-id.
 - Promptmallarna instruerar modellen att behandla användarens underlag som data, inte instruktioner.
@@ -53,6 +54,7 @@ Loggas:
 - validerat `skill_id` vid `get_skill`
 - `include_prompt`
 - nekad auth som teknisk händelse
+- hosted metadata-guard-varningar med orsak, metod och tool-namn
 - i local-läge: booleska flaggor som `has_user_input`, inte fri text
 
 Loggas inte:
@@ -123,6 +125,7 @@ MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 PROMPTBANKEN_MCP_VERSION=1.1.0
+PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 ```
 
 Tillåtna lägen:

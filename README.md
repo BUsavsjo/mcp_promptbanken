@@ -82,6 +82,7 @@ Viktiga säkerhetsbeslut:
 
 - Servern kör ingen AI-modell och kan därför inte promptinjiceras i klassisk mening.
 - Hosted-läget tar inte emot rå användartext för routing, riskkontroll eller promptkompilering.
+- Hosted-läget har en metadata-guard på `/messages/` som varnar payload-fritt om klienten skickar oväntade tools eller argument.
 - `skill_id` valideras strikt med `^[a-z0-9_-]{2,50}$`.
 - Ogiltiga eller saknade skills returnerar strukturerade felobjekt med säkra felkoder.
 - Promptmallarna innehåller en standardregel om att användarens underlag ska behandlas som data, inte som instruktioner.
@@ -111,6 +112,112 @@ För publik drift rekommenderas:
 - Använd rate limiting i reverse proxy eller framförliggande tjänst om servern är öppen på internet.
 - Skriv tydligt i klienten att användare inte ska skicka personuppgifter eller sekretessbelagd information.
 
+### Hosted metadata-guard
+
+Hosted MCP är avsett som metadata-only. Det betyder att klienten bara ska anropa katalog-, health- och mallhämtningstools. Servern har därför en guard före MCP-transportens `/messages/`-handler.
+
+I standardläge varnar guarden utan att blockera:
+
+```text
+PROMPTBANKEN_MCP_HOSTED_GUARD=warn
+```
+
+Den loggar bara teknisk avvikelse, till exempel:
+
+```text
+hosted_payload_warning path=/messages reason=unexpected_arguments method=tools/call tool=get_skill
+```
+
+Den loggar inte request body eller användartext.
+
+Tillåtna hosted-tools och argument:
+
+```text
+list_skills: {}
+list_skills_simple: {}
+health_check: {}
+get_client_routing_instructions: {}
+get_skill: { skill_id, include_prompt }
+```
+
+När klientkedjan är verifierad kan guarden sättas i blockläge:
+
+```text
+PROMPTBANKEN_MCP_HOSTED_GUARD=block
+```
+
+Blockläge kan påverka klienter som skickar extra kontext eller rå användartext i MCP-meddelanden. Det är rätt beteende för strikt metadata-only, men bör testas mot aktuell klient innan publik drift.
+
+### Följ upp metadata-guard i drift
+
+Rekommenderat arbetssätt är att köra guarden i `warn` ett tag, analysera loggarna och därefter besluta om klienten kan spärras hårdare.
+
+1. Kör med soft guard:
+
+```env
+PROMPTBANKEN_MCP_HOSTED_GUARD=warn
+```
+
+2. Följ loggar live:
+
+```bash
+docker compose logs -f --tail=100 promptbanken-mcp
+```
+
+Om servern använder äldre Compose:
+
+```bash
+docker-compose logs -f --tail=100 promptbanken-mcp
+```
+
+3. Leta särskilt efter:
+
+```text
+hosted_payload_warning
+```
+
+Exempel:
+
+```text
+hosted_payload_warning path=/messages reason=unexpected_arguments method=tools/call tool=get_skill
+```
+
+Tolkning:
+
+- Inga `hosted_payload_warning`: klienten verkar följa metadata-only-flödet.
+- `unexpected_arguments`: klienten skickar extra argument, potentiellt råtext.
+- `unexpected_tool`: klienten försöker anropa ett tool som inte ska finnas i hosted, till exempel `route_skill`.
+- `invalid_skill_id`: klienten skickar ett ogiltigt skill-id.
+- `invalid_json` eller `invalid_message_shape`: något skickar trasigt eller oväntat format.
+
+4. Sammanfatta loggar efter en tids drift:
+
+```bash
+npm run logs:summary -- --tail 10000 --summary-only
+```
+
+5. Sök direkt efter guard-varningar:
+
+```bash
+docker compose logs --tail=10000 promptbanken-mcp | grep hosted_payload_warning
+```
+
+Om servern använder äldre Compose:
+
+```bash
+docker-compose logs --tail=10000 promptbanken-mcp | grep hosted_payload_warning
+```
+
+Om varningar förekommer: behåll `warn`, analysera klientbeteendet och justera klienten så att routing, riskkontroll och promptkompilering sker lokalt.
+
+Om inga varningar förekommer under verklig användning kan guarden testas i blockläge:
+
+```env
+PROMPTBANKEN_MCP_HOSTED_GUARD=block
+```
+
+Starta sedan om containern och verifiera att klienten fortfarande kan använda `list_skills`, `list_skills_simple`, `get_skill`, `health_check` och `get_client_routing_instructions`.
+
 ## Loggning
 
 Loggningen är teknisk och ska inte innehålla känsliga payloads.
@@ -125,6 +232,7 @@ Det som loggas:
 - `skill_id` vid `get_skill`, eftersom skill-id kommer från en strikt allowlist/validerad identifierare
 - om `include_prompt` är `true` eller `false`
 - nekad auth som teknisk händelse
+- hosted metadata-guard-varningar med orsak, metod och tool-namn
 - i local-läge: booleska flaggor som `has_user_input=True`, inte själva texten
 
 Det som inte ska loggas:
@@ -242,6 +350,7 @@ MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 PROMPTBANKEN_MCP_VERSION=1.1.0
+PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 ```
 
 Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
