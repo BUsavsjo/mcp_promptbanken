@@ -18,13 +18,18 @@ class InvalidSkillIdError(ValueError):
 class Skill:
     id: str
     name: str
+    display_name: str
     description: str
+    category: str
     file: str
     intents: list[str]
     roles: list[str]
     audiences: list[str]
     risk_level: str
+    risk_message: str
     requires_anonymization: bool
+    anonymization_level: str
+    example_phrases: list[str]
     output_type: str
     language: str
     version: str
@@ -34,28 +39,49 @@ class Skill:
         return cls(
             id=data["id"],
             name=data["name"],
+            display_name=data.get("display_name", data["name"]),
             description=data["description"],
+            category=data.get("category", "Övrigt"),
             file=data["file"],
             intents=list(data.get("intents", [])),
             roles=list(data.get("roles", [])),
             audiences=list(data.get("audiences", [])),
             risk_level=data.get("risk_level", "medium"),
+            risk_message=data.get("risk_message", cls._default_risk_message(data.get("risk_level", "medium"))),
             requires_anonymization=bool(data.get("requires_anonymization", True)),
+            anonymization_level=data.get(
+                "anonymization_level",
+                "required" if bool(data.get("requires_anonymization", True)) else "recommended",
+            ),
+            example_phrases=list(data.get("example_phrases", [])),
             output_type=data.get("output_type", "text"),
             language=data.get("language", "sv-SE"),
             version=data.get("version", "1.0.0"),
         )
 
+    @staticmethod
+    def _default_risk_message(risk_level: str) -> str:
+        return {
+            "low": "Låg risk: kontrollera att texten passar målgruppen innan den används.",
+            "medium": "Medelrisk: kontrollera fakta, personuppgifter och eventuell sekretess innan texten används.",
+            "high": "Hög risk: kontrollera fakta, juridik, ekonomi och beslutsformulering innan texten används.",
+        }.get(risk_level, "Kontrollera innehållet innan texten används.")
+
     def to_dict(self, include_prompt: bool = False, prompt: str | None = None) -> dict[str, Any]:
         result: dict[str, Any] = {
             "id": self.id,
             "name": self.name,
+            "display_name": self.display_name,
             "description": self.description,
+            "category": self.category,
             "intents": self.intents,
             "roles": self.roles,
             "audiences": self.audiences,
             "risk_level": self.risk_level,
+            "risk_message": self.risk_message,
             "requires_anonymization": self.requires_anonymization,
+            "anonymization_level": self.anonymization_level,
+            "example_phrases": self.example_phrases,
             "output_type": self.output_type,
             "output_schema": self.output_schema(),
             "language": self.language,
@@ -69,11 +95,11 @@ class Skill:
         schemas: dict[str, dict[str, Any]] = {
             "rewritten_text": {
                 "format": "markdown",
-                "required_sections": ["Kort sammanfattning", "Omskriven text", "Nasta steg"],
+                "required_sections": ["Kort sammanfattning", "Omskriven text", "Nästa steg"],
             },
             "email_draft": {
                 "format": "markdown",
-                "required_sections": ["Amne", "Halsning", "Svar", "Avslutning"],
+                "required_sections": ["Ämne", "Hälsning", "Svar", "Avslutning"],
             },
             "faq": {
                 "format": "markdown",
@@ -95,7 +121,7 @@ class Skill:
                     "Rubrik",
                     "Sammanfattning",
                     "Bakgrund",
-                    "Analys/Forslag",
+                    "Analys/Förslag",
                     "Konsekvenser",
                     "Ekonomi",
                     "Juridik",
@@ -104,7 +130,7 @@ class Skill:
             },
             "procedure": {
                 "format": "markdown",
-                "required_sections": ["Syfte", "Omfattning", "Ansvar", "Steg-for-steg", "Uppfoljning"],
+                "required_sections": ["Syfte", "Omfattning", "Ansvar", "Steg-för-steg", "Uppföljning"],
             },
             "text_variants": {
                 "format": "markdown",
@@ -116,16 +142,16 @@ class Skill:
             },
             "meeting_structure": {
                 "format": "markdown",
-                "required_sections": ["Syfte", "Agenda", "Fragor", "Nasta steg"],
+                "required_sections": ["Syfte", "Agenda", "Frågor", "Nästa steg"],
             },
             "summary": {
                 "format": "markdown",
-                "required_sections": ["Vad handlar det om?", "Huvudbudskap", "Konsekvens/nasta steg"],
+                "required_sections": ["Vad handlar det om?", "Huvudbudskap", "Konsekvens/nästa steg"],
                 "max_words": 100,
             },
             "structured_notes": {
                 "format": "markdown",
-                "required_sections": ["Sammanfattning", "Beslut", "Att gora", "Oppna fragor"],
+                "required_sections": ["Sammanfattning", "Beslut", "Att göra", "Öppna frågor"],
             },
             "keyword_list": {
                 "format": "markdown",
@@ -133,7 +159,7 @@ class Skill:
             },
             "announcement": {
                 "format": "markdown",
-                "required_sections": ["Rubrik", "Kort sammanfattning", "Vad som hander", "Vad mottagaren behover gora"],
+                "required_sections": ["Rubrik", "Kort sammanfattning", "Vad som händer", "Vad mottagaren behöver göra"],
             },
         }
         return schemas.get(

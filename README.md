@@ -59,6 +59,7 @@ Servern läser bara:
 I `hosted`-läge exponeras bara tools som returnerar metadata, promptmallar, hälsostatus och klientinstruktioner:
 
 - `list_skills`
+- `list_skills_simple`
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
@@ -85,6 +86,7 @@ Viktiga säkerhetsbeslut:
 - Ogiltiga eller saknade skills returnerar strukturerade felobjekt med säkra felkoder.
 - Promptmallarna innehåller en standardregel om att användarens underlag ska behandlas som data, inte som instruktioner.
 - `output_schema` returneras i skill-metadata så klienter kan visa eller validera förväntad svarsstruktur.
+- `display_name`, `category`, `example_phrases` och `risk_message` returneras så klienter kan bygga en enklare användarvy.
 - Docker-driften binder bara porten till `127.0.0.1:8000`.
 - Containern kör read-only, utan extra Linux capabilities och med `no-new-privileges:true`.
 
@@ -166,6 +168,8 @@ Sammanfattningsskriptet visar senaste loggrader, antal tool-anrop, antal SSE-ans
 ## Skills
 
 Skills definieras i `mcp-server/skills.json` och pekar på promptmallar i `mcp-server/prompts/`.
+
+För teknisk katalog används `list_skills`. För en enklare användarvy används `list_skills_simple`, som grupperar mallarna i kategorier och visar exempel på vad användaren kan skriva.
 
 Nuvarande skill-id:
 
@@ -344,13 +348,14 @@ PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 
 I `hosted`-läge ska klienten:
 
-1. Hämta skill-metadata med `list_skills`.
+1. Hämta användarvänlig katalog med `list_skills_simple` eller full metadata med `list_skills`.
 2. Välja relevant skill lokalt utifrån användarens uppgift.
 3. Validera `skill_id` mot listan från `list_skills`.
 4. Hämta vald promptmall med `get_skill`.
-5. Använda skillens `output_schema` som stöd för förväntad svarsstruktur.
-6. Kontrollera, anonymisera och sammanställa prompten lokalt.
-7. Avgränsa användarens underlag tydligt som data, inte instruktioner.
+5. Använda `display_name`, `category`, `example_phrases`, `risk_message` och `output_schema` i klientens användarvy.
+6. Visa topp 2-3 föreslagna mallar om användaren inte valt explicit.
+7. Kontrollera, anonymisera och sammanställa prompten lokalt.
+8. Avgränsa användarens underlag tydligt som data, inte instruktioner.
 
 Routing ska inte matcha tungt på vanliga fyllnadsord som `skriv`, `ett`, `till`, `som` och `vanligt`. Använd stopwords och vikta träffar i denna ordning:
 

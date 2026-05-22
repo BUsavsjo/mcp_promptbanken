@@ -79,12 +79,13 @@ class SkillRouter:
         reasons: list[str] = []
         normalized_skill_id = self._normalize(skill.id)
         normalized_name = self._normalize(skill.name)
+        normalized_display_name = self._normalize(skill.display_name)
 
         if normalized_skill_id in terms:
             score += 30
             reasons.append(f"Matchar skill-id: {skill.id}")
 
-        name_terms = self._terms(skill.name)
+        name_terms = self._terms(" ".join([skill.name, skill.display_name]))
         name_overlap = terms & name_terms
         if name_overlap:
             name_score = len(name_overlap) * 6
@@ -98,6 +99,15 @@ class SkillRouter:
         if normalized_name and normalized_name in normalized_task:
             score += 20
             reasons.append(f"Matchar skillnamn som fras: {skill.name}")
+
+        if normalized_display_name and normalized_display_name in normalized_task:
+            score += 20
+            reasons.append(f"Matchar visningsnamn som fras: {skill.display_name}")
+
+        phrase_overlap = terms & self._terms(" ".join(skill.example_phrases))
+        if phrase_overlap:
+            score += len(phrase_overlap) * 14
+            reasons.append(f"Matchar exempelmeningar: {', '.join(sorted(phrase_overlap)[:5])}")
 
         intent_terms = self._terms(" ".join(skill.intents))
         intent_overlap = terms & intent_terms
@@ -122,7 +132,7 @@ class SkillRouter:
 
     @classmethod
     def _specificity(cls, skill: Skill, terms: set[str]) -> int:
-        specific_terms = cls._terms(" ".join([skill.id, skill.name, *skill.intents]))
+        specific_terms = cls._terms(" ".join([skill.id, skill.name, skill.display_name, *skill.example_phrases, *skill.intents]))
         return len(terms & specific_terms)
 
     def _fallback(self, limit: int) -> list[SkillMatch]:

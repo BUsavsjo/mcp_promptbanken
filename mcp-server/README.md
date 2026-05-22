@@ -16,6 +16,7 @@ Den läser bara:
 I hosted-läge bearbetar servern inte användarens uppgiftstext i minnet. Den exponerar bara:
 
 - `list_skills`
+- `list_skills_simple`
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
@@ -36,6 +37,7 @@ Dessa local-tools tar emot användartext och ska bara användas på användarens
 - `get_skill` returnerar strukturerade fel för ogiltigt eller saknat skill-id.
 - Promptmallarna instruerar modellen att behandla användarens underlag som data, inte instruktioner.
 - Skill-metadata innehåller `output_schema`.
+- Skill-metadata innehåller också `display_name`, `category`, `example_phrases`, `risk_message` och `anonymization_level`.
 - Docker-driften är read-only, kör som icke-root, binder bara till `127.0.0.1:8000`, använder `no-new-privileges:true` och tar bort Linux capabilities med `cap_drop: ALL`.
 
 ## Loggning
@@ -180,6 +182,7 @@ Remote HTTP/SSE:
 Hosted:
 
 - `list_skills`
+- `list_skills_simple`
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
@@ -187,6 +190,7 @@ Hosted:
 Local:
 
 - `list_skills`
+- `list_skills_simple`
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`

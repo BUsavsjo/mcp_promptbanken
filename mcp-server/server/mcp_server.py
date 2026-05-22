@@ -63,6 +63,42 @@ def list_skills() -> list[dict[str, Any]]:
     return [skill.to_dict() for skill in repository.list_skills()]
 
 
+@mcp.tool()
+def list_skills_simple() -> dict[str, Any]:
+    """List Promptbanken skills grouped for a user-facing catalog view."""
+    logger.info("tool_call name=list_skills_simple")
+    categories: dict[str, list[dict[str, Any]]] = {}
+    for skill in repository.list_skills():
+        categories.setdefault(skill.category, []).append(
+            {
+                "id": skill.id,
+                "display_name": skill.display_name,
+                "description": skill.description,
+                "risk_level": skill.risk_level,
+                "risk_message": skill.risk_message,
+                "example_phrases": skill.example_phrases,
+            }
+        )
+    return {
+        "title": "Vad vill du göra?",
+        "categories": [
+            {
+                "name": category,
+                "skills": sorted(skills, key=lambda item: item["display_name"]),
+            }
+            for category, skills in sorted(categories.items())
+        ],
+        "fallback_prompt": {
+            "title": "Jag vet inte vilken mall jag ska använda",
+            "options": [
+                {"skill_id": "klarsprak", "label": "Göra texten enklare"},
+                {"skill_id": "mejl", "label": "Skriva ett svar"},
+                {"skill_id": "informationsutskick", "label": "Skapa ett informationsutskick"},
+            ],
+        },
+    }
+
+
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
     return {
         "error": {
@@ -110,22 +146,25 @@ def get_client_routing_instructions() -> dict[str, Any]:
     return {
         "mode": SERVER_MODE,
         "privacy_instruction": (
-            "I hosted lage ska MCP-klienten inte skicka anvandarens uppgift, indata, dokumenttext, "
-            "personuppgifter eller sekretessbelagd information till Promptbanken MCP. Gor routing, "
-            "riskkontroll och promptkompilering pa klientsidan. Anropa bara list_skills och get_skill "
-            "for att hamta metadata och promptmallar."
+            "I hosted-läge ska MCP-klienten inte skicka användarens uppgift, indata, dokumenttext, "
+            "personuppgifter eller sekretessbelagd information till Promptbanken MCP. Gör routing, "
+            "riskkontroll och promptkompilering på klientsidan. Anropa bara list_skills, "
+            "list_skills_simple och get_skill för att hämta metadata och promptmallar."
         ),
         "client_flow": [
-            "Hamta skill-metadata med list_skills.",
-            "Matcha anvandarens uppgift lokalt mot name, description, intents, roles och audiences.",
-            "Hamta vald promptmall med get_skill(skill_id, include_prompt=True).",
-            "Anvand skillens output_schema som stod for forvantad svarsstruktur.",
-            "Kontrollera och anonymisera anvandarens text lokalt innan den anvands.",
-            "Satt ihop promptmall, uppgift och eventuell indata lokalt i MCP-klienten.",
-            "Skicka inte anvandarens radata till hosted MCP-tools.",
+            "Hämta användarvänlig katalog med list_skills_simple eller komplett metadata med list_skills.",
+            "Matcha användarens uppgift lokalt mot id, display_name, description, example_phrases, intents, roles och audiences.",
+            "Visa topp 2-3 föreslagna mallar om användaren inte valt explicit.",
+            "Validera skill_id mot listan från list_skills innan get_skill anropas.",
+            "Hämta vald promptmall med get_skill(skill_id, include_prompt=True).",
+            "Använd skillens output_schema som stöd för förväntad svarsstruktur.",
+            "Visa risk_message och anonymization_level för användaren vid behov.",
+            "Kontrollera och anonymisera användarens text lokalt innan den används.",
+            "Sätt ihop promptmall, uppgift och eventuell indata lokalt i MCP-klienten.",
+            "Skicka inte användarens rådata till hosted MCP-tools.",
         ],
         "routing_algorithm": {
-            "normalize": "Gor text gemen, trimma whitespace och vik svenska tecken till a/o vid jamforelse.",
+            "normalize": "Gör text gemen, trimma whitespace och vik svenska tecken till a/o vid jämförelse.",
             "stopwords": [
                 "att",
                 "av",
@@ -158,22 +197,23 @@ def get_client_routing_instructions() -> dict[str, Any]:
             ],
             "score": [
                 "Ta bort stopwords och ord kortare an tre tecken innan scoring.",
-                "Ge 30 poang om skill-id forekommer i anvandarens uppgift, till exempel informationsutskick.",
-                "Ge 20 poang om hela eller stor del av skillens name forekommer som fras i uppgiften.",
-                "Ge 12 poang per exakt intent-traff eller svensk intent-synonym, till exempel information_notice/informationsutskick.",
-                "Ge 6 poang per traff i skillens name.",
-                "Ge 4 poang per traff i skillens description.",
-                "Ge 2 poang per traff i ovriga metadatafalt.",
-                "Ge 3 poang om anvandarens roll matchar skill.roles.",
-                "Ge 2 poang om malgrupp matchar skill.audiences.",
-                "Vid lika score, valj den skill som har flest traffar i id, name och intents fore description och audiences.",
-                "Valj hogst poang och visa upp till tva alternativ.",
-                "Om ingen tydlig match hittas, foresla klarsprak, sammanfattning och mejl som fallback.",
+                "Ge 30 poäng om skill-id förekommer i användarens uppgift, till exempel informationsutskick.",
+                "Ge 20 poäng om hela eller stor del av skillens display_name eller name förekommer som fras i uppgiften.",
+                "Ge 14 poäng per träff i example_phrases.",
+                "Ge 12 poäng per exakt intent-träff eller svensk intent-synonym, till exempel information_notice/informationsutskick.",
+                "Ge 6 poäng per träff i skillens name eller display_name.",
+                "Ge 4 poäng per träff i skillens description.",
+                "Ge 2 poäng per träff i övriga metadatafält.",
+                "Ge 3 poäng om användarens roll matchar skill.roles.",
+                "Ge 2 poäng om målgrupp matchar skill.audiences.",
+                "Vid lika score, välj den skill som har flest träffar i id, display_name, name, example_phrases och intents före description och audiences.",
+                "Välj högst poäng och visa upp till tre alternativ.",
+                "Om ingen tydlig match hittas, föreslå klarspråk, sammanfattning och mejl som fallback.",
             ],
         },
         "local_mode_note": (
-            "Vid lokal installation kan klienten anvanda route_skill, compile_skill_prompt och "
-            "check_input_risk, eftersom texten da behandlas pa anvandarens egen maskin."
+            "Vid lokal installation kan klienten använda route_skill, compile_skill_prompt och "
+            "check_input_risk, eftersom texten då behandlas på användarens egen maskin."
         ),
         "skills": [skill.to_dict() for skill in repository.list_skills()],
     }
