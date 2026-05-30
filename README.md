@@ -41,7 +41,7 @@ Exempel på svar:
   "service": "promptbanken-mcp",
   "version": "1.1.0",
   "mode": "hosted",
-  "skills_count": 15
+  "skills_count": 16
 }
 ```
 
@@ -281,6 +281,8 @@ Skills definieras i `mcp-server/skills.json` och pekar på promptmallar i `mcp-s
 
 För teknisk katalog används `list_skills`. För en enklare användarvy används `list_skills_simple`, som grupperar mallarna i kategorier och visar exempel på vad användaren kan skriva.
 
+När en ny prompt läggs till ska guiden i `docs/add-new-prompt.md` följas.
+
 Nuvarande skill-id:
 
 - `anteckningar`
@@ -297,6 +299,7 @@ Nuvarande skill-id:
 - `rutin`
 - `sammanfattning`
 - `samtalskompas`
+- `tydlighetskoll`
 - `tvaversioner`
 
 ## Struktur
