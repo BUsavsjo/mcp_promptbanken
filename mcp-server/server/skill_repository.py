@@ -161,6 +161,17 @@ class Skill:
                 "format": "markdown",
                 "required_sections": ["Rubrik", "Kort sammanfattning", "Vad som händer", "Vad mottagaren behöver göra"],
             },
+            "clarity_review": {
+                "format": "markdown",
+                "required_sections": [
+                    "Snabb bedömning",
+                    "Otydligheter",
+                    "Ansvar och beslut",
+                    "Nästa steg",
+                    "Risk för missförstånd",
+                    "Förslag på preciseringar",
+                ],
+            },
         }
         return schemas.get(
             self.output_type,

@@ -1,6 +1,30 @@
 {
   "skills": [
     {
+      "id": "tydlighetskoll",
+      "name": "Tydlighetskoll",
+      "display_name": "Tydlighetskoll",
+      "description": "Granskar kommunala texter och flaggar otydlighet kring ansvar, beslut, nästa steg och risk för missförstånd.",
+      "category": "Beslut och rutiner",
+      "file": "prompts/tydlighetskoll.txt",
+      "intents": ["clarity_review", "risk_check", "decision_clarity", "responsibility_check"],
+      "roles": ["handläggare", "chef", "kommunikatör", "samordnare"],
+      "audiences": ["medarbetare", "invånare", "ledning", "beslutsfattare"],
+      "risk_level": "medium",
+      "risk_message": "Medelrisk: kontrollera särskilt ansvar, beslut, nästa steg, datum, målgrupp och om texten kan missförstås innan den skickas vidare.",
+      "requires_anonymization": true,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Gör en tydlighetskoll på den här texten",
+        "Finns det otydligheter kring ansvar och nästa steg?",
+        "Flagga risk för missförstånd innan jag skickar detta",
+        "Granska om beslut och ansvar framgår tydligt"
+      ],
+      "output_type": "clarity_review",
+      "language": "sv-SE",
+      "version": "1.0.0"
+    },
+    {
       "id": "klarsprak",
       "name": "Skriv om till klarspråk",
       "display_name": "Klarspråk",
