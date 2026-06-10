@@ -105,16 +105,26 @@ Servern lyssnar som standard på port `8000`.
 ## HTTP-endpoints
 
 ```text
+POST /mcp
+GET  /mcp
+GET  /api/v1/skills
+GET  /api/v1/skills/simple
+GET  /api/v1/skills/{skill_id}
+GET  /api/v1/skills/{skill_id}/prompt
+GET  /api/v1/routing-instructions
+GET  /openapi.json
 GET  /sse
 POST /messages/
 GET  /healthz
 ```
 
-Nuvarande Python-SDK använder MCP SSE-transport för remote HTTP. Rekommenderad publik URL är:
+Rekommenderad publik MCP URL är:
 
 ```text
-https://mcp.promptbanken.se/sse
+https://mcp.promptbanken.se/mcp
 ```
+
+`/sse` och `/messages/` finns kvar som legacy HTTP/SSE för äldre klienter.
 
 ## Miljö
 
@@ -126,6 +136,7 @@ PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
+PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
 ```
 
 Tillåtna lägen:
@@ -165,13 +176,13 @@ Lokal stdio:
 }
 ```
 
-Remote HTTP/SSE:
+Remote Streamable HTTP:
 
 ```json
 {
   "mcpServers": {
     "promptbanken": {
-      "url": "https://mcp.promptbanken.se/sse",
+      "url": "https://mcp.promptbanken.se/mcp",
       "headers": {
         "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
       }

@@ -356,6 +356,7 @@ PROMPTBANKEN_MCP_MODE=hosted
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
+PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
 ```
 
 Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
@@ -371,9 +372,27 @@ Authorization: Bearer <nyckel>
 
 `/healthz` är undantagen från API-nyckelkravet.
 
-## HTTP/SSE
+## MCP och REST
 
-Nuvarande server använder MCP över HTTP/SSE:
+Primär remote MCP-yta är Streamable HTTP på en enda endpoint:
+
+```text
+POST /mcp
+GET  /mcp
+```
+
+REST-ytan är read-only:
+
+```text
+GET  /api/v1/skills
+GET  /api/v1/skills/simple
+GET  /api/v1/skills/{skill_id}
+GET  /api/v1/skills/{skill_id}/prompt
+GET  /api/v1/routing-instructions
+GET  /openapi.json
+```
+
+Legacy HTTP/SSE finns kvar för äldre klienter:
 
 ```text
 GET  /sse
@@ -381,19 +400,17 @@ POST /messages/
 GET  /healthz
 ```
 
-Rekommenderad publik adress:
-
-```text
-https://mcp.promptbanken.se/sse
-```
-
-På sikt kan endpointen bli:
+Rekommenderad publik MCP-adress:
 
 ```text
 https://mcp.promptbanken.se/mcp
 ```
 
-Det kräver uppgradering till nyare MCP Streamable HTTP-transport.
+Legacy-adress:
+
+```text
+https://mcp.promptbanken.se/sse
+```
 
 ## MCP-konfiguration
 
@@ -411,13 +428,13 @@ Lokal stdio:
 }
 ```
 
-Remote HTTP/SSE:
+Remote Streamable HTTP:
 
 ```json
 {
   "mcpServers": {
     "promptbanken": {
-      "url": "https://mcp.promptbanken.se/sse",
+      "url": "https://mcp.promptbanken.se/mcp",
       "headers": {
         "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
       }

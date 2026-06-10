@@ -8,6 +8,7 @@ services:
       MCP_LOG_LEVEL: INFO
       PROMPTBANKEN_MCP_MODE: hosted
       PROMPTBANKEN_MCP_API_KEY: ${PROMPTBANKEN_MCP_API_KEY:-}
+      PROMPTBANKEN_MCP_ALLOWED_ORIGINS: ${PROMPTBANKEN_MCP_ALLOWED_ORIGINS:-}
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped

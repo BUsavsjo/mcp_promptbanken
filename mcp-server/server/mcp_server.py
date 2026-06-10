@@ -13,7 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
@@ -288,6 +288,11 @@ def _api_key() -> str | None:
     return os.getenv("PROMPTBANKEN_MCP_API_KEY") or os.getenv("MCP_API_KEY")
 
 
+def _allowed_origins() -> set[str]:
+    raw = os.getenv("PROMPTBANKEN_MCP_ALLOWED_ORIGINS", "")
+    return {origin.strip() for origin in raw.split(",") if origin.strip()}
+
+
 async def _healthz(_: Request) -> JSONResponse:
     logger.info("http_request path=/healthz status=200")
     return JSONResponse(
@@ -299,6 +304,244 @@ async def _healthz(_: Request) -> JSONResponse:
             "skills_count": len(repository.list_skills()),
         }
     )
+
+
+def _not_found(message: str = "Not found") -> JSONResponse:
+    return JSONResponse({"error": {"code": "NOT_FOUND", "message": message}}, status_code=404)
+
+
+async def _api_list_skills(_: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/skills status=200")
+    return JSONResponse({"skills": [skill.to_dict() for skill in repository.list_skills()]})
+
+
+async def _api_list_skills_simple(_: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/skills/simple status=200")
+    return JSONResponse(list_skills_simple())
+
+
+async def _api_get_skill(request: Request) -> JSONResponse:
+    skill_id = request.path_params["skill_id"]
+    include_prompt = request.query_params.get("include_prompt", "false").lower() == "true"
+    if not repository.is_valid_skill_id(skill_id):
+        logger.info("http_request path=/api/v1/skills/%s status=400 result=invalid_skill_id", skill_id)
+        return JSONResponse(_error("INVALID_SKILL_ID", "Skill id contains invalid characters"), status_code=400)
+    try:
+        skill = repository.get_skill(skill_id)
+        prompt = repository.get_prompt(skill_id) if include_prompt else None
+    except KeyError:
+        logger.info("http_request path=/api/v1/skills/%s status=404", skill_id)
+        return _not_found("Skill not found")
+    logger.info("http_request path=/api/v1/skills/%s status=200 include_prompt=%s", skill_id, include_prompt)
+    return JSONResponse(skill.to_dict(include_prompt=include_prompt, prompt=prompt))
+
+
+async def _api_get_skill_prompt(request: Request) -> JSONResponse:
+    skill_id = request.path_params["skill_id"]
+    if not repository.is_valid_skill_id(skill_id):
+        logger.info("http_request path=/api/v1/skills/%s/prompt status=400 result=invalid_skill_id", skill_id)
+        return JSONResponse(_error("INVALID_SKILL_ID", "Skill id contains invalid characters"), status_code=400)
+    try:
+        prompt = repository.get_prompt(skill_id)
+    except KeyError:
+        logger.info("http_request path=/api/v1/skills/%s/prompt status=404", skill_id)
+        return _not_found("Skill not found")
+    logger.info("http_request path=/api/v1/skills/%s/prompt status=200", skill_id)
+    return JSONResponse({"skill_id": skill_id, "prompt": prompt})
+
+
+async def _api_routing_instructions(_: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/routing-instructions status=200")
+    return JSONResponse(get_client_routing_instructions())
+
+
+def _openapi_schema() -> dict[str, Any]:
+    return {
+        "openapi": "3.1.0",
+        "info": {
+            "title": "Promptbanken Read-only API",
+            "version": SERVICE_VERSION,
+            "description": "Read-only API for Promptbanken skills and prompt templates.",
+        },
+        "paths": {
+            "/healthz": {"get": {"summary": "Health check", "responses": {"200": {"description": "OK"}}}},
+            "/api/v1/skills": {"get": {"summary": "List skills", "responses": {"200": {"description": "OK"}}}},
+            "/api/v1/skills/simple": {
+                "get": {"summary": "List skills grouped for UI", "responses": {"200": {"description": "OK"}}}
+            },
+            "/api/v1/skills/{skill_id}": {
+                "get": {
+                    "summary": "Get skill metadata",
+                    "parameters": [
+                        {"name": "skill_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                        {"name": "include_prompt", "in": "query", "required": False, "schema": {"type": "boolean"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Skill not found"}},
+                }
+            },
+            "/api/v1/skills/{skill_id}/prompt": {
+                "get": {
+                    "summary": "Get prompt template",
+                    "parameters": [{"name": "skill_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Skill not found"}},
+                }
+            },
+            "/api/v1/routing-instructions": {
+                "get": {"summary": "Get client routing instructions", "responses": {"200": {"description": "OK"}}}
+            },
+            "/mcp": {
+                "post": {"summary": "MCP Streamable HTTP endpoint", "responses": {"200": {"description": "JSON-RPC response"}}},
+                "get": {"summary": "Optional MCP server stream", "responses": {"405": {"description": "No server stream"}}},
+            },
+        },
+    }
+
+
+async def _openapi(_: Request) -> JSONResponse:
+    logger.info("http_request path=/openapi.json status=200")
+    return JSONResponse(_openapi_schema())
+
+
+def _tool_definitions() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "list_skills",
+            "description": "List all Promptbanken skills with metadata, excluding full prompt text.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_skills_simple",
+            "description": "List Promptbanken skills grouped for a user-facing catalog view.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "get_skill",
+            "description": "Get one skill by id, optionally including the full prompt text.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "skill_id": {"type": "string"},
+                    "include_prompt": {"type": "boolean", "default": True},
+                },
+                "required": ["skill_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "health_check",
+            "description": "Return lightweight service status without loading prompt text.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "get_client_routing_instructions",
+            "description": "Return instructions for client-side skill routing without sending user text to the MCP server.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    ]
+
+
+def _json_rpc_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+
+def _mcp_content_result(value: Any) -> dict[str, Any]:
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(value, ensure_ascii=False),
+            }
+        ],
+        "isError": False,
+    }
+
+
+def _handle_mcp_message(message: dict[str, Any]) -> dict[str, Any] | None:
+    request_id = message.get("id")
+    method = message.get("method")
+    params = message.get("params") if isinstance(message.get("params"), dict) else {}
+
+    if method is None:
+        return None
+    if method == "initialize":
+        return _json_rpc_result(
+            request_id,
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "promptbanken-skill-router", "version": SERVICE_VERSION},
+            },
+        )
+    if method in {"notifications/initialized", "notifications/cancelled"}:
+        return None
+    if method == "ping":
+        return _json_rpc_result(request_id, {})
+    if method == "tools/list":
+        return _json_rpc_result(request_id, {"tools": _tool_definitions()})
+    if method == "tools/call":
+        tool_name = params.get("name")
+        arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+        if tool_name == "list_skills":
+            return _json_rpc_result(request_id, _mcp_content_result(list_skills()))
+        if tool_name == "list_skills_simple":
+            return _json_rpc_result(request_id, _mcp_content_result(list_skills_simple()))
+        if tool_name == "get_skill":
+            skill_id = arguments.get("skill_id")
+            include_prompt = arguments.get("include_prompt", True)
+            if not isinstance(skill_id, str) or not isinstance(include_prompt, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid get_skill arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(get_skill(skill_id, include_prompt)))
+        if tool_name == "health_check":
+            return _json_rpc_result(request_id, _mcp_content_result(health_check()))
+        if tool_name == "get_client_routing_instructions":
+            return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
+        return _json_rpc_error(request_id, -32601, "Tool not found")
+    return _json_rpc_error(request_id, -32601, "Method not found")
+
+
+async def _mcp_streamable_http(request: Request) -> Response:
+    if request.method == "GET":
+        logger.info("http_request path=/mcp method=GET status=405")
+        return Response(status_code=405, headers={"Allow": "POST"})
+    if request.method == "DELETE":
+        logger.info("http_request path=/mcp method=DELETE status=405")
+        return Response(status_code=405, headers={"Allow": "POST"})
+
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        logger.info("http_request path=/mcp method=POST status=400 result=invalid_json")
+        return JSONResponse(_json_rpc_error(None, -32700, "Parse error"), status_code=400)
+
+    is_batch = isinstance(payload, list)
+    messages = payload if is_batch else [payload]
+    if not all(isinstance(message, dict) for message in messages):
+        logger.info("http_request path=/mcp method=POST status=400 result=invalid_message_shape")
+        return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
+
+    responses = [response for message in messages if (response := _handle_mcp_message(message)) is not None]
+    logger.info("http_request path=/mcp method=POST status=%s batch=%s", 200 if responses else 202, is_batch)
+    if not responses:
+        return Response(status_code=202)
+    return JSONResponse(responses if is_batch else responses[0])
+
+
+class OriginValidationMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") == "http" and scope.get("path") == "/mcp":
+            headers = dict(scope.get("headers") or [])
+            origin = headers.get(b"origin", b"").decode("utf-8")
+            allowed_origins = _allowed_origins()
+            if origin and allowed_origins and origin not in allowed_origins:
+                logger.warning("origin_denied path=/mcp origin_present=true")
+                response = JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+                await response(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
 
 
 class BearerAuthMiddleware:
@@ -325,7 +568,8 @@ class HostedMetadataGuardMiddleware:
         self.guard = HostedMetadataGuard(repository)
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if SERVER_MODE != "hosted" or scope.get("type") != "http" or scope.get("path") != "/messages/":
+        guarded_path = scope.get("path")
+        if SERVER_MODE != "hosted" or scope.get("type") != "http" or guarded_path not in {"/messages/", "/mcp"}:
             await self.app(scope, receive, send)
             return
 
@@ -342,7 +586,8 @@ class HostedMetadataGuardMiddleware:
         warning = self.guard.inspect_body(body)
         if warning is not None:
             logger.warning(
-                "hosted_payload_warning path=/messages reason=%s method=%s tool=%s",
+                "hosted_payload_warning path=%s reason=%s method=%s tool=%s",
+                guarded_path,
                 warning["reason"],
                 warning.get("method", "unknown"),
                 warning.get("tool", "unknown"),
@@ -393,11 +638,18 @@ async def run_sse_async() -> None:
         debug=mcp.settings.debug,
         routes=[
             Route("/healthz", endpoint=_healthz),
+            Route("/openapi.json", endpoint=_openapi),
+            Route("/api/v1/skills", endpoint=_api_list_skills),
+            Route("/api/v1/skills/simple", endpoint=_api_list_skills_simple),
+            Route("/api/v1/skills/{skill_id}", endpoint=_api_get_skill),
+            Route("/api/v1/skills/{skill_id}/prompt", endpoint=_api_get_skill_prompt),
+            Route("/api/v1/routing-instructions", endpoint=_api_routing_instructions),
+            Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
-    app = BearerAuthMiddleware(HostedMetadataGuardMiddleware(app))
+    app = OriginValidationMiddleware(BearerAuthMiddleware(HostedMetadataGuardMiddleware(app)))
     logger.info(
         "http_server_start host=%s port=%s mode=%s hosted_guard=%s",
         mcp.settings.host,
