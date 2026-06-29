@@ -161,6 +161,19 @@ class Skill:
                 "format": "markdown",
                 "required_sections": ["Rubrik", "Kort sammanfattning", "Vad som händer", "Vad mottagaren behöver göra"],
             },
+            "image_prompt": {
+                "format": "markdown",
+                "required_sections": ["Bildprompt", "Alt-text", "Kontroll innan användning"],
+            },
+            "accessibility_text": {
+                "format": "markdown",
+                "required_sections": [
+                    "Kort alt-text",
+                    "Längre bildbeskrivning",
+                    "När bilden kan markeras som dekorativ",
+                    "Kontroll innan publicering",
+                ],
+            },
             "clarity_review": {
                 "format": "markdown",
                 "required_sections": [

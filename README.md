@@ -41,8 +41,66 @@ Exempel på svar:
   "service": "promptbanken-mcp",
   "version": "1.1.0",
   "mode": "hosted",
-  "skills_count": 16
+  "skills_count": 21
 }
+```
+
+## Workspace-skills från Supabase
+
+MCP-servern kan komplettera de statiska promptmallarna med användarens egna prompts från Supabase. Funktionen aktiveras via miljövariabler och en MCP API-nyckel.
+
+### Miljövariabler
+
+| Variabel | Beskrivning |
+|---|---|
+| `SUPABASE_URL` | Supabase-projektets URL (samma som `VITE_SUPABASE_URL`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role-nyckel — exponeras aldrig i frontend |
+| `PROMPTBANKEN_MCP_USER_KEY` | Användarens MCP API-nyckel — genereras i admin-UI:t |
+
+Lägg variablerna i `.env` (ingår i `.gitignore`) eller sätt dem i MCP-klientens konfiguration.
+
+Exempel för Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "promptbanken": {
+      "command": "node",
+      "args": ["..."],
+      "env": {
+        "SUPABASE_URL": "https://<projekt>.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "<service-role-key>",
+        "PROMPTBANKEN_MCP_USER_KEY": "<mcp-nyckel>"
+      }
+    }
+  }
+}
+```
+
+### Generera en MCP-nyckel
+
+1. Logga in i admin-UI:t.
+2. Gå till **Inställningar → MCP-nycklar**.
+3. Klicka **Ny nyckel** och välj ett namn.
+4. Kopiera nyckeln direkt — den visas bara en gång.
+5. Klistra in nyckeln som `PROMPTBANKEN_MCP_USER_KEY` i MCP-klientens konfiguration.
+
+Free-plan tillåter max en aktiv nyckel per workspace.
+
+### Hur det fungerar
+
+- Servern verifierar nyckeln mot tabellen `mcp_keys` (sha256-jämförelse).
+- Om nyckeln är giltig och workspacets `mcp_enabled = true` hämtas aktiva `content_items`.
+- Workspace-skills läggs sist i `list_skills`-svaret, märkta med `"category": "Arbetsyta"`.
+- Om nyckeln saknas eller är ogiltig returneras ett tydligt fel och inga workspace-skills visas.
+- Statiska skills fungerar alltid, oavsett om Supabase-integration är konfigurerad.
+
+### Supabase-migration
+
+Kör migreringen i Supabase SQL Editor:
+
+```
+supabase/migrations/20240629_create_mcp_keys.sql
 ```
 
 ## Data och integritet
@@ -285,16 +343,21 @@ När en ny prompt läggs till ska guiden i `docs/add-new-prompt.md` följas.
 
 Nuvarande skill-id:
 
+- `alt_text_bild`
 - `anteckningar`
 - `beslutsunderlag`
 - `checklista`
 - `diskussionsfragor`
+- `enkel_infografik`
 - `faq`
+- `ikon_symbolbild`
+- `illustration_informationsutskick`
 - `informationsutskick`
 - `kallelse`
 - `klarsprak`
 - `mejl`
 - `nyckelord`
+- `presentationstitelbild`
 - `reflektion`
 - `rutin`
 - `sammanfattning`

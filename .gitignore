@@ -4,4 +4,49 @@ __pycache__/
 .venv/
 mcp-server/.venv/
 .env
+.env.*
 mcp-server/.env
+mcp-server/.env.*
+*.key
+*.pem
+secrets/
+credentials/
+config.local.*
+
+# Lokal data och exporter
+data/private/
+exports/
+raw_data/
+processed_data/
+personuppgifter/
+elevdata/
+*.csv
+*.xlsx
+*.jsonl
+
+# Tillåt anonymiserad exempeldata
+!data/example/
+!data/example/*.csv
+!data/example/*.json
+!data/example/.gitkeep
+
+# Loggar och cache
+*.log
+.cache/
+
+# Python
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Claude Code lokala inställningar (kan innehålla API-nycklar)
+.claude/
+
+# Systemfiler
+.DS_Store
+Thumbs.db

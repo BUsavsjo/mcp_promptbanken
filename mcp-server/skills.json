@@ -383,6 +383,126 @@
       "output_type": "announcement",
       "language": "sv-SE",
       "version": "1.1.0"
+    },
+    {
+      "id": "enkel_infografik",
+      "name": "Enkel infografik",
+      "display_name": "Enkel infografik",
+      "description": "Skapa en enkel visuell struktur för information, siffror eller viktiga punkter.",
+      "category": "Bild och infografik",
+      "file": "prompts/enkel_infografik.txt",
+      "intents": ["infographic", "visual_summary", "explain_information", "public_communication"],
+      "roles": ["handläggare", "kommunikatör", "samordnare", "chef"],
+      "audiences": ["invånare", "medarbetare", "ledning", "allmänhet"],
+      "risk_level": "medium",
+      "risk_message": "Medelrisk: kontrollera att siffror, källor och proportioner är korrekta och att infografiken inte innehåller personuppgifter eller vilseledande visualisering.",
+      "requires_anonymization": true,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Skapa en enkel infografik",
+        "Gör detta visuellt tydligt",
+        "Gör en infografik av de här punkterna",
+        "Visa informationen som en enkel bild"
+      ],
+      "output_type": "image_prompt",
+      "language": "sv-SE",
+      "version": "1.0.0"
+    },
+    {
+      "id": "illustration_informationsutskick",
+      "name": "Illustration till informationsutskick",
+      "display_name": "Illustration till informationsutskick",
+      "description": "Skapa en trygg och neutral bildidé till kommunalt informationsutskick.",
+      "category": "Bild och infografik",
+      "file": "prompts/illustration_informationsutskick.txt",
+      "intents": ["image_prompt", "information_notice", "public_communication", "illustration"],
+      "roles": ["handläggare", "kommunikatör", "samordnare", "chef"],
+      "audiences": ["invånare", "medarbetare", "vårdnadshavare", "allmänhet"],
+      "risk_level": "medium",
+      "risk_message": "Medelrisk: kontrollera att bilden inte visar igenkännbara personer, känsliga situationer, verkliga logotyper eller något som kan uppfattas som dokumentär verklighet.",
+      "requires_anonymization": true,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Skapa en bild till informationsutskick",
+        "Gör en illustration till ett meddelande",
+        "Ta fram en neutral bildidé",
+        "Skapa en trygg bild till kommunal information"
+      ],
+      "output_type": "image_prompt",
+      "language": "sv-SE",
+      "version": "1.0.0"
+    },
+    {
+      "id": "ikon_symbolbild",
+      "name": "Ikon eller symbolbild",
+      "display_name": "Ikon / symbolbild",
+      "description": "Skapa en enkel ikon eller symbolbild för ett ämne, begrepp eller budskap.",
+      "category": "Bild och infografik",
+      "file": "prompts/ikon_symbolbild.txt",
+      "intents": ["icon_prompt", "symbol_image", "visual_concept", "communication_support"],
+      "roles": ["handläggare", "kommunikatör", "samordnare", "chef", "pedagog"],
+      "audiences": ["invånare", "medarbetare", "elever", "vårdnadshavare", "allmänhet"],
+      "risk_level": "low",
+      "risk_message": "Låg risk: kontrollera att symbolen är begriplig, inkluderande och inte kan misstolkas eller kopplas till skyddade, politiska eller känsliga symboler.",
+      "requires_anonymization": false,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Skapa en ikon för detta",
+        "Gör en symbolbild",
+        "Föreslå en enkel visuell symbol",
+        "Ta fram en ikonprompt"
+      ],
+      "output_type": "image_prompt",
+      "language": "sv-SE",
+      "version": "1.0.0"
+    },
+    {
+      "id": "presentationstitelbild",
+      "name": "Presentationstitelbild",
+      "display_name": "Presentationstitelbild",
+      "description": "Skapa en professionell och lugn titelbild till presentation, utbildning eller möte.",
+      "category": "Bild och infografik",
+      "file": "prompts/presentationstitelbild.txt",
+      "intents": ["presentation_image", "title_slide", "visual_support", "meeting_support"],
+      "roles": ["chef", "samordnare", "pedagog", "kommunikatör", "handläggare"],
+      "audiences": ["medarbetare", "ledning", "grupp", "deltagare"],
+      "risk_level": "low",
+      "risk_message": "Låg risk: kontrollera att bilden passar sammanhanget, inte innehåller känsliga uppgifter och inte ger intryck av att visa verkliga personer eller händelser.",
+      "requires_anonymization": false,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Skapa en titelbild till presentation",
+        "Gör en bild till första sliden",
+        "Ta fram en öppningsbild",
+        "Skapa en professionell presentationsbild"
+      ],
+      "output_type": "image_prompt",
+      "language": "sv-SE",
+      "version": "1.0.0"
+    },
+    {
+      "id": "alt_text_bild",
+      "name": "Alt-text till bild",
+      "display_name": "Alt-text till bild",
+      "description": "Skriv en kort och tillgänglig alt-text till en bild.",
+      "category": "Bild och infografik",
+      "file": "prompts/alt_text_bild.txt",
+      "intents": ["alt_text", "accessibility", "image_description", "web_accessibility"],
+      "roles": ["kommunikatör", "handläggare", "administratör", "samordnare", "pedagog"],
+      "audiences": ["invånare", "medarbetare", "allmänhet", "webbanvändare"],
+      "risk_level": "low",
+      "risk_message": "Låg risk: kontrollera att alt-texten beskriver relevant innehåll utan att överdriva, tolka känslor i onödan eller lägga till information som inte syns i bilden.",
+      "requires_anonymization": true,
+      "anonymization_level": "recommended",
+      "example_phrases": [
+        "Skriv alt-text till bilden",
+        "Gör en bildbeskrivning",
+        "Beskriv bilden tillgängligt",
+        "Skriv en kort alt-text"
+      ],
+      "output_type": "accessibility_text",
+      "language": "sv-SE",
+      "version": "1.0.0"
     }
   ]
 }

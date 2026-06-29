@@ -20,12 +20,44 @@ from .hosted_guard import HostedMetadataGuard
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
+from .supabase_repository import SupabaseRepository
 
 
 repo_root = Path(__file__).resolve().parents[1]
 repository = SkillRepository(repo_root=repo_root)
 router = SkillRouter(repository=repository)
 risk_checker = RiskChecker()
+
+def _supabase_repo_for_key(mcp_key: str) -> SupabaseRepository | None:
+    if not mcp_key:
+        return None
+    return SupabaseRepository(mcp_key)
+
+
+def _all_skills(mcp_key: str = ""):
+    static = repository.list_skills()
+    repo = _supabase_repo_for_key(mcp_key)
+    if repo is None:
+        return static
+    return static + repo.list_skills()
+
+
+def _get_skill_and_prompt(skill_id: str, include_prompt: bool, mcp_key: str = ""):
+    """Hämtar skill + prompt från statisk repo eller Supabase-repo."""
+    try:
+        skill = repository.get_skill(skill_id)
+        prompt = repository.get_prompt(skill_id) if include_prompt else None
+        return skill, prompt
+    except KeyError:
+        pass
+    repo = _supabase_repo_for_key(mcp_key)
+    if repo is not None:
+        ws_skills = repo.list_skills()
+        match = next((s for s in ws_skills if s.id == skill_id), None)
+        if match:
+            prompt = repo.get_prompt(skill_id) if include_prompt else None
+            return match, prompt
+    raise KeyError("Skill not found")
 
 
 def _log_level() -> str:
@@ -59,11 +91,15 @@ mcp = FastMCP(
 )
 
 
+def _mcp_key_from_request(request: Request) -> str:
+    return request.headers.get("x-mcp-key", "")
+
+
 @mcp.tool()
 def list_skills() -> list[dict[str, Any]]:
     """List all Promptbanken skills with metadata, excluding full prompt text."""
     logger.info("tool_call name=list_skills")
-    return [skill.to_dict() for skill in repository.list_skills()]
+    return [skill.to_dict() for skill in _all_skills()]
 
 
 @mcp.tool()
@@ -132,8 +168,7 @@ def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
 
     logger.info("tool_call name=get_skill skill_id=%s include_prompt=%s", skill_id, include_prompt)
     try:
-        skill = repository.get_skill(skill_id)
-        prompt = repository.get_prompt(skill_id) if include_prompt else None
+        skill, prompt = _get_skill_and_prompt(skill_id, include_prompt)
     except KeyError:
         logger.info("tool_call name=get_skill skill_id=%s result=not_found", skill_id)
         return _error("SKILL_NOT_FOUND", "Skill not found")
@@ -255,8 +290,9 @@ if SERVER_MODE == "local":
             bool(user_input),
         )
         try:
-            skill = repository.get_skill(skill_id)
-            prompt = repository.get_prompt(skill_id)
+            skill, prompt = _get_skill_and_prompt(skill_id, include_prompt=True)
+            if prompt is None:
+                prompt = ""
         except InvalidSkillIdError:
             return _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
         except KeyError:
@@ -310,9 +346,10 @@ def _not_found(message: str = "Not found") -> JSONResponse:
     return JSONResponse({"error": {"code": "NOT_FOUND", "message": message}}, status_code=404)
 
 
-async def _api_list_skills(_: Request) -> JSONResponse:
+async def _api_list_skills(request: Request) -> JSONResponse:
     logger.info("http_request path=/api/v1/skills status=200")
-    return JSONResponse({"skills": [skill.to_dict() for skill in repository.list_skills()]})
+    mcp_key = request.headers.get("x-mcp-key", "")
+    return JSONResponse({"skills": [skill.to_dict() for skill in _all_skills(mcp_key)]})
 
 
 async def _api_list_skills_simple(_: Request) -> JSONResponse:
@@ -323,12 +360,12 @@ async def _api_list_skills_simple(_: Request) -> JSONResponse:
 async def _api_get_skill(request: Request) -> JSONResponse:
     skill_id = request.path_params["skill_id"]
     include_prompt = request.query_params.get("include_prompt", "false").lower() == "true"
+    mcp_key = request.headers.get("x-mcp-key", "")
     if not repository.is_valid_skill_id(skill_id):
         logger.info("http_request path=/api/v1/skills/%s status=400 result=invalid_skill_id", skill_id)
         return JSONResponse(_error("INVALID_SKILL_ID", "Skill id contains invalid characters"), status_code=400)
     try:
-        skill = repository.get_skill(skill_id)
-        prompt = repository.get_prompt(skill_id) if include_prompt else None
+        skill, prompt = _get_skill_and_prompt(skill_id, include_prompt, mcp_key)
     except KeyError:
         logger.info("http_request path=/api/v1/skills/%s status=404", skill_id)
         return _not_found("Skill not found")
@@ -342,7 +379,9 @@ async def _api_get_skill_prompt(request: Request) -> JSONResponse:
         logger.info("http_request path=/api/v1/skills/%s/prompt status=400 result=invalid_skill_id", skill_id)
         return JSONResponse(_error("INVALID_SKILL_ID", "Skill id contains invalid characters"), status_code=400)
     try:
-        prompt = repository.get_prompt(skill_id)
+        _, prompt = _get_skill_and_prompt(skill_id, include_prompt=True)
+        if prompt is None:
+            prompt = ""
     except KeyError:
         logger.info("http_request path=/api/v1/skills/%s/prompt status=404", skill_id)
         return _not_found("Skill not found")
@@ -456,7 +495,7 @@ def _mcp_content_result(value: Any) -> dict[str, Any]:
     }
 
 
-def _handle_mcp_message(message: dict[str, Any]) -> dict[str, Any] | None:
+def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str, Any] | None:
     request_id = message.get("id")
     method = message.get("method")
     params = message.get("params") if isinstance(message.get("params"), dict) else {}
@@ -482,7 +521,9 @@ def _handle_mcp_message(message: dict[str, Any]) -> dict[str, Any] | None:
         tool_name = params.get("name")
         arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
         if tool_name == "list_skills":
-            return _json_rpc_result(request_id, _mcp_content_result(list_skills()))
+            return _json_rpc_result(request_id, _mcp_content_result(
+                [skill.to_dict() for skill in _all_skills(mcp_key)]
+            ))
         if tool_name == "list_skills_simple":
             return _json_rpc_result(request_id, _mcp_content_result(list_skills_simple()))
         if tool_name == "get_skill":
@@ -490,7 +531,19 @@ def _handle_mcp_message(message: dict[str, Any]) -> dict[str, Any] | None:
             include_prompt = arguments.get("include_prompt", True)
             if not isinstance(skill_id, str) or not isinstance(include_prompt, bool):
                 return _json_rpc_error(request_id, -32602, "Invalid get_skill arguments")
-            return _json_rpc_result(request_id, _mcp_content_result(get_skill(skill_id, include_prompt)))
+            if not repository.is_valid_skill_id(skill_id):
+                return _json_rpc_result(request_id, _mcp_content_result(
+                    _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
+                ))
+            try:
+                skill, prompt = _get_skill_and_prompt(skill_id, include_prompt, mcp_key)
+            except KeyError:
+                return _json_rpc_result(request_id, _mcp_content_result(
+                    _error("SKILL_NOT_FOUND", "Skill not found")
+                ))
+            return _json_rpc_result(request_id, _mcp_content_result(
+                skill.to_dict(include_prompt=include_prompt, prompt=prompt)
+            ))
         if tool_name == "health_check":
             return _json_rpc_result(request_id, _mcp_content_result(health_check()))
         if tool_name == "get_client_routing_instructions":
@@ -519,7 +572,8 @@ async def _mcp_streamable_http(request: Request) -> Response:
         logger.info("http_request path=/mcp method=POST status=400 result=invalid_message_shape")
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
-    responses = [response for message in messages if (response := _handle_mcp_message(message)) is not None]
+    mcp_key = request.headers.get("x-mcp-key", "")
+    responses = [response for message in messages if (response := _handle_mcp_message(message, mcp_key)) is not None]
     logger.info("http_request path=/mcp method=POST status=%s batch=%s", 200 if responses else 202, is_batch)
     if not responses:
         return Response(status_code=202)
