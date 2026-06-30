@@ -95,9 +95,20 @@ def _mcp_key_from_request(request: Request) -> str:
     mcp_key = request.headers.get("x-mcp-key", "")
     if mcp_key:
         return mcp_key
+    # Klienter som ChatGPT kan bara skicka en generisk Bearer-token, inte en egen
+    # X-MCP-Key-header. Vi accepterar därför workspace-nyckeln även via Authorization.
+    # OBS: om PROMPTBANKEN_MCP_API_KEY är satt agerar BearerAuthMiddleware som en
+    # global spärr på just Authorization — då är per-användarnyckel via Authorization
+    # ömsesidigt uteslutande med den globala nyckeln (se BearerAuthMiddleware och
+    # startvarningen i run_sse_async). Den globala nyckeln tolkas aldrig som en
+    # workspace-nyckel, så den skickas inte vidare som hash till Supabase.
     authorization = request.headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
-        return authorization[7:].strip()
+        token = authorization[7:].strip()
+        global_key = _api_key()
+        if global_key and token == global_key:
+            return ""
+        return token
     return ""
 
 
@@ -609,6 +620,11 @@ class OriginValidationMiddleware:
 
 
 class BearerAuthMiddleware:
+    # Global på/av-spärr för hela servern via PROMPTBANKEN_MCP_API_KEY. När den är
+    # satt krävs exakt "Bearer <global_nyckel>" på alla paths utom /healthz, vilket
+    # gör servern helt privat. OBS: detta är ömsesidigt uteslutande med per-användares
+    # workspace-nycklar som skickas via Authorization (se _mcp_key_from_request) —
+    # sätt inte den globala nyckeln om workspace-nycklar via Authorization ska funka.
     def __init__(self, app: Any) -> None:
         self.app = app
 
@@ -721,6 +737,12 @@ async def run_sse_async() -> None:
         SERVER_MODE,
         HOSTED_GUARD_MODE,
     )
+    if _api_key():
+        logger.warning(
+            "global_bearer_enabled PROMPTBANKEN_MCP_API_KEY ar satt: hela servern kraver "
+            "Bearer <global_nyckel> (utom /healthz). Per-anvandares workspace-nycklar via "
+            "Authorization slutar da fungera (se BearerAuthMiddleware). Lamna tom for oppet lage."
+        )
 
     config = uvicorn.Config(
         app,

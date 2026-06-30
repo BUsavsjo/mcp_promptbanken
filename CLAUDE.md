@@ -36,9 +36,11 @@ npm run serve          # HTTP på :8000, PROMPTBANKEN_MCP_MODE=hosted
 | `PROMPTBANKEN_MCP_MODE` | `hosted` (standard) eller `local` |
 | `SUPABASE_URL` | Supabase-projektets URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role-nyckel (aldrig i frontend) |
-| `PROMPTBANKEN_MCP_API_KEY` | Bearer-token för HTTP-endpointskydd |
+| `PROMPTBANKEN_MCP_API_KEY` | Global Bearer-token som låser hela servern (se varning nedan) |
 
 `PROMPTBANKEN_MCP_USER_KEY` används inte längre — nyckeln skickas per anrop av klienten.
+
+⚠️ **`PROMPTBANKEN_MCP_API_KEY` och workspace-nycklar är ömsesidigt uteslutande.** Är den satt kräver servern exakt `Bearer <global_nyckel>` på alla HTTP-endpoints utom `/healthz` (`BearerAuthMiddleware`), vilket gör hela servern privat. Då slutar per-användares workspace-nycklar som skickas via `Authorization: Bearer` att fungera, eftersom de inte matchar den globala nyckeln. Lämna variabeln **tom** för öppet läge (publika promptar öppet + workspace-prompts per `X-MCP-Key`/`Authorization`). Servern loggar en `global_bearer_enabled`-varning vid start om nyckeln är satt.
 
 ## Supabase-integration
 - MCP-nycklar lagras i `api_keys`-tabellen (i `promptbanken`-repot) med `scopes=['mcp']`
