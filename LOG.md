@@ -21,6 +21,7 @@
 - Mergade `feature-mcp-streamable` → `main` (fast-forward, `76611bd` → `9ddd0f7`) och pushade till GitHub.
 - På VPS:en (`mcp.promptbanken.se`, Caddy + Docker Compose v1 på `/home/wenstrompeter/mcp_promptbanken`): `git pull origin main`, satte upp `.env` med `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`, uppdaterade `/etc/caddy/Caddyfile` med routes för `/mcp`, `/api/v1/*`, `/openapi.json`, körde `docker-compose up -d --build`.
 - Verifierade live: `/healthz` (skills_count 21), `/api/v1/skills` (öppen), `/sse` + `/messages/*` (befintlig klient återanslöt automatiskt utan problem), `/mcp` POST `tools/list` (gav exakt de 5 hosted metadata-tools, inga lokala läckte ut).
+- Verifierade `/mcp` även från en riktig extern klient (ChatGPT) mot `https://mcp.promptbanken.se/mcp` utan nyckel — fungerar.
 - Hittade och fixade en stale dubblettklon av repot inuti sig självt på VPS:en (`mcp_promptbanken/mcp_promptbanken/`, otrackad, oanvänd av Docker Compose) — lämnad orörd, städning är ett separat TODO.
 - README hade fel i `SUPABASE_URL`-formatet under arbetet (en `/rest/v1/`-svans som skulle dubblera Supabase RPC-anropens path) — fångades och rättades innan rebuild.
 
