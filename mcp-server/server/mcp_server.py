@@ -92,7 +92,13 @@ mcp = FastMCP(
 
 
 def _mcp_key_from_request(request: Request) -> str:
-    return request.headers.get("x-mcp-key", "")
+    mcp_key = request.headers.get("x-mcp-key", "")
+    if mcp_key:
+        return mcp_key
+    authorization = request.headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return ""
 
 
 @mcp.tool()
@@ -348,7 +354,7 @@ def _not_found(message: str = "Not found") -> JSONResponse:
 
 async def _api_list_skills(request: Request) -> JSONResponse:
     logger.info("http_request path=/api/v1/skills status=200")
-    mcp_key = request.headers.get("x-mcp-key", "")
+    mcp_key = _mcp_key_from_request(request)
     return JSONResponse({"skills": [skill.to_dict() for skill in _all_skills(mcp_key)]})
 
 
@@ -360,7 +366,7 @@ async def _api_list_skills_simple(_: Request) -> JSONResponse:
 async def _api_get_skill(request: Request) -> JSONResponse:
     skill_id = request.path_params["skill_id"]
     include_prompt = request.query_params.get("include_prompt", "false").lower() == "true"
-    mcp_key = request.headers.get("x-mcp-key", "")
+    mcp_key = _mcp_key_from_request(request)
     if not repository.is_valid_skill_id(skill_id):
         logger.info("http_request path=/api/v1/skills/%s status=400 result=invalid_skill_id", skill_id)
         return JSONResponse(_error("INVALID_SKILL_ID", "Skill id contains invalid characters"), status_code=400)
@@ -572,7 +578,7 @@ async def _mcp_streamable_http(request: Request) -> Response:
         logger.info("http_request path=/mcp method=POST status=400 result=invalid_message_shape")
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
-    mcp_key = request.headers.get("x-mcp-key", "")
+    mcp_key = _mcp_key_from_request(request)
     responses = [response for message in messages if (response := _handle_mcp_message(message, mcp_key)) is not None]
     logger.info("http_request path=/mcp method=POST status=%s batch=%s", 200 if responses else 202, is_batch)
     if not responses:
