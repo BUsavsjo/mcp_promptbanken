@@ -108,12 +108,9 @@ def list_skills() -> list[dict[str, Any]]:
     return [skill.to_dict() for skill in _all_skills()]
 
 
-@mcp.tool()
-def list_skills_simple() -> dict[str, Any]:
-    """List Promptbanken skills grouped for a user-facing catalog view."""
-    logger.info("tool_call name=list_skills_simple")
+def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
     categories: dict[str, list[dict[str, Any]]] = {}
-    for skill in repository.list_skills():
+    for skill in _all_skills(mcp_key):
         categories.setdefault(skill.category, []).append(
             {
                 "id": skill.id,
@@ -142,6 +139,13 @@ def list_skills_simple() -> dict[str, Any]:
             ],
         },
     }
+
+
+@mcp.tool()
+def list_skills_simple() -> dict[str, Any]:
+    """List Promptbanken skills grouped for a user-facing catalog view."""
+    logger.info("tool_call name=list_skills_simple")
+    return _list_skills_simple_payload()
 
 
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
@@ -358,9 +362,9 @@ async def _api_list_skills(request: Request) -> JSONResponse:
     return JSONResponse({"skills": [skill.to_dict() for skill in _all_skills(mcp_key)]})
 
 
-async def _api_list_skills_simple(_: Request) -> JSONResponse:
+async def _api_list_skills_simple(request: Request) -> JSONResponse:
     logger.info("http_request path=/api/v1/skills/simple status=200")
-    return JSONResponse(list_skills_simple())
+    return JSONResponse(_list_skills_simple_payload(_mcp_key_from_request(request)))
 
 
 async def _api_get_skill(request: Request) -> JSONResponse:
@@ -531,7 +535,7 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                 [skill.to_dict() for skill in _all_skills(mcp_key)]
             ))
         if tool_name == "list_skills_simple":
-            return _json_rpc_result(request_id, _mcp_content_result(list_skills_simple()))
+            return _json_rpc_result(request_id, _mcp_content_result(_list_skills_simple_payload(mcp_key)))
         if tool_name == "get_skill":
             skill_id = arguments.get("skill_id")
             include_prompt = arguments.get("include_prompt", True)
