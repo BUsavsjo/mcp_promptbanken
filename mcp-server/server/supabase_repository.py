@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
+import unicodedata
 from typing import Any
 
 import httpx
@@ -80,16 +82,31 @@ def _get_workspace_prompts(workspace_id: str) -> list[dict[str, Any]]:
         return []
 
 
+def _slugify(text: str) -> str:
+    """Normaliserar svenska tecken (å/ä→a, ö→o) och gör texten till ett skill-id-säkert segment."""
+    decomposed = unicodedata.normalize("NFKD", text.strip().lower())
+    ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
+    slug = re.sub(r"[^a-z0-9]+", "_", ascii_text).strip("_")
+    return slug or "prompt"
+
+
+def _skill_id_for_item(item: dict[str, Any]) -> str:
+    """Bygger ett läsbart, stabilt skill-id från titel + kort uuid-suffix (för unikhet)."""
+    raw_id = str(item.get("id", ""))
+    suffix = raw_id.replace("-", "")[:4] or "0000"
+    slug = _slugify(item.get("title") or "prompt")[:30]
+    return f"workspace_{slug}_{suffix}"[:50]
+
+
 def _items_to_skills(items: list[dict[str, Any]]) -> list[Skill]:
     skills: list[Skill] = []
     for item in items:
-        raw_id = str(item.get("id", ""))[:50]
-        skill_id = raw_id.replace("-", "_")[:50]
-        if not skill_id:
+        raw_id = str(item.get("id", ""))
+        if not raw_id:
             continue
         skills.append(
             Skill(
-                id=skill_id,
+                id=_skill_id_for_item(item),
                 name=item.get("title", ""),
                 display_name=item.get("title", ""),
                 description=item.get("summary", ""),
@@ -106,6 +123,8 @@ def _items_to_skills(items: list[dict[str, Any]]) -> list[Skill]:
                 output_type="text",
                 language="sv-SE",
                 version="1.0.0",
+                source="workspace",
+                source_id=raw_id,
             )
         )
     return skills
@@ -141,10 +160,9 @@ class SupabaseRepository:
         """Returnerar prompttexten (body) för en workspace-skill, eller None."""
         if not self._resolve_workspace():
             return None
-        item_id = skill_id.replace("_", "-")
         items = _get_workspace_prompts(self._workspace_id)
         for item in items:
-            if str(item.get("id", "")) == item_id:
+            if _skill_id_for_item(item) == skill_id:
                 return item.get("content", "")
         return None
 

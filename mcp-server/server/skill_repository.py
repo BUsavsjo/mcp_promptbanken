@@ -33,6 +33,8 @@ class Skill:
     output_type: str
     language: str
     version: str
+    source: str = "public"
+    source_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Skill":
@@ -86,6 +88,8 @@ class Skill:
             "output_schema": self.output_schema(),
             "language": self.language,
             "version": self.version,
+            "source": self.source,
+            "source_id": self.source_id,
         }
         if include_prompt:
             result["prompt"] = prompt or ""
