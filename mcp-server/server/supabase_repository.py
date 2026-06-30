@@ -21,6 +21,7 @@ def _supabase_headers() -> dict[str, str]:
         "apikey": _SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {_SERVICE_ROLE_KEY}",
         "Content-Type": "application/json",
+        "Content-Profile": "app_private",
     }
 
 
