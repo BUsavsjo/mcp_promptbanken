@@ -1,5 +1,16 @@
 # Beslut
 
+## 2026-06-30 - Hosted-servern ska vara öppen utan global Bearer-nyckel
+
+### Beslut
+`PROMPTBANKEN_MCP_API_KEY` lämnas tom i produktions-`.env`. `/sse` och `/mcp` är därmed helt öppna utan Bearer-krav och visar Promptbankens publika prompts till vem som helst.
+
+### Skäl
+Avsedd produktdesign: ett helt öppet läge för de publika promptarna, och ett separat per-användarläge där en privat `X-MCP-Key`-header (inte den globala Bearer-nyckeln) lägger till användarens egna workspace-prompts. De två mekanismerna är oberoende — `PROMPTBANKEN_MCP_API_KEY` är ett globalt på/av-skydd för hela servern, `X-MCP-Key` är en per-anrops-identifierare mot Supabase.
+
+### Konsekvens
+Alla HTTP-endpoints utom `/healthz` är nåbara utan autentisering så länge `PROMPTBANKEN_MCP_API_KEY` är tom. Om servern någon gång ska låsas ned helt (t.ex. vid missbruk) är vägen dit att sätta ett värde där — men det måste kommuniceras till alla klienter i förväg eftersom det då blir ett krav överallt utom `/healthz`, inte bara för workspace-funktionen.
+
 ## 2026-06-30 - README ska beskriva RPC-baserad Supabase-integration, inte tabellbaserad
 
 ### Beslut
