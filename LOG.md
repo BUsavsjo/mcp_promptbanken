@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-07-01
+
+### Gjort
+- Säkrade upp Supabase-åtkomsten: service-role-nyckeln (bypassar RLS helt, läs/skriv på alla tabeller) ersatt med en dedikerad Postgres-roll `mcp_server` som bara får `execute` på `app_private.verify_mcp_key` och `app_private.get_workspace_prompts` — inget annat.
+- Ny migration `promptbanken/supabase/migrations/20260701_mcp_server_role.sql`: skapar rollen, ger `usage` på `app_private`-schemat och `execute` på de två funktionerna, samt `grant mcp_server to authenticator` så PostgREST kan växla roll. Rent additiv, rör inga befintliga rättigheter för `anon`/`authenticated`/`public` — verifierat att promptbankens frontend (anon/publishable-nyckel, RPC `ensure_personal_workspace`, tabellerna `content_items`/`api_keys` via RLS) inte berörs alls.
+- Upptäckte under testning att Supabase har två separata auktoriseringslager: `apikey`-headern valideras av gatewayen (Kong) mot projektets kända nycklar (`anon`/`service_role`) och känner inte till anpassade roller, medan `Authorization: Bearer` är det PostgREST läser `role`-claim från för att välja Postgres-roll. Löst genom att skicka `SUPABASE_ANON_KEY` (publik, ofarlig) i `apikey` och en egen `mcp_server`-signerad JWT (`SUPABASE_MCP_ROLE_JWT`) i `Authorization`.
+- Uppdaterade `supabase_repository.py`, `docker-compose.yml` och `CLAUDE.md` att använda de nya env-variablerna istället för `SUPABASE_SERVICE_ROLE_KEY`. Committat och pushat till `main` (`a9304b4`).
+- Verifierat end-to-end i produktion: byggde om och startade om containern på VPS:en, curl mot `/mcp` med en riktig `X-MCP-Key` gav 23 skills totalt (21 publika + 2 workspace-prompts), containerloggarna visade `200 OK` på båda RPC-anropen.
+
+### Frågetecken/kvarstående
+- JWT-secreten (från Dashboard → Settings → API) stod i klartext i en chattsession under detta arbetspass — inte roterad än, se `TODO.md`.
+- Den gamla `SUPABASE_SERVICE_ROLE_KEY`-raden i `.env` på VPS:en bör tas bort helt om den inte redan är det (ersatt av de två nya variablerna).
+
+### Kringgått verktygsproblem
+- `docker-compose up -d --force-recreate` (och även vanlig `up -d --build` vid recreate) kraschar med `KeyError: 'ContainerConfig'` på denna VPS — känd bugg i standalone `docker-compose` 1.29.2 mot images byggda med senare BuildKit-metadata. Kringgås med `docker-compose stop <tjänst> && docker-compose rm -f <tjänst> && docker-compose up -d <tjänst>` istället för `--force-recreate`.
+- VPS:en har bara den äldre standalone `docker-compose` (bindestreck), inte `docker compose`-pluginet (mellanslag) — se [[project_vps_docker_compose_version]].
+
 ## 2026-06-30
 
 ### Gjort
