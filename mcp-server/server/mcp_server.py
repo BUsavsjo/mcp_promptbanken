@@ -57,6 +57,20 @@ def _all_skills(mcp_key: str = ""):
     return skills
 
 
+_WORKSPACE_STATUS_MESSAGES = {
+    "invalid_key": "API-nyckeln är ogiltig eller återkallad. Endast publika mallar visas.",
+}
+
+
+def _add_workspace_status(payload: dict[str, Any], workspace_status: str | None) -> dict[str, Any]:
+    if workspace_status is not None:
+        payload["workspace_status"] = workspace_status
+        message = _WORKSPACE_STATUS_MESSAGES.get(workspace_status)
+        if message:
+            payload["workspace_message"] = message
+    return payload
+
+
 def _get_skill_and_prompt(skill_id: str, include_prompt: bool, mcp_key: str = ""):
     """Hämtar skill + prompt från statisk repo eller Supabase-repo."""
     try:
@@ -166,9 +180,7 @@ def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
             ],
         },
     }
-    if workspace_status is not None:
-        payload["workspace_status"] = workspace_status
-    return payload
+    return _add_workspace_status(payload, workspace_status)
 
 
 @mcp.tool()
@@ -391,9 +403,7 @@ async def _api_list_skills(request: Request) -> JSONResponse:
     mcp_key = _mcp_key_from_request(request)
     skills, workspace_status = _resolve_all_skills(mcp_key)
     payload: dict[str, Any] = {"skills": [skill.to_dict() for skill in skills]}
-    if workspace_status is not None:
-        payload["workspace_status"] = workspace_status
-    return JSONResponse(payload)
+    return JSONResponse(_add_workspace_status(payload, workspace_status))
 
 
 async def _api_list_skills_simple(request: Request) -> JSONResponse:
