@@ -88,14 +88,14 @@ Free-plan tillåter max en aktiv nyckel per workspace.
 - Servern hashar nyckeln (sha256) och verifierar den via RPC:n `app_private.verify_mcp_key`.
 - Om nyckeln är giltig hämtas aktiva prompts för workspacet via RPC:n `app_private.get_workspace_prompts`.
 - Workspace-skills läggs sist i `list_skills`-svaret, märkta med `"category": "Arbetsyta"`.
-- Om nyckeln saknas eller är ogiltig returneras ett tydligt fel och inga workspace-skills visas.
+- Om nyckeln saknas eller är ogiltig (inklusive återkallad) visas inga workspace-skills, men de publika skillsen visas alltid — katalogen blockeras aldrig helt.
+- `list_skills_simple` och REST-endpointen `GET /api/v1/skills` inkluderar då ett fält `"workspace_status": "invalid_key"` så att klienten kan informera användaren om att nyckeln inte fungerar, istället för att det tyst ser ut som att inga privata prompts finns. Skickas ingen nyckel alls utelämnas fältet helt (oförändrat beteende).
+- RPC:n `verify_mcp_key` skiljer idag inte på orsak (saknad/återkallad/inaktiverat workspace) — `workspace_status` är därför generisk (`invalid_key`), inte `revoked_key` specifikt. Se `TODO.md` för en eventuell utökning av RPC:n.
 - Statiska skills fungerar alltid, oavsett om Supabase-integration är konfigurerad.
 
 ### Supabase-migration
 
 RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte detta repo. Migrationen ligger där under `supabase/migrations/20240629_mcp_rpc_functions.sql`.
-
-`supabase/migrations/20240629_create_mcp_keys.sql` i det här repot är en äldre, ej använd migration (tabellen `mcp_keys` ersattes av RPC-baserad nyckelverifiering). Den ska inte köras.
 
 ## Data och integritet
 

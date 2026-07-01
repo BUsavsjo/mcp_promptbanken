@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import time
@@ -34,12 +35,26 @@ def _supabase_repo_for_key(mcp_key: str) -> SupabaseRepository | None:
     return SupabaseRepository(mcp_key)
 
 
-def _all_skills(mcp_key: str = ""):
+def _resolve_all_skills(mcp_key: str = ""):
+    """Returnerar (alla skills, workspace_status).
+
+    workspace_status är None om ingen mcp_key skickades (rent publikt anrop),
+    "ok" om nyckeln matchade ett aktivt workspace, annars "invalid_key" —
+    vilket också täcker återkallade nycklar (RPC:n skiljer inte ut orsaken,
+    se SupabaseRepository.key_is_valid).
+    """
     static = repository.list_skills()
     repo = _supabase_repo_for_key(mcp_key)
     if repo is None:
-        return static
-    return static + repo.list_skills()
+        return static, None
+    workspace_skills = repo.list_skills()
+    workspace_status = "ok" if repo.key_is_valid() else "invalid_key"
+    return static + workspace_skills, workspace_status
+
+
+def _all_skills(mcp_key: str = ""):
+    skills, _ = _resolve_all_skills(mcp_key)
+    return skills
 
 
 def _get_skill_and_prompt(skill_id: str, include_prompt: bool, mcp_key: str = ""):
@@ -106,7 +121,7 @@ def _mcp_key_from_request(request: Request) -> str:
     if authorization.lower().startswith("bearer "):
         token = authorization[7:].strip()
         global_key = _api_key()
-        if global_key and token == global_key:
+        if global_key and hmac.compare_digest(token, global_key):
             return ""
         return token
     return ""
@@ -120,8 +135,9 @@ def list_skills() -> list[dict[str, Any]]:
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
+    all_skills, workspace_status = _resolve_all_skills(mcp_key)
     categories: dict[str, list[dict[str, Any]]] = {}
-    for skill in _all_skills(mcp_key):
+    for skill in all_skills:
         categories.setdefault(skill.category, []).append(
             {
                 "id": skill.id,
@@ -132,7 +148,7 @@ def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
                 "example_phrases": skill.example_phrases,
             }
         )
-    return {
+    payload: dict[str, Any] = {
         "title": "Vad vill du göra?",
         "categories": [
             {
@@ -150,6 +166,9 @@ def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
             ],
         },
     }
+    if workspace_status is not None:
+        payload["workspace_status"] = workspace_status
+    return payload
 
 
 @mcp.tool()
@@ -370,7 +389,11 @@ def _not_found(message: str = "Not found") -> JSONResponse:
 async def _api_list_skills(request: Request) -> JSONResponse:
     logger.info("http_request path=/api/v1/skills status=200")
     mcp_key = _mcp_key_from_request(request)
-    return JSONResponse({"skills": [skill.to_dict() for skill in _all_skills(mcp_key)]})
+    skills, workspace_status = _resolve_all_skills(mcp_key)
+    payload: dict[str, Any] = {"skills": [skill.to_dict() for skill in skills]}
+    if workspace_status is not None:
+        payload["workspace_status"] = workspace_status
+    return JSONResponse(payload)
 
 
 async def _api_list_skills_simple(request: Request) -> JSONResponse:
@@ -633,7 +656,7 @@ class BearerAuthMiddleware:
         if scope.get("type") == "http" and token and scope.get("path") != "/healthz":
             headers = dict(scope.get("headers") or [])
             authorization = headers.get(b"authorization", b"").decode("utf-8")
-            if authorization != f"Bearer {token}":
+            if not hmac.compare_digest(authorization, f"Bearer {token}"):
                 logger.warning("auth_denied path=%s", scope.get("path"))
                 response = JSONResponse({"detail": "Unauthorized"}, status_code=401)
                 await response(scope, receive, send)

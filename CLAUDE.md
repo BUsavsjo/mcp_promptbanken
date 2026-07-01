@@ -11,16 +11,16 @@ MCP-server (FastMCP/Python, stdio + HTTP/SSE) som exponerar kommunala promptmall
 ```
 mcp-server/
   server/
-    mcp_server.py          # FastMCP-app, tools, HTTP-routes
+    mcp_server.py          # FastMCP-app, tools, HTTP-routes, repo/router/risk_checker instansieras på modulnivå
     http_server.py         # Entrypoint för legacy SSE (kör run_sse() från mcp_server)
-    skill_repository.py    # Skill-dataclass + statisk repo (skills.json + prompts/*.txt)
+    skill_repository.py    # Skill-dataclass + statisk repo (skills.json + prompts/*.txt), SKILL_ID_PATTERN
     skill_router.py        # Term/roll/audience-scoring
-    supabase_repository.py # Workspace-skills från Supabase (httpx, service-role via RPC)
+    supabase_repository.py # Workspace-skills från Supabase (httpx, mcp_server-roll via RPC)
     risk_checker.py        # Personuppgiftsmönster-kontroll
     hosted_guard.py        # Metadata-only-guard för hosted-läge
   scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
-  skills.json              # Skill-katalog
-  prompts/                 # Promptmallar (.txt)
+  skills.json              # Skill-katalog (21 skills, se README.md för aktuell lista av skill-id)
+  prompts/                 # Promptmallar (.txt), en per skill-id
   requirements.txt
 docker-compose.yml         # Produktionsdrift på VPS
 docs/add-new-prompt.md     # Guide för att lägga till en ny skill/prompt
@@ -29,6 +29,8 @@ docs/add-new-prompt.md     # Guide för att lägga till en ny skill/prompt
 .agents/
   skills/                  # Agent-skills (supabase, postgres-best-practices)
 ```
+
+Både repo-roten och `mcp-server/` har egna `package.json` med samma script-namn (`dev`, `serve`, `setup:python`, `check:python`) — kör alltid från repo-roten; rotens scripts anropar bara filerna i `mcp-server/scripts/`.
 
 ## Körning
 ```powershell
@@ -66,7 +68,7 @@ Inga automatiserade tester finns i repot ännu — verifiera ändringar manuellt
 - Workspace-skills hämtas via `app_private.get_workspace_prompts(p_workspace_id)` — RPC via `mcp_server`
 - Sha256-hash av rånyckeln skickas till RPC, aldrig rånyckeln
 - Migrationerna ligger i `promptbanken`-repot: `supabase/migrations/20240629_mcp_rpc_functions.sql`, `supabase/migrations/20260701_mcp_server_role.sql`
-- `mcp_keys`-tabellen används inte — ignorera eventuell gammal migration med det namnet
+- `mcp_keys`-tabellen används inte och finns inte längre som migration i det här repot (den stale filen `supabase/migrations/20240629_create_mcp_keys.sql` togs bort 2026-07-01)
 
 ### Rollen `mcp_server` (ersätter service-role)
 Service-role bypassar RLS helt och ger läs/skriv på alla tabeller — för mycket åtkomst för en server som bara ska anropa två RPC:er. Istället finns en dedikerad Postgres-roll `mcp_server` (skapad av `20260701_mcp_server_role.sql`) som **bara** har `execute` på `verify_mcp_key`/`get_workspace_prompts`, inget annat.

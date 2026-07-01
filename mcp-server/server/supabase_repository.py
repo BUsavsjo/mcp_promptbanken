@@ -154,6 +154,15 @@ class SupabaseRepository:
         self._resolved = True
         return True
 
+    def key_is_valid(self) -> bool:
+        """Om nyckeln matchar en aktiv, orevocerad mcp-nyckel med ett aktiverat workspace.
+
+        RPC:n verify_mcp_key ger samma tomma resultat oavsett om nyckeln saknas,
+        är återkallad eller om workspacet är inaktiverat, så det går inte att
+        skilja ut exakt orsak härifrån (se TODO.md).
+        """
+        return self._resolve_workspace()
+
     def list_skills(self) -> list[Skill]:
         if not self._resolve_workspace():
             return []
