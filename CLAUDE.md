@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Promptbanken MCP — Claude Code-instruktioner
 
 ## Projekt
@@ -8,15 +12,18 @@ MCP-server (FastMCP/Python, stdio + HTTP/SSE) som exponerar kommunala promptmall
 mcp-server/
   server/
     mcp_server.py          # FastMCP-app, tools, HTTP-routes
+    http_server.py         # Entrypoint för legacy SSE (kör run_sse() från mcp_server)
     skill_repository.py    # Skill-dataclass + statisk repo (skills.json + prompts/*.txt)
     skill_router.py        # Term/roll/audience-scoring
     supabase_repository.py # Workspace-skills från Supabase (httpx, service-role via RPC)
     risk_checker.py        # Personuppgiftsmönster-kontroll
     hosted_guard.py        # Metadata-only-guard för hosted-läge
+  scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
   skills.json              # Skill-katalog
   prompts/                 # Promptmallar (.txt)
   requirements.txt
 docker-compose.yml         # Produktionsdrift på VPS
+docs/add-new-prompt.md     # Guide för att lägga till en ny skill/prompt
 .claude/
   settings.json            # MCP-serverkonfiguration (Supabase MCP, lokalt)
 .agents/
@@ -28,14 +35,25 @@ docker-compose.yml         # Produktionsdrift på VPS
 npm run setup:python   # installera Python-beroenden
 npm run dev            # stdio, PROMPTBANKEN_MCP_MODE=local
 npm run serve          # HTTP på :8000, PROMPTBANKEN_MCP_MODE=hosted
+npm run check:python   # verifiera Python-miljön
+npm run logs:summary   # sammanfatta Docker-loggar (tool-anrop, SSE, health checks)
 ```
+
+Docker (produktion):
+```powershell
+docker compose up -d --build
+docker compose logs -f --tail=100 promptbanken-mcp
+```
+
+Inga automatiserade tester finns i repot ännu — verifiera ändringar manuellt via `npm run dev`/`npm run serve` och `/healthz`.
 
 ## Viktiga miljövariabler
 | Variabel | Syfte |
 |---|---|
 | `PROMPTBANKEN_MCP_MODE` | `hosted` (standard) eller `local` |
 | `SUPABASE_URL` | Supabase-projektets URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service-role-nyckel (aldrig i frontend) |
+| `SUPABASE_ANON_KEY` | Publik anon-nyckel — krävs i `apikey`-headern för att passera Kong-gatewayen, avslöjar ingen behörighet i sig |
+| `SUPABASE_MCP_ROLE_JWT` | Egen JWT signerad för rollen `mcp_server` (se nedan) — skickas som `Authorization: Bearer`, styr vilken Postgres-roll RPC-anropen kör som |
 | `PROMPTBANKEN_MCP_API_KEY` | Global Bearer-token som låser hela servern (se varning nedan) |
 
 `PROMPTBANKEN_MCP_USER_KEY` används inte längre — nyckeln skickas per anrop av klienten.
@@ -44,11 +62,20 @@ npm run serve          # HTTP på :8000, PROMPTBANKEN_MCP_MODE=hosted
 
 ## Supabase-integration
 - MCP-nycklar lagras i `api_keys`-tabellen (i `promptbanken`-repot) med `scopes=['mcp']`
-- Nyckelverifiering sker via `app_private.verify_mcp_key(p_key_hash)` — RPC med service-role
-- Workspace-skills hämtas via `app_private.get_workspace_prompts(p_workspace_id)` — RPC med service-role
+- Nyckelverifiering sker via `app_private.verify_mcp_key(p_key_hash)` — RPC via den begränsade rollen `mcp_server`
+- Workspace-skills hämtas via `app_private.get_workspace_prompts(p_workspace_id)` — RPC via `mcp_server`
 - Sha256-hash av rånyckeln skickas till RPC, aldrig rånyckeln
-- Migrationerna ligger i `promptbanken`-repot: `supabase/migrations/20240629_mcp_rpc_functions.sql`
+- Migrationerna ligger i `promptbanken`-repot: `supabase/migrations/20240629_mcp_rpc_functions.sql`, `supabase/migrations/20260701_mcp_server_role.sql`
 - `mcp_keys`-tabellen används inte — ignorera eventuell gammal migration med det namnet
+
+### Rollen `mcp_server` (ersätter service-role)
+Service-role bypassar RLS helt och ger läs/skriv på alla tabeller — för mycket åtkomst för en server som bara ska anropa två RPC:er. Istället finns en dedikerad Postgres-roll `mcp_server` (skapad av `20260701_mcp_server_role.sql`) som **bara** har `execute` på `verify_mcp_key`/`get_workspace_prompts`, inget annat.
+
+Supabase har två separata auktoriseringslager, vilket kräver två olika nycklar i `.env`:
+- **`apikey`-headern** valideras av gatewayen (Kong) mot projektets kända nycklar (`anon`/`service_role`) — den känner inte till anpassade roller. Här skickas `SUPABASE_ANON_KEY` (publik, ofarlig att exponera).
+- **`Authorization: Bearer`-headern** läses av PostgREST för att avgöra vilken Postgres-roll anropet ska köra som (`role`-claim i JWT:n). Här skickas `SUPABASE_MCP_ROLE_JWT` — en JWT signerad med projektets JWT-secret och `role: "mcp_server"`.
+
+Blir VPS:en/containern komprometterad kan angriparen bara anropa de två RPC-funktionerna med en hash — inte dumpa `content_items`, `api_keys` eller andra tabeller.
 
 ## Nyckelhantering per anrop
 Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
@@ -64,7 +91,9 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 ```
 - `/mcp` (Streamable HTTP) — stöder `X-MCP-Key`, returnerar statiska + workspace-skills
 - `/sse` (SSE, legacy) — returnerar bara de 16 statiska promptarna, ingen nyckelstöd
-- `/api/v1/skills` — stöder `X-MCP-Key`
+- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions` — read-only REST-yta, stöder `X-MCP-Key`
+
+`_mcp_key_from_request()` (`mcp_server.py`) läser `X-MCP-Key` först; saknas den provas `Authorization: Bearer <token>` som fallback (för klienter som ChatGPT som bara kan skicka en generisk Bearer-token). Matchar token den globala `PROMPTBANKEN_MCP_API_KEY` tolkas den INTE som workspace-nyckel — den skickas aldrig vidare som hash till Supabase.
 
 ## Driftlägen
 - **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit
@@ -78,6 +107,9 @@ Läs dessa innan större ändringar:
 - `DECISIONS.md` — fattade vägvalsbeslut
 
 Uppdatera alltid `TODO.md`, `LOG.md` och `DECISIONS.md` efter ett arbetspass.
+
+## Ny skill/prompt
+Följ `docs/add-new-prompt.md` när en ny prompt läggs till i `skills.json`/`prompts/`.
 
 ## Konventioner
 - Dokumentation på **svenska**

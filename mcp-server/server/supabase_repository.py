@@ -15,13 +15,18 @@ from .skill_repository import Skill
 logger = logging.getLogger("promptbanken_mcp.supabase")
 
 _SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+_MCP_ROLE_JWT = os.getenv("SUPABASE_MCP_ROLE_JWT", "")
 
 
 def _supabase_headers() -> dict[str, str]:
+    # apikey måste vara en av Supabase-gatewayens (Kong) kända projektnycklar
+    # (anon/service_role) för att passera — den känner inte till anpassade
+    # roller. Authorization är det PostgREST läser role-claim från och byter
+    # Postgres-roll (mcp_server) utifrån, så den begränsade rollen räcker där.
     return {
-        "apikey": _SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {_SERVICE_ROLE_KEY}",
+        "apikey": _ANON_KEY,
+        "Authorization": f"Bearer {_MCP_ROLE_JWT}",
         "Content-Type": "application/json",
         "Content-Profile": "app_private",
     }
@@ -33,8 +38,8 @@ def _hash_key(raw_key: str) -> str:
 
 def _verify_mcp_key(raw_key: str) -> dict[str, str] | None:
     """Verifierar MCP-nyckeln via RPC och returnerar {workspace_id, plan, workspace_type} om giltig."""
-    if not _SUPABASE_URL or not _SERVICE_ROLE_KEY:
-        logger.warning("supabase_not_configured SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing")
+    if not _SUPABASE_URL or not _ANON_KEY or not _MCP_ROLE_JWT:
+        logger.warning("supabase_not_configured SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_MCP_ROLE_JWT missing")
         return None
 
     key_hash = _hash_key(raw_key)
@@ -168,4 +173,4 @@ class SupabaseRepository:
 
     @property
     def is_configured(self) -> bool:
-        return bool(self._mcp_api_key and _SUPABASE_URL and _SERVICE_ROLE_KEY)
+        return bool(self._mcp_api_key and _SUPABASE_URL and _ANON_KEY and _MCP_ROLE_JWT)
