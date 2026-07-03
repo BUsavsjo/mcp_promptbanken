@@ -142,6 +142,8 @@ class SupabaseRepository:
         self._mcp_api_key = mcp_api_key
         self._workspace_id: str | None = None
         self._resolved: bool | None = None
+        self._plan: str | None = None
+        self._workspace_type: str | None = None
 
     def _resolve_workspace(self) -> bool:
         if self._resolved is not None:
@@ -151,6 +153,8 @@ class SupabaseRepository:
             self._resolved = False
             return False
         self._workspace_id = result["workspace_id"]
+        self._plan = result.get("plan")
+        self._workspace_type = result.get("workspace_type")
         self._resolved = True
         return True
 
@@ -162,6 +166,12 @@ class SupabaseRepository:
         skilja ut exakt orsak härifrån (se TODO.md).
         """
         return self._resolve_workspace()
+
+    @property
+    def plan(self) -> str | None:
+        """Rå plan-etikett ('free'/'pro') från verify_mcp_key, eller None om nyckeln inte är giltig."""
+        self._resolve_workspace()
+        return self._plan
 
     def list_skills(self) -> list[Skill]:
         if not self._resolve_workspace():
