@@ -94,13 +94,15 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 ```
 - `/mcp` (Streamable HTTP) — stöder `X-MCP-Key`, returnerar statiska + workspace-skills
 - `/sse` (SSE, legacy) — returnerar bara de 16 statiska promptarna, ingen nyckelstöd
-- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions`, `/api/v1/pro-templates` — read-only REST-yta, stöder `X-MCP-Key`
+- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions`, `/api/v1/pro-templates`, `/api/v1/my-prompts` — read-only REST-yta, stöder `X-MCP-Key`
 
 `list_pro_templates`-tool/`GET /api/v1/pro-templates` anropar RPC:n `get_pro_templates_for_mcp_key` (beviljad direkt till `anon` i `promptbanken`-repot — nyckelhashen är i sig beviset på behörighet, samma modell som `verify_mcp_key`). Kräver bara `SUPABASE_URL`/`SUPABASE_ANON_KEY`, ingen `mcp_server`-roll/JWT. Utan nyckel eller utan aktiv Pro-plan returneras en teaser (`prompt_text: null` per mall).
 
 `_mcp_key_from_request()` (`mcp_server.py`) läser `X-MCP-Key` först; saknas den provas `Authorization: Bearer <token>` som fallback (för klienter som ChatGPT som bara kan skicka en generisk Bearer-token). Matchar token den globala `PROMPTBANKEN_MCP_API_KEY` tolkas den INTE som workspace-nyckel — den skickas aldrig vidare som hash till Supabase.
 
 `health_check` (REST `/healthz` och MCP-verktyget) läser samma nyckel och svarar alltid med `catalog`/`plan`/`message` (`public`/`free`/`pro`, se README). Ingen extra Supabase-anrop görs om ingen nyckel skickas — `/healthz` utan nyckel (t.ex. Dockers healthcheck) är lika snabb som innan.
+
+`list_my_prompts`/`GET /api/v1/my-prompts` filtrerar `_resolve_all_skills(mcp_key)` på `skill.source == "workspace"` — löser att personliga prompts annars bara syns blandade in i `list_skills`/`list_skills_simple` utan egen ingång, vilket gjorde dem osynliga för MCP-klienter (t.ex. ChatGPT) som inte känner till `source`-fältet.
 
 ## Driftlägen
 - **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit

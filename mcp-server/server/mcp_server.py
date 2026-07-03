@@ -208,6 +208,50 @@ def list_skills_simple() -> dict[str, Any]:
     return _list_skills_simple_payload()
 
 
+_MY_PROMPTS_NO_KEY_MESSAGE = (
+    "Ingen MCP-nyckel skickades. Autentisera med din personliga X-MCP-Key för att se dina sparade prompts."
+)
+
+
+def _my_prompts_payload(mcp_key: str = "") -> dict[str, Any]:
+    """Listar bara den anropande nyckelns egna sparade prompts (source == 'workspace'),
+    till skillnad från list_skills/list_skills_simple som blandar in dem bland de publika
+    mallarna. Löser att MCP-klienter inte hittar "mina prompts" utan att känna till
+    source-fältet eller workspace_-id-prefixet."""
+    if not mcp_key:
+        return {
+            "workspace_status": "no_key",
+            "workspace_message": _MY_PROMPTS_NO_KEY_MESSAGE,
+            "prompts": [],
+        }
+    all_skills, workspace_status = _resolve_all_skills(mcp_key)
+    my_skills = [skill for skill in all_skills if skill.source == "workspace"]
+    payload: dict[str, Any] = {
+        "prompts": [
+            {
+                "id": skill.id,
+                "display_name": skill.display_name,
+                "description": skill.description,
+                "category": skill.category,
+                "risk_level": skill.risk_level,
+                "risk_message": skill.risk_message,
+            }
+            for skill in my_skills
+        ],
+    }
+    return _add_workspace_status(payload, workspace_status)
+
+
+@mcp.tool()
+def list_my_prompts() -> dict[str, Any]:
+    """List only the caller's own saved prompts from their Promptbanken workspace
+    (not the public standard templates or Pro premium templates). Requires a valid
+    MCP key; without one, or with an invalid/revoked key, returns an empty list and
+    an explanatory workspace_status/workspace_message."""
+    logger.info("tool_call name=list_my_prompts")
+    return _my_prompts_payload()
+
+
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
     return {
         "error": {
@@ -515,6 +559,12 @@ async def _api_pro_templates(request: Request) -> JSONResponse:
     return JSONResponse(_pro_templates_payload(mcp_key))
 
 
+async def _api_my_prompts(request: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/my-prompts status=200")
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_my_prompts_payload(mcp_key))
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -552,6 +602,12 @@ def _openapi_schema() -> dict[str, Any]:
             "/api/v1/pro-templates": {
                 "get": {
                     "summary": "List Promptbanken Pro premium templates (teaser unless the MCP key has an active Pro plan)",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/my-prompts": {
+                "get": {
+                    "summary": "List only the caller's own saved prompts (requires a valid MCP key)",
                     "responses": {"200": {"description": "OK"}},
                 }
             },
@@ -608,6 +664,14 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "description": (
                 "List Promptbanken Pro premium templates. Full prompt text is only included if the "
                 "MCP key belongs to a workspace with an active Pro plan, otherwise a teaser is returned."
+            ),
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_my_prompts",
+            "description": (
+                "List only the caller's own saved prompts from their Promptbanken workspace "
+                "(not the public standard templates or Pro premium templates). Requires a valid MCP key."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
@@ -685,6 +749,8 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
         if tool_name == "list_pro_templates":
             return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
+        if tool_name == "list_my_prompts":
+            return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
 
@@ -841,6 +907,7 @@ async def run_sse_async() -> None:
             Route("/api/v1/skills/{skill_id}/prompt", endpoint=_api_get_skill_prompt),
             Route("/api/v1/routing-instructions", endpoint=_api_routing_instructions),
             Route("/api/v1/pro-templates", endpoint=_api_pro_templates),
+            Route("/api/v1/my-prompts", endpoint=_api_my_prompts),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
