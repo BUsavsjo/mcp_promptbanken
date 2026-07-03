@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
+from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -146,6 +147,23 @@ def list_skills() -> list[dict[str, Any]]:
     """List all Promptbanken skills with metadata, excluding full prompt text."""
     logger.info("tool_call name=list_skills")
     return [skill.to_dict() for skill in _all_skills()]
+
+
+def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
+    templates = _fetch_pro_templates(mcp_key)
+    return {
+        "unlocked": bool(templates) and all(t.get("is_unlocked") for t in templates),
+        "templates": templates,
+    }
+
+
+@mcp.tool()
+def list_pro_templates() -> dict[str, Any]:
+    """List Promptbanken Pro premium templates. Full prompt text is only
+    included if the MCP key belongs to a workspace with an active Pro plan --
+    otherwise a teaser (title/syfte/output only) is returned for each template."""
+    logger.info("tool_call name=list_pro_templates")
+    return _pro_templates_payload()
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -448,6 +466,12 @@ async def _api_routing_instructions(_: Request) -> JSONResponse:
     return JSONResponse(get_client_routing_instructions())
 
 
+async def _api_pro_templates(request: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/pro-templates status=200")
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_pro_templates_payload(mcp_key))
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -481,6 +505,12 @@ def _openapi_schema() -> dict[str, Any]:
             },
             "/api/v1/routing-instructions": {
                 "get": {"summary": "Get client routing instructions", "responses": {"200": {"description": "OK"}}}
+            },
+            "/api/v1/pro-templates": {
+                "get": {
+                    "summary": "List Promptbanken Pro premium templates (teaser unless the MCP key has an active Pro plan)",
+                    "responses": {"200": {"description": "OK"}},
+                }
             },
             "/mcp": {
                 "post": {"summary": "MCP Streamable HTTP endpoint", "responses": {"200": {"description": "JSON-RPC response"}}},
@@ -528,6 +558,14 @@ def _tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "get_client_routing_instructions",
             "description": "Return instructions for client-side skill routing without sending user text to the MCP server.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_pro_templates",
+            "description": (
+                "List Promptbanken Pro premium templates. Full prompt text is only included if the "
+                "MCP key belongs to a workspace with an active Pro plan, otherwise a teaser is returned."
+            ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
     ]
@@ -602,6 +640,8 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(health_check()))
         if tool_name == "get_client_routing_instructions":
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
+        if tool_name == "list_pro_templates":
+            return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
 
@@ -757,6 +797,7 @@ async def run_sse_async() -> None:
             Route("/api/v1/skills/{skill_id}", endpoint=_api_get_skill),
             Route("/api/v1/skills/{skill_id}/prompt", endpoint=_api_get_skill_prompt),
             Route("/api/v1/routing-instructions", endpoint=_api_routing_instructions),
+            Route("/api/v1/pro-templates", endpoint=_api_pro_templates),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),

@@ -22,12 +22,14 @@ class HostedMetadataGuard:
             "get_skill",
             "health_check",
             "get_client_routing_instructions",
+            "list_pro_templates",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
             "list_skills_simple": set(),
             "health_check": set(),
             "get_client_routing_instructions": set(),
+            "list_pro_templates": set(),
             "get_skill": {"skill_id", "include_prompt"},
         }
 

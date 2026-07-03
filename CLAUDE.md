@@ -16,6 +16,7 @@ mcp-server/
     skill_repository.py    # Skill-dataclass + statisk repo (skills.json + prompts/*.txt), SKILL_ID_PATTERN
     skill_router.py        # Term/roll/audience-scoring
     supabase_repository.py # Workspace-skills från Supabase (httpx, mcp_server-roll via RPC)
+    pro_templates.py        # Pro-mallar via anon-beviljad RPC get_pro_templates_for_mcp_key (httpx)
     risk_checker.py        # Personuppgiftsmönster-kontroll
     hosted_guard.py        # Metadata-only-guard för hosted-läge
   scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
@@ -93,7 +94,9 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 ```
 - `/mcp` (Streamable HTTP) — stöder `X-MCP-Key`, returnerar statiska + workspace-skills
 - `/sse` (SSE, legacy) — returnerar bara de 16 statiska promptarna, ingen nyckelstöd
-- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions` — read-only REST-yta, stöder `X-MCP-Key`
+- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions`, `/api/v1/pro-templates` — read-only REST-yta, stöder `X-MCP-Key`
+
+`list_pro_templates`-tool/`GET /api/v1/pro-templates` anropar RPC:n `get_pro_templates_for_mcp_key` (beviljad direkt till `anon` i `promptbanken`-repot — nyckelhashen är i sig beviset på behörighet, samma modell som `verify_mcp_key`). Kräver bara `SUPABASE_URL`/`SUPABASE_ANON_KEY`, ingen `mcp_server`-roll/JWT. Utan nyckel eller utan aktiv Pro-plan returneras en teaser (`prompt_text: null` per mall).
 
 `_mcp_key_from_request()` (`mcp_server.py`) läser `X-MCP-Key` först; saknas den provas `Authorization: Bearer <token>` som fallback (för klienter som ChatGPT som bara kan skicka en generisk Bearer-token). Matchar token den globala `PROMPTBANKEN_MCP_API_KEY` tolkas den INTE som workspace-nyckel — den skickas aldrig vidare som hash till Supabase.
 

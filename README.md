@@ -335,6 +335,12 @@ För teknisk katalog används `list_skills`. För en enklare användarvy använd
 
 När en ny prompt läggs till ska guiden i `docs/add-new-prompt.md` följas.
 
+### Pro-mallar (premium)
+
+Verktyget `list_pro_templates` och REST-endpointen `GET /api/v1/pro-templates` hämtar Promptbanken Pro-mallarna via RPC:n `get_pro_templates_for_mcp_key` (definierad i `promptbanken`-repot, `supabase/migrations/20260703100000_pro_templates_for_mcp_key.sql`). Ingen nyckel eller en nyckel som inte tillhör ett aktivt Pro-workspace ger en teaser (titel, syfte och outputformat, men `prompt_text` är `null` per mall). En giltig Pro-nyckel ger fullständig `prompt_text` för alla mallar.
+
+RPC:n är beviljad direkt till `anon` — att känna till nyckelns sha256-hash är i sig beviset på behörighet (samma modell som `verify_mcp_key`), så det krävs bara `SUPABASE_URL`/`SUPABASE_ANON_KEY`, ingen `SUPABASE_MCP_ROLE_JWT`.
+
 Nuvarande skill-id:
 
 - `alt_text_bild`
