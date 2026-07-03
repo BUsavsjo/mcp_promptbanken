@@ -100,6 +100,8 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 
 `_mcp_key_from_request()` (`mcp_server.py`) läser `X-MCP-Key` först; saknas den provas `Authorization: Bearer <token>` som fallback (för klienter som ChatGPT som bara kan skicka en generisk Bearer-token). Matchar token den globala `PROMPTBANKEN_MCP_API_KEY` tolkas den INTE som workspace-nyckel — den skickas aldrig vidare som hash till Supabase.
 
+`health_check` (REST `/healthz` och MCP-verktyget) läser samma nyckel och svarar alltid med `catalog`/`plan`/`message` (`public`/`free`/`pro`, se README). Ingen extra Supabase-anrop görs om ingen nyckel skickas — `/healthz` utan nyckel (t.ex. Dockers healthcheck) är lika snabb som innan.
+
 ## Driftlägen
 - **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit
 - **local**: även `route_skill`, `compile_skill_prompt`, `check_input_risk`

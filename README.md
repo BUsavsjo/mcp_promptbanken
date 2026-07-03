@@ -41,7 +41,10 @@ Exempel på svar:
   "service": "promptbanken-mcp",
   "version": "1.1.0",
   "mode": "hosted",
-  "skills_count": 21
+  "skills_count": 21,
+  "catalog": "open",
+  "plan": "public",
+  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på kommun.promptbanken.se."
 }
 ```
 
@@ -90,6 +93,7 @@ Free-plan tillåter max en aktiv nyckel per workspace.
 - Workspace-skills läggs sist i `list_skills`-svaret, märkta med `"category": "Arbetsyta"`.
 - Om nyckeln saknas eller är ogiltig (inklusive återkallad) visas inga workspace-skills, men de publika skillsen visas alltid — katalogen blockeras aldrig helt.
 - `list_skills_simple` och REST-endpointen `GET /api/v1/skills` inkluderar då fälten `"workspace_status": "invalid_key"` och `"workspace_message": "API-nyckeln är ogiltig eller återkallad. Endast publika mallar visas."` så att klienten kan informera användaren om att nyckeln inte fungerar, istället för att det tyst ser ut som att inga privata prompts finns. Skickas ingen nyckel alls utelämnas båda fälten helt (oförändrat beteende).
+- `GET /healthz` (och MCP-verktyget/JSON-RPC-metoden `health_check`) returnerar alltid `catalog`/`plan`/`message` baserat på samma nyckel: `plan` är `public`/`free`/`pro`, `catalog` är `open`/`workspace`/`pro`. Utan nyckel eller med en ogiltig/återkallad nyckel visas `public`/`open`. Till skillnad från `workspace_status` på `/api/v1/skills` utelämnas dessa fält aldrig — `health_check` ska alltid ge en fullständig bild av katalogläget.
 - RPC:n `verify_mcp_key` skiljer idag inte på orsak (saknad/återkallad/inaktiverat workspace) — `workspace_status` är därför generisk (`invalid_key`), inte `revoked_key` specifikt. Se `TODO.md` för en eventuell utökning av RPC:n.
 - Statiska skills fungerar alltid, oavsett om Supabase-integration är konfigurerad.
 
