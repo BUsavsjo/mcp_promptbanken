@@ -245,17 +245,67 @@ def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
     return skill.to_dict(include_prompt=include_prompt, prompt=prompt)
 
 
-@mcp.tool()
-def health_check() -> dict[str, Any]:
-    """Return lightweight service status without loading prompt text."""
-    logger.info("tool_call name=health_check")
+_HEALTH_CHECK_STATES = {
+    "no_key": {
+        "plan": "public",
+        "catalog": "open",
+        "message": (
+            "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för "
+            "användar- eller Pro-mallar på kommun.promptbanken.se."
+        ),
+    },
+    "invalid_key": {
+        "plan": "public",
+        "catalog": "open",
+        "message": _WORKSPACE_STATUS_MESSAGES["invalid_key"],
+    },
+    "free": {
+        "plan": "free",
+        "catalog": "workspace",
+        "message": (
+            "Inloggad med en free-nyckel. Publika mallar och dina egna sparade "
+            "prompts är tillgängliga. Uppgradera till Pro för premium-mallar."
+        ),
+    },
+    "pro": {
+        "plan": "pro",
+        "catalog": "pro",
+        "message": (
+            "Inloggad med en Pro-nyckel. Publika mallar, dina sparade prompts "
+            "och premium-mallarna är tillgängliga."
+        ),
+    },
+}
+
+
+def _health_check_state(mcp_key: str) -> str:
+    if not mcp_key:
+        return "no_key"
+    repo = _supabase_repo_for_key(mcp_key)
+    if repo is None or not repo.key_is_valid():
+        return "invalid_key"
+    return "pro" if repo.plan == "pro" else "free"
+
+
+def _health_check_payload(mcp_key: str = "") -> dict[str, Any]:
+    state = _HEALTH_CHECK_STATES[_health_check_state(mcp_key)]
     return {
         "status": "ok",
         "service": "promptbanken-mcp",
         "version": SERVICE_VERSION,
         "mode": SERVER_MODE,
         "skills_count": len(repository.list_skills()),
+        "catalog": state["catalog"],
+        "plan": state["plan"],
+        "message": state["message"],
     }
+
+
+@mcp.tool()
+def health_check() -> dict[str, Any]:
+    """Return lightweight service status without loading prompt text."""
+    logger.info("tool_call name=health_check")
+    return _health_check_payload()
 
 
 @mcp.tool()
@@ -399,17 +449,10 @@ def _allowed_origins() -> set[str]:
     return {origin.strip() for origin in raw.split(",") if origin.strip()}
 
 
-async def _healthz(_: Request) -> JSONResponse:
+async def _healthz(request: Request) -> JSONResponse:
     logger.info("http_request path=/healthz status=200")
-    return JSONResponse(
-        {
-            "status": "ok",
-            "service": "promptbanken-mcp",
-            "version": SERVICE_VERSION,
-            "mode": SERVER_MODE,
-            "skills_count": len(repository.list_skills()),
-        }
-    )
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_health_check_payload(mcp_key))
 
 
 def _not_found(message: str = "Not found") -> JSONResponse:
@@ -637,7 +680,7 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                 skill.to_dict(include_prompt=include_prompt, prompt=prompt)
             ))
         if tool_name == "health_check":
-            return _json_rpc_result(request_id, _mcp_content_result(health_check()))
+            return _json_rpc_result(request_id, _mcp_content_result(_health_check_payload(mcp_key)))
         if tool_name == "get_client_routing_instructions":
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
         if tool_name == "list_pro_templates":
