@@ -24,6 +24,9 @@ class HostedMetadataGuard:
             "get_client_routing_instructions",
             "list_pro_templates",
             "list_my_prompts",
+            "list_my_private_prompts",
+            "list_my_shared_workspaces",
+            "list_shared_workspace_prompts",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
@@ -32,6 +35,9 @@ class HostedMetadataGuard:
             "get_client_routing_instructions": set(),
             "list_pro_templates": set(),
             "list_my_prompts": set(),
+            "list_my_private_prompts": set(),
+            "list_my_shared_workspaces": set(),
+            "list_shared_workspace_prompts": {"workspace_id"},
             "get_skill": {"skill_id", "include_prompt"},
         }
 
@@ -106,8 +112,6 @@ class HostedMetadataGuard:
         unexpected_args = set(arguments) - allowed_args
         if unexpected_args:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
-        if tool_name != "get_skill" and arguments:
-            return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         if tool_name == "get_skill":
             skill_id = arguments.get("skill_id")
             include_prompt = arguments.get("include_prompt")
@@ -115,4 +119,10 @@ class HostedMetadataGuard:
                 return {"reason": "invalid_skill_id", "method": method, "tool": tool_name, "id": request_id}
             if include_prompt is not None and not isinstance(include_prompt, bool):
                 return {"reason": "invalid_include_prompt", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "list_shared_workspace_prompts":
+            workspace_id = arguments.get("workspace_id")
+            if not isinstance(workspace_id, str) or not workspace_id:
+                return {"reason": "invalid_workspace_id", "method": method, "tool": tool_name, "id": request_id}
+        elif arguments:
+            return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None

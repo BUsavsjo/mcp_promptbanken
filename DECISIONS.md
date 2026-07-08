@@ -1,5 +1,16 @@
 # Beslut
 
+## 2026-07-08 - Kontextstyrda Pro-verktyg porterade in med samma tillitsmodell som list_pro_templates
+
+### Beslut
+De tre nya verktygen (`list_my_private_prompts`, `list_my_shared_workspaces`, `list_shared_workspace_prompts`) lades till i `pro_templates.py`, inte i `supabase_repository.py`, och anropar RPC:erna direkt med bara `SUPABASE_URL`/`SUPABASE_ANON_KEY` — ingen `mcp_server`-roll/JWT.
+
+### Skäl
+`promptbanken`-repot beviljade `get_workspace_prompts_for_key` och `list_shared_workspaces_for_key` direkt till `anon` (samma modell som `get_pro_templates_for_mcp_key`): nyckelns sha256-hash är i sig beviset på behörighet. Det skiljer sig från den äldre `get_workspace_prompts` (i `supabase_repository.py`), som kräver den begränsade `mcp_server`-rollen. Att blanda in de nya funktionerna i `supabase_repository.py` hade felaktigt antytt att de behöver samma JWT-baserade rollväxling.
+
+### Konsekvens
+Om `promptbanken`-repot i en framtida migration ändrar behörighetsmodellen för dessa RPC:er (t.ex. kräver en roll istället för ren anon-grant) måste `pro_templates.py` uppdateras separat från `supabase_repository.py`.
+
 ## 2026-06-30 - Hosted-servern ska vara öppen utan global Bearer-nyckel
 
 ### Beslut

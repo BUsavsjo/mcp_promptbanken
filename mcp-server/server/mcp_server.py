@@ -19,6 +19,9 @@ from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
 from .pro_templates import list_pro_templates as _fetch_pro_templates
+from .pro_templates import list_private_prompts as _fetch_private_prompts
+from .pro_templates import list_shared_prompts as _fetch_shared_prompts
+from .pro_templates import list_shared_workspaces as _fetch_shared_workspaces
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -250,6 +253,70 @@ def list_my_prompts() -> dict[str, Any]:
     an explanatory workspace_status/workspace_message."""
     logger.info("tool_call name=list_my_prompts")
     return _my_prompts_payload()
+
+
+_CONTEXT_MCP_NO_KEY_MESSAGE = (
+    "Ingen MCP-nyckel skickades. Autentisera med din personliga X-MCP-Key för att se dina Pro-prompts."
+)
+
+
+def _my_private_prompts_payload(mcp_key: str = "") -> dict[str, Any]:
+    """Nyckelns egna privata Pro-prompts (personlig yta), aldrig andra medlemmars
+    privata prompts eller organisationsprompts. Se pro_templates.list_private_prompts."""
+    if not mcp_key:
+        return {
+            "workspace_status": "no_key",
+            "workspace_message": _CONTEXT_MCP_NO_KEY_MESSAGE,
+            "prompts": [],
+        }
+    return {"prompts": _fetch_private_prompts(mcp_key)}
+
+
+def _my_shared_workspaces_payload(mcp_key: str = "") -> dict[str, Any]:
+    """Discovery: vilka delade arbetsytor nyckeln kan välja mellan (id + namn)."""
+    if not mcp_key:
+        return {
+            "workspace_status": "no_key",
+            "workspace_message": _CONTEXT_MCP_NO_KEY_MESSAGE,
+            "workspaces": [],
+        }
+    return {"workspaces": _fetch_shared_workspaces(mcp_key)}
+
+
+def _shared_workspace_prompts_payload(mcp_key: str, workspace_id: str) -> dict[str, Any]:
+    """Delade prompts från EN delad arbetsyta där nyckelns ägare är medlem."""
+    if not mcp_key:
+        return {
+            "workspace_status": "no_key",
+            "workspace_message": _CONTEXT_MCP_NO_KEY_MESSAGE,
+            "prompts": [],
+        }
+    return {"prompts": _fetch_shared_prompts(mcp_key, workspace_id)}
+
+
+@mcp.tool()
+def list_my_private_prompts() -> dict[str, Any]:
+    """List the caller's own private Pro prompts (personal workspace). Requires
+    a valid MCP key; never returns other members' private prompts or
+    organization prompts."""
+    logger.info("tool_call name=list_my_private_prompts")
+    return _my_private_prompts_payload()
+
+
+@mcp.tool()
+def list_my_shared_workspaces() -> dict[str, Any]:
+    """List the shared workspaces the caller's MCP key can access (id + name).
+    Use a returned workspace_id with list_shared_workspace_prompts."""
+    logger.info("tool_call name=list_my_shared_workspaces")
+    return _my_shared_workspaces_payload()
+
+
+@mcp.tool()
+def list_shared_workspace_prompts(workspace_id: str) -> dict[str, Any]:
+    """List shared prompts from ONE shared workspace the caller is a member of.
+    Requires an explicit workspace_id (from list_my_shared_workspaces)."""
+    logger.info("tool_call name=list_shared_workspace_prompts")
+    return _shared_workspace_prompts_payload("", workspace_id)
 
 
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
@@ -565,6 +632,25 @@ async def _api_my_prompts(request: Request) -> JSONResponse:
     return JSONResponse(_my_prompts_payload(mcp_key))
 
 
+async def _api_my_private_prompts(request: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/my-private-prompts status=200")
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_my_private_prompts_payload(mcp_key))
+
+
+async def _api_my_shared_workspaces(request: Request) -> JSONResponse:
+    logger.info("http_request path=/api/v1/my-shared-workspaces status=200")
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_my_shared_workspaces_payload(mcp_key))
+
+
+async def _api_shared_workspace_prompts(request: Request) -> JSONResponse:
+    workspace_id = request.path_params["workspace_id"]
+    logger.info("http_request path=/api/v1/shared-workspaces/%s/prompts status=200", workspace_id)
+    mcp_key = _mcp_key_from_request(request)
+    return JSONResponse(_shared_workspace_prompts_payload(mcp_key, workspace_id))
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -608,6 +694,27 @@ def _openapi_schema() -> dict[str, Any]:
             "/api/v1/my-prompts": {
                 "get": {
                     "summary": "List only the caller's own saved prompts (requires a valid MCP key)",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/my-private-prompts": {
+                "get": {
+                    "summary": "List the caller's own private Pro prompts (personal workspace)",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/my-shared-workspaces": {
+                "get": {
+                    "summary": "List the shared workspaces the caller's MCP key can access",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/shared-workspaces/{workspace_id}/prompts": {
+                "get": {
+                    "summary": "List shared prompts from one shared workspace the caller is a member of",
+                    "parameters": [
+                        {"name": "workspace_id", "in": "path", "required": True, "schema": {"type": "string"}}
+                    ],
                     "responses": {"200": {"description": "OK"}},
                 }
             },
@@ -674,6 +781,35 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "(not the public standard templates or Pro premium templates). Requires a valid MCP key."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_my_private_prompts",
+            "description": (
+                "List the caller's own private Pro prompts (personal workspace). Requires a valid "
+                "MCP key; never returns other members' private prompts or organization prompts."
+            ),
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_my_shared_workspaces",
+            "description": (
+                "List the shared workspaces the caller's MCP key can access (id + name). Use a "
+                "returned workspace_id with list_shared_workspace_prompts."
+            ),
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "list_shared_workspace_prompts",
+            "description": (
+                "List shared prompts from ONE shared workspace the caller is a member of. Requires "
+                "an explicit workspace_id from list_my_shared_workspaces."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"workspace_id": {"type": "string"}},
+                "required": ["workspace_id"],
+                "additionalProperties": False,
+            },
         },
     ]
 
@@ -751,6 +887,17 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
+        if tool_name == "list_my_private_prompts":
+            return _json_rpc_result(request_id, _mcp_content_result(_my_private_prompts_payload(mcp_key)))
+        if tool_name == "list_my_shared_workspaces":
+            return _json_rpc_result(request_id, _mcp_content_result(_my_shared_workspaces_payload(mcp_key)))
+        if tool_name == "list_shared_workspace_prompts":
+            workspace_id = arguments.get("workspace_id")
+            if not isinstance(workspace_id, str) or not workspace_id:
+                return _json_rpc_error(request_id, -32602, "Invalid list_shared_workspace_prompts arguments")
+            return _json_rpc_result(
+                request_id, _mcp_content_result(_shared_workspace_prompts_payload(mcp_key, workspace_id))
+            )
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
 
@@ -908,6 +1055,9 @@ async def run_sse_async() -> None:
             Route("/api/v1/routing-instructions", endpoint=_api_routing_instructions),
             Route("/api/v1/pro-templates", endpoint=_api_pro_templates),
             Route("/api/v1/my-prompts", endpoint=_api_my_prompts),
+            Route("/api/v1/my-private-prompts", endpoint=_api_my_private_prompts),
+            Route("/api/v1/my-shared-workspaces", endpoint=_api_my_shared_workspaces),
+            Route("/api/v1/shared-workspaces/{workspace_id}/prompts", endpoint=_api_shared_workspace_prompts),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),

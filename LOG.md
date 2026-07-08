@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-07-08
+
+### Gjort
+- Jämförde vad som är byggt i den hostade servern mot `promptbanken`-repots plan-läge och senaste utveckling. Hittade gapet: `promptbanken` bytte 2026-07-06 till "Pro + Delad arbetsyta"-modellen och byggde tre nya MCP-tools i sin lokala server (`list_my_private_prompts`, `list_my_shared_workspaces`, `list_shared_workspace_prompts`) som aldrig portades till den hostade `mcp_promptbanken`-servern — explicit noterat som öppen punkt i `promptbanken/TODO.md`.
+- Portade alla tre verktygen hit: nya funktioner `list_private_prompts`/`list_shared_prompts`/`list_shared_workspaces` i `pro_templates.py` (samma anon-beviljade RPC-mönster som `list_pro_templates`, anropar `get_workspace_prompts_for_key`/`list_shared_workspaces_for_key`), nya `@mcp.tool()`-funktioner + `tools/call`-dispatch + REST-endpoints i `mcp_server.py`, och nya poster i `hosted_guard.py`s allowlist.
+- Generaliserade `HostedMetadataGuard.inspect_tool_args()` — den hårdkodade tidigare att bara `get_skill` fick ha argument alls, vilket hade blockerat `list_shared_workspace_prompts(workspace_id)`. Bytt mot en `elif`-kedja per tool istället för ett `tool_name != "get_skill"`-specialfall.
+- Verifierat manuellt: `ast.parse` på alla tre ändrade filer, importerat `mcp_server`-modulen och kört payload-funktionerna utan nyckel (ger korrekt `workspace_status: no_key`), samt kört `HostedMetadataGuard` mot giltiga/ogiltiga tool-anrop (rätt avvisning av saknat `workspace_id`, rätt avvisning av oväntat argument på ett nollargument-tool, `get_skill` fortsatt opåverkad).
+- Uppdaterade README.md och CLAUDE.md med de nya verktygen/endpointerna.
+
+### Nuläge
+- Koden är ändrad och manuellt verifierad lokalt (import + guard-logik), men **inte** testad end-to-end mot en riktig Supabase-databas med en Pro-nyckel som har en delad arbetsyta, och **inte** deployad till VPS:en.
+
+### Nästa steg
+- Testa mot staging/produktion med en riktig Pro-nyckel som är medlem i en delad arbetsyta: `list_my_shared_workspaces` ska ge minst en yta, `list_shared_workspace_prompts(workspace_id)` ska ge mallar, en personlig Pro-nyckel ska INTE kunna läsa en yta den inte är medlem i.
+- Deploya till VPS:en (`mcp.promptbanken.se`) när verifieringen är klar.
+- Committa ändringarna (inte gjort ännu i denna session).
+
 ## 2026-07-01
 
 ### Gjort

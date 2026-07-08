@@ -98,6 +98,16 @@ Free-plan tillåter max en aktiv nyckel per workspace.
 - RPC:n `verify_mcp_key` skiljer idag inte på orsak (saknad/återkallad/inaktiverat workspace) — `workspace_status` är därför generisk (`invalid_key`), inte `revoked_key` specifikt. Se `TODO.md` för en eventuell utökning av RPC:n.
 - Statiska skills fungerar alltid, oavsett om Supabase-integration är konfigurerad.
 
+### Kontextstyrda Pro-verktyg (Pro + Delad arbetsyta)
+
+Tre verktyg speglar den kontextstyrda MCP-modellen som infördes i `promptbanken`-repot 2026-07-06 ("Pro + Delad arbetsyta") och anropar samma nyckelhash-baserade RPC:er (`get_workspace_prompts_for_key`, `list_shared_workspaces_for_key`) som den lokala stdio-servern där — se `mcp-server/server/pro_templates.py`:
+
+- `list_my_private_prompts`/REST `GET /api/v1/my-private-prompts` — nyckelns egna privata Pro-prompts (personlig yta). Returnerar aldrig andra medlemmars privata prompts eller organisationsprompts.
+- `list_my_shared_workspaces`/REST `GET /api/v1/my-shared-workspaces` — discovery: vilka delade arbetsytor (`shared_workspace_addons`) nyckelns ägare är medlem i (`id` + `name`).
+- `list_shared_workspace_prompts(workspace_id)`/REST `GET /api/v1/shared-workspaces/{workspace_id}/prompts` — delade mallar från EN specifik delad arbetsyta. Kräver ett `workspace_id` från `list_my_shared_workspaces`; en personlig Pro-nyckel kan aldrig läsa en yta den inte tillhör (spärren sitter i RPC:n, inte bara i klienten).
+
+Alla tre returnerar `"workspace_status": "no_key"` + tom lista utan `X-MCP-Key`/`Authorization`.
+
 ### Supabase-migration
 
 RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte detta repo. Migrationen ligger där under `supabase/migrations/20240629_mcp_rpc_functions.sql`.
@@ -120,6 +130,11 @@ I `hosted`-läge exponeras bara tools som returnerar metadata, promptmallar, hä
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
+- `list_pro_templates`
+- `list_my_prompts`
+- `list_my_private_prompts`
+- `list_my_shared_workspaces`
+- `list_shared_workspace_prompts`
 
 Klienten ska då göra skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte användarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till hosted-servern.
 

@@ -16,7 +16,7 @@ mcp-server/
     skill_repository.py    # Skill-dataclass + statisk repo (skills.json + prompts/*.txt), SKILL_ID_PATTERN
     skill_router.py        # Term/roll/audience-scoring
     supabase_repository.py # Workspace-skills från Supabase (httpx, mcp_server-roll via RPC)
-    pro_templates.py        # Pro-mallar via anon-beviljad RPC get_pro_templates_for_mcp_key (httpx)
+    pro_templates.py        # Pro-mallar + kontextstyrda privata/delade prompts via anon-beviljade RPC:er (httpx)
     risk_checker.py        # Personuppgiftsmönster-kontroll
     hosted_guard.py        # Metadata-only-guard för hosted-läge
   scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
@@ -94,7 +94,7 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 ```
 - `/mcp` (Streamable HTTP) — stöder `X-MCP-Key`, returnerar statiska + workspace-skills
 - `/sse` (SSE, legacy) — returnerar bara de 16 statiska promptarna, ingen nyckelstöd
-- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions`, `/api/v1/pro-templates`, `/api/v1/my-prompts` — read-only REST-yta, stöder `X-MCP-Key`
+- `/api/v1/skills`, `/api/v1/skills/simple`, `/api/v1/skills/{skill_id}`, `/api/v1/skills/{skill_id}/prompt`, `/api/v1/routing-instructions`, `/api/v1/pro-templates`, `/api/v1/my-prompts`, `/api/v1/my-private-prompts`, `/api/v1/my-shared-workspaces`, `/api/v1/shared-workspaces/{workspace_id}/prompts` — read-only REST-yta, stöder `X-MCP-Key`
 
 `list_pro_templates`-tool/`GET /api/v1/pro-templates` anropar RPC:n `get_pro_templates_for_mcp_key` (beviljad direkt till `anon` i `promptbanken`-repot — nyckelhashen är i sig beviset på behörighet, samma modell som `verify_mcp_key`). Kräver bara `SUPABASE_URL`/`SUPABASE_ANON_KEY`, ingen `mcp_server`-roll/JWT. Utan nyckel eller utan aktiv Pro-plan returneras en teaser (`prompt_text: null` per mall).
 
@@ -103,6 +103,14 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 `health_check` (REST `/healthz` och MCP-verktyget) läser samma nyckel och svarar alltid med `catalog`/`plan`/`message` (`public`/`free`/`pro`, se README). Ingen extra Supabase-anrop görs om ingen nyckel skickas — `/healthz` utan nyckel (t.ex. Dockers healthcheck) är lika snabb som innan.
 
 `list_my_prompts`/`GET /api/v1/my-prompts` filtrerar `_resolve_all_skills(mcp_key)` på `skill.source == "workspace"` — löser att personliga prompts annars bara syns blandade in i `list_skills`/`list_skills_simple` utan egen ingång, vilket gjorde dem osynliga för MCP-klienter (t.ex. ChatGPT) som inte känner till `source`-fältet.
+
+### Kontextstyrda Pro-verktyg (portade från `promptbanken`-repot 2026-07-08)
+`promptbanken`-repot bytte 2026-07-06 planmodell till "Pro + Delad arbetsyta" och ersatte enparameters-`get_workspace_prompts` med en kontextstyrd `get_workspace_prompts_for_key(p_key_hash, p_scope, p_workspace_id)` + en discovery-RPC `list_shared_workspaces_for_key(p_key_hash)`, båda beviljade direkt till `anon` (samma förtroendemodell som `get_pro_templates_for_mcp_key` — nyckelhashen är beviset på behörighet, ingen `mcp_server`-roll/JWT behövs). Tre nya funktioner i `pro_templates.py` (`list_private_prompts`, `list_shared_prompts`, `list_shared_workspaces`) och tre nya MCP-tools i `mcp_server.py`:
+- `list_my_private_prompts` — nyckelns egna privata Pro-prompts (personlig yta).
+- `list_my_shared_workspaces` — vilka delade arbetsytor (`shared_workspace_addons`) nyckeln har tillgång till.
+- `list_shared_workspace_prompts(workspace_id)` — mallar från EN specifik delad arbetsyta, kräver explicit `workspace_id` från föregående verktyg. Spärren mot att läsa en yta man inte tillhör sitter i RPC:n, inte bara i klienten.
+
+Alla tre är tillagda i `hosted_guard.py`s allowlist (`list_shared_workspace_prompts` tillåter argumentet `workspace_id`, övriga två inga argument alls).
 
 ## Driftlägen
 - **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit
