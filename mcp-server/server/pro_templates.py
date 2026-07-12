@@ -151,3 +151,35 @@ def save_prompt(
     )
     response.raise_for_status()
     return response.json()
+
+
+def log_write_attempt(mcp_key: str, outcome: str, risk_check_passed: bool | None = None) -> None:
+    """Loggar ett write-forsoks utfall som en EGEN, oberoende PostgREST-
+    transaktion (se app_private.log_write_attempt). Anropas av mcp_server.py
+    efter att save_prompt() kastat ett fel, eftersom den ursprungliga
+    save_prompt_for_key-transaktionen redan rullats tillbaka och aldrig
+    persisterar en loggrad for avvisade forsok.
+
+    Loggning far aldrig krascha huvudflodet -- alla fel fangas och tystas,
+    bara en varningslogg skrivs lokalt.
+    """
+    if not mcp_key or not is_configured():
+        return
+    try:
+        response = httpx.post(
+            f"{_SUPABASE_URL}/rest/v1/rpc/log_write_attempt",
+            headers={
+                "apikey": _ANON_KEY,
+                "Authorization": f"Bearer {_ANON_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "p_key_hash": _hash_key(mcp_key),
+                "p_outcome": outcome,
+                "p_risk_check_passed": risk_check_passed,
+            },
+            timeout=5,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        logger.error("log_write_attempt_failed outcome=%s error=%s", outcome, exc)

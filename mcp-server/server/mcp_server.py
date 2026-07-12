@@ -24,6 +24,7 @@ from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
 from .pro_templates import list_shared_workspaces as _fetch_shared_workspaces
 from .pro_templates import save_prompt as _save_prompt
+from .pro_templates import log_write_attempt as _log_write_attempt
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -171,6 +172,23 @@ def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
     }
 
 
+_WRITE_OUTCOME_PATTERNS = [
+    ("Ogiltig eller aterkallad", "invalid_key"),
+    ("inte aktiv eller saknar MCP-atkomst", "invalid_key"),
+    ("kraver en Pro-nyckel", "not_pro"),
+    ("For manga skrivforsok", "rate_limited"),
+    ("Ogiltig indata", "invalid_input"),
+    ("risk_check_passed maste vara true", "risk_check_not_passed"),
+]
+
+
+def _classify_write_error(detail: str) -> str:
+    for needle, outcome in _WRITE_OUTCOME_PATTERNS:
+        if needle in detail:
+            return outcome
+    return "limit_reached"
+
+
 def _save_workspace_prompt_payload(
     mcp_key: str,
     title: str,
@@ -188,6 +206,7 @@ def _save_workspace_prompt_payload(
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
         logger.info("tool_call name=save_workspace_prompt status=error detail=%s", detail)
+        _log_write_attempt(mcp_key, _classify_write_error(detail), risk_check_passed)
         return {"status": "error", "message": detail}
     except RuntimeError as exc:
         return {"status": "error", "message": str(exc)}
