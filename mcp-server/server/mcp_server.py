@@ -9,6 +9,7 @@ from typing import Any
 import logging
 
 import anyio
+import httpx
 import uvicorn
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
@@ -22,6 +23,7 @@ from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
 from .pro_templates import list_shared_workspaces as _fetch_shared_workspaces
+from .pro_templates import save_prompt as _save_prompt
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -167,6 +169,31 @@ def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
         "unlocked": bool(templates) and all(t.get("is_unlocked") for t in templates),
         "templates": templates,
     }
+
+
+def _save_workspace_prompt_payload(
+    mcp_key: str,
+    title: str,
+    content: str,
+    category: str,
+    source: str,
+    risk_check_passed: bool,
+    idempotency_key: str | None,
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel kravs (X-MCP-Key eller Authorization)."}
+    try:
+        row = _save_prompt(mcp_key, title, content, category, source, risk_check_passed, idempotency_key)
+        return {"status": "success", "prompt": row}
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        logger.info("tool_call name=save_workspace_prompt status=error detail=%s", detail)
+        return {"status": "error", "message": detail}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("save_workspace_prompt_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte spara prompten."}
 
 
 @mcp.tool()
@@ -654,6 +681,33 @@ async def _api_shared_workspace_prompts(request: Request) -> JSONResponse:
     return JSONResponse(_shared_workspace_prompts_payload(mcp_key, workspace_id))
 
 
+async def _api_save_workspace_prompt(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    title, content, category = body.get("title"), body.get("content"), body.get("category")
+    if not all(isinstance(v, str) and v for v in (title, content, category)):
+        return JSONResponse(
+            _error("INVALID_ARGUMENTS", "title, content and category are required strings"), status_code=400
+        )
+    payload = _save_workspace_prompt_payload(
+        mcp_key,
+        title,
+        content,
+        category,
+        body.get("source", "manual"),
+        bool(body.get("risk_check_passed", False)),
+        body.get("idempotency_key"),
+    )
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/my-prompts method=POST status=%s", status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -698,7 +752,11 @@ def _openapi_schema() -> dict[str, Any]:
                 "get": {
                     "summary": "List only the caller's own saved prompts (requires a valid MCP key)",
                     "responses": {"200": {"description": "OK"}},
-                }
+                },
+                "post": {
+                    "summary": "Save a new prompt into the caller's personal Pro workspace (requires a Pro MCP key)",
+                    "responses": {"200": {"description": "Saved"}, "400": {"description": "Rejected"}},
+                },
             },
             "/api/v1/my-private-prompts": {
                 "get": {
@@ -828,6 +886,27 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "save_workspace_prompt",
+            "description": (
+                "Save a generalised, already GDPR-checked template into the caller's "
+                "personal Pro workspace. Requires a Pro key. See the tool description "
+                "for the required approval + risk-check flow."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "content": {"type": "string"},
+                    "category": {"type": "string"},
+                    "source": {"type": "string", "default": "manual"},
+                    "risk_check_passed": {"type": "boolean", "default": False},
+                    "idempotency_key": {"type": "string"},
+                },
+                "required": ["title", "content", "category"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -919,6 +998,25 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                 return _json_rpc_error(request_id, -32602, "Invalid list_shared_workspace_prompts arguments")
             return _json_rpc_result(
                 request_id, _mcp_content_result(_shared_workspace_prompts_payload(mcp_key, workspace_id))
+            )
+        if tool_name == "save_workspace_prompt":
+            title = arguments.get("title")
+            content = arguments.get("content")
+            category = arguments.get("category")
+            source = arguments.get("source", "manual")
+            risk_check_passed = arguments.get("risk_check_passed", False)
+            idempotency_key = arguments.get("idempotency_key")
+            if not all(isinstance(v, str) and v for v in (title, content, category)):
+                return _json_rpc_error(request_id, -32602, "Invalid save_workspace_prompt arguments")
+            if not isinstance(risk_check_passed, bool):
+                return _json_rpc_error(request_id, -32602, "risk_check_passed must be a boolean")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(
+                    _save_workspace_prompt_payload(
+                        mcp_key, title, content, category, source, risk_check_passed, idempotency_key
+                    )
+                ),
             )
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
@@ -1076,7 +1174,8 @@ async def run_sse_async() -> None:
             Route("/api/v1/skills/{skill_id}/prompt", endpoint=_api_get_skill_prompt),
             Route("/api/v1/routing-instructions", endpoint=_api_routing_instructions),
             Route("/api/v1/pro-templates", endpoint=_api_pro_templates),
-            Route("/api/v1/my-prompts", endpoint=_api_my_prompts),
+            Route("/api/v1/my-prompts", endpoint=_api_my_prompts, methods=["GET"]),
+            Route("/api/v1/my-prompts", endpoint=_api_save_workspace_prompt, methods=["POST"]),
             Route("/api/v1/my-private-prompts", endpoint=_api_my_private_prompts),
             Route("/api/v1/my-shared-workspaces", endpoint=_api_my_shared_workspaces),
             Route("/api/v1/shared-workspaces/{workspace_id}/prompts", endpoint=_api_shared_workspace_prompts),
@@ -1112,6 +1211,33 @@ async def run_sse_async() -> None:
 
 def run_sse() -> None:
     anyio.run(run_sse_async)
+
+
+@mcp.tool()
+def save_workspace_prompt(
+    title: str,
+    content: str,
+    category: str,
+    source: str = "manual",
+    risk_check_passed: bool = False,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Save a generalised, already GDPR-checked template into the caller's
+    personal Pro workspace. IMPORTANT for the calling model: generalise the
+    content (remove names/personal numbers/org-specific details) and run
+    check_input_risk on the generated template BEFORE calling this tool. Show
+    the proposal to the user and wait for explicit approval before calling.
+    Set risk_check_passed=true only after the approved check -- calls with
+    risk_check_passed=false are rejected. Generate your own idempotency_key
+    (UUID) per approval so a retry after a timeout never creates a duplicate.
+    Suggested categories (optional, not enforced): kommunikation,
+    forandringsledning, processer, beslutsberedning, visuellt, ledarskap,
+    arbetsbank. Requires a Pro key (X-MCP-Key/Authorization); free keys are
+    rejected."""
+    logger.info("tool_call name=save_workspace_prompt")
+    return _save_workspace_prompt_payload(
+        "", title, content, category, source, risk_check_passed, idempotency_key
+    )
 
 
 if __name__ == "__main__":
