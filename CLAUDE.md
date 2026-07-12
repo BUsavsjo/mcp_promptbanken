@@ -5,7 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Promptbanken MCP — Claude Code-instruktioner
 
 ## Projekt
-MCP-server (FastMCP/Python, stdio + HTTP/SSE) som exponerar kommunala promptmallar som skills. Ingen AI-modell körs i servern. Servern är read-only för promptar och skill-metadata.
+MCP-server (FastMCP/Python, stdio + HTTP/SSE) som exponerar kommunala promptmallar som skills. Ingen AI-modell körs i servern.
+
+**Detta är den HOSTADE servern** — körs i Docker på VPS:en (`mcp.promptbanken.se`), en delad process som alla användare pratar med via `X-MCP-Key`/`Authorization`-header per anrop. Skild från `promptbanken/mcp-server/` (separat repo) — en lokal stdio-process som startas av MCP-klienten på användarens egen dator, en process per användare, nyckel skickas som miljövariabel istället för header.
+
+Historiskt (till 2026-07-12) var denna server helt read-only för promptar och skill-metadata — se `PROJECT.md`/`DECISIONS.md` för write-undantaget (`save_workspace_prompt`, Pro-gated) och skälet till att den gränsen medvetet vidgades.
 
 ## Repo-layout
 ```
@@ -115,6 +119,19 @@ Alla tre är tillagda i `hosted_guard.py`s allowlist (`list_shared_workspace_pro
 ## Driftlägen
 - **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit
 - **local**: även `route_skill`, `compile_skill_prompt`, `check_input_risk`
+
+## Endpoints
+```
+POST/GET /mcp                                              # Streamable HTTP, primär yta
+GET      /sse, POST /messages/                             # legacy SSE, bara 16 statiska prompts, ingen X-MCP-Key
+GET      /healthz
+GET      /api/v1/skills, /skills/simple, /skills/{id}, /skills/{id}/prompt
+GET      /api/v1/routing-instructions, /pro-templates, /my-prompts
+GET      /api/v1/my-private-prompts, /my-shared-workspaces
+GET      /api/v1/shared-workspaces/{workspace_id}/prompts
+GET      /openapi.json
+```
+Alla `/api/v1/*` stöder `X-MCP-Key` (fallback: `Authorization: Bearer`). Guard-allowlist för hosted-läge (`hosted_guard.py`) måste hållas i synk med tool-listan i `mcp_server.py` när nya tools läggs till.
 
 ## Arbetsminnesfiler
 Läs dessa innan större ändringar:
