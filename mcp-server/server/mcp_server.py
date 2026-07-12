@@ -152,6 +152,15 @@ def list_skills() -> list[dict[str, Any]]:
     return [skill.to_dict() for skill in _all_skills()]
 
 
+@mcp.tool()
+def check_input_risk(text: str) -> dict[str, object]:
+    """Check text for common personal-data patterns (personnummer, e-post,
+    telefonnummer, arendenummer) before saving it as a template. Never blocks,
+    only warns -- the calling model/user decides whether to edit or proceed."""
+    logger.info("tool_call name=check_input_risk")
+    return risk_checker.check(text).to_dict()
+
+
 def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
     templates = _fetch_pro_templates(mcp_key)
     return {
@@ -540,12 +549,6 @@ if SERVER_MODE == "local":
             "risk_check": risk.to_dict(),
         }
 
-    @mcp.tool()
-    def check_input_risk(text: str) -> dict[str, object]:
-        """Check text for common personal-data patterns before using a prompt."""
-        logger.info("tool_call name=check_input_risk mode=local has_text=%s", bool(text))
-        return risk_checker.check(text).to_dict()
-
 
 def run_stdio() -> None:
     mcp.run(transport="stdio")
@@ -739,6 +742,20 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
+            "name": "check_input_risk",
+            "description": (
+                "Check text for common personal-data patterns (personnummer, e-post, "
+                "telefonnummer, arendenummer) before saving it as a template. Never blocks, "
+                "only warns."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"text": {"type": "string"}},
+                "required": ["text"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "list_skills_simple",
             "description": "List Promptbanken skills grouped for a user-facing catalog view.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -859,6 +876,11 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(
                 [skill.to_dict() for skill in _all_skills(mcp_key)]
             ))
+        if tool_name == "check_input_risk":
+            text = arguments.get("text")
+            if not isinstance(text, str):
+                return _json_rpc_error(request_id, -32602, "Invalid check_input_risk arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(risk_checker.check(text).to_dict()))
         if tool_name == "list_skills_simple":
             return _json_rpc_result(request_id, _mcp_content_result(_list_skills_simple_payload(mcp_key)))
         if tool_name == "get_skill":
