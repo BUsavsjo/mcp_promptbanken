@@ -105,3 +105,49 @@ def list_shared_prompts(mcp_key: str, workspace_id: str) -> list[dict[str, Any]]
 def list_shared_workspaces(mcp_key: str) -> list[dict[str, Any]]:
     """Discovery: vilka delade arbetsytor nyckelns ägare kan välja mellan."""
     return _call_context_rpc("list_shared_workspaces_for_key", mcp_key)
+
+
+def save_prompt(
+    mcp_key: str,
+    title: str,
+    content: str,
+    category: str,
+    source: str = "manual",
+    risk_check_passed: bool = False,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Skriver en ny prompt i nyckelns personliga Pro-arbetsyta via
+    save_prompt_for_key (samma anon-beviljade förtroendemodell som
+    get_pro_templates_for_mcp_key/get_workspace_prompts_for_key, se
+    promptbanken/supabase/migrations/20260712100000_save_prompt_for_key.sql).
+
+    Till skillnad från de övriga funktionerna i denna fil (som fångar alla
+    fel och returnerar en tom lista) låter denna undantag propagera -- en
+    tyst tom retur vid ett write-fel skulle dölja för klientmodellen att
+    skrivningen faktiskt misslyckades.
+    """
+    if not mcp_key or not is_configured():
+        raise RuntimeError("MCP-nyckel saknas eller SUPABASE_URL/SUPABASE_ANON_KEY ar inte konfigurerat.")
+
+    url = f"{_SUPABASE_URL}/rest/v1/rpc/save_prompt_for_key"
+    payload = {
+        "p_key_hash": _hash_key(mcp_key),
+        "p_title": title,
+        "p_content": content,
+        "p_category": category,
+        "p_source": source,
+        "p_risk_check_passed": risk_check_passed,
+        "p_idempotency_key": idempotency_key,
+    }
+    response = httpx.post(
+        url,
+        headers={
+            "apikey": _ANON_KEY,
+            "Authorization": f"Bearer {_ANON_KEY}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=5,
+    )
+    response.raise_for_status()
+    return response.json()
