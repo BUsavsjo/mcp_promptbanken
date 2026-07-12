@@ -207,7 +207,11 @@ def _save_workspace_prompt_payload(
         detail = exc.response.text
         logger.info("tool_call name=save_workspace_prompt status=error detail=%s", detail)
         _log_write_attempt(mcp_key, _classify_write_error(detail), risk_check_passed)
-        return {"status": "error", "message": detail}
+        try:
+            clean_message = exc.response.json().get("message", detail)
+        except Exception:
+            clean_message = detail
+        return {"status": "error", "message": clean_message}
     except RuntimeError as exc:
         return {"status": "error", "message": str(exc)}
     except Exception as exc:
