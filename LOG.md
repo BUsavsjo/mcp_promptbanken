@@ -1,5 +1,20 @@
 # Logg
 
+## 2026-07-12
+
+### Gjort
+- Designade och byggde `save_workspace_prompt`: första write-verktyget i den hostade servern, Pro-gated, se `docs/superpowers/specs/2026-07-12-mcp-save-as-template-write-design.md` och plan `docs/superpowers/plans/2026-07-12-save-workspace-prompt-write.md`.
+- Ny RPC `app_private.save_prompt_for_key` i `promptbanken`-repot: pinnad `search_path`, rate limit + observability via `app_private.mcp_write_attempts`, idempotens via `idempotency_key`, innehållsvalidering, återanvänder `enforce_content_access_model`-triggern oförändrad via en transaktionslokal `auth.uid()`-koppling.
+- Porterade `check_input_risk` från lokala `promptbanken/mcp-server/` hit — behövdes för att "generalisera → check → godkänn → spara"-flödet ska fungera mot den publika adressen. Fann och städade en pre-existing duplicerad `SERVER_MODE=="local"`-gated registrering av samma tool under vägen.
+- Ny REST-endpoint `POST /api/v1/my-prompts`, första POST-endpointen i detta repo.
+- Uppdaterade `hosted_guard.py`s allowlist för de två nya verktygen.
+- **Bugg hittad under staging-verifiering och fixad samma dag:** log-innan-raise-mönstret i `save_prompt_for_key` persisterade aldrig avvisade försök (Postgres rullar tillbaka hela transaktionen vid `raise exception`). Löst med en ny separat RPC `app_private.log_write_attempt`, anropad av Python som ett eget HTTP-anrop efter att felet fångats. Se `DECISIONS.md`.
+- Verifierat end-to-end mot staging med en dedikerad Pro-testnyckel (samtliga 6 utfall i `mcp_write_attempts` korrekta efter fixen).
+
+### Nästa steg
+- Deploya till produktion (Task 8 i planen) efter merge till `main`.
+- Framtida: delning till `shared_workspace_addons` via write, semantisk dubblettdetektering, `search_path`-uppstädning på de äldre läs-RPC:erna, IP-baserad rate limit för ogiltig-nyckel-spam — se speccens "Uttryckligen utanför scope v1" och `TODO.md`.
+
 ## 2026-07-08
 
 ### Gjort
@@ -10,12 +25,17 @@
 - Uppdaterade README.md och CLAUDE.md med de nya verktygen/endpointerna.
 
 ### Nuläge
-- Koden är ändrad och manuellt verifierad lokalt (import + guard-logik), men **inte** testad end-to-end mot en riktig Supabase-databas med en Pro-nyckel som har en delad arbetsyta, och **inte** deployad till VPS:en.
+- Committat (`d127f5b`) och pushat till `origin/main`. Användaren har deployat till VPS:en (`mcp.promptbanken.se`).
+- End-to-end-verifierat mot produktion med en riktig Pro-nyckel som är medlem i en delad arbetsyta ("demoyta", `00f21df9-a140-4b85-8070-7d8032d28604`):
+  - `GET /api/v1/my-shared-workspaces` → gav ytan korrekt.
+  - `GET /api/v1/shared-workspaces/{workspace_id}/prompts` → gav den delade mallen ("demo", `content: "demo yta shared"`).
+  - Samma endpoint med ett påhittat `workspace_id` → tom lista, inte andras mallar. Säkerhetsgränsen håller i produktion.
+  - `GET /api/v1/my-private-prompts` → gav nyckelns egna två privata mallar.
+  - Utan nyckel (bägge nya endpoints) → `workspace_status: "no_key"` + tom lista, ingen krasch.
+- Testnyckeln var en dedikerad testnyckel (inte en nyckel i produktionsbruk) och är återkallad efter testet, eftersom den stod i klartext i chattsessionen.
 
 ### Nästa steg
-- Testa mot staging/produktion med en riktig Pro-nyckel som är medlem i en delad arbetsyta: `list_my_shared_workspaces` ska ge minst en yta, `list_shared_workspace_prompts(workspace_id)` ska ge mallar, en personlig Pro-nyckel ska INTE kunna läsa en yta den inte är medlem i.
-- Deploya till VPS:en (`mcp.promptbanken.se`) när verifieringen är klar.
-- Committa ändringarna (inte gjort ännu i denna session).
+- Inga kvarstående steg för denna del av portningen. Nästa naturliga steg om projektet fortsätter i samma spår: bygg motsvarande kontextverktyg-stöd i eventuella klientintegrationer/dokumentation som pekar mot den hostade adressen (t.ex. `mcp.html` i `promptbanken`-repot, som idag bara nämner de äldre verktygen).
 
 ## 2026-07-01
 

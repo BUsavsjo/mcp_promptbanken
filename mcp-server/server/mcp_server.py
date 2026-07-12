@@ -547,8 +547,10 @@ def get_client_routing_instructions() -> dict[str, Any]:
             ],
         },
         "local_mode_note": (
-            "Vid lokal installation kan klienten använda route_skill, compile_skill_prompt och "
-            "check_input_risk, eftersom texten då behandlas på användarens egen maskin."
+            "Vid lokal installation kan klienten dessutom använda route_skill och "
+            "compile_skill_prompt, eftersom texten då behandlas på användarens egen maskin. "
+            "check_input_risk är tillgängligt i både hosted och local läge (behövs som "
+            "förarbetssteg innan save_workspace_prompt anropas i hosted läge)."
         ),
         "skills": [skill.to_dict() for skill in repository.list_skills()],
     }

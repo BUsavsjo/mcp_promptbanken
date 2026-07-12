@@ -1,5 +1,55 @@
 # Beslut
 
+## 2026-07-12 - Loggning av avvisade write-försök flyttad till ett separat RPC-anrop
+
+### Beslut
+`app_private.save_prompt_for_key` loggar inte längre avvisade försök
+(ogiltig nyckel, inte Pro, rate limit, m.fl.) inifrån sin egen transaktion.
+En ny funktion, `app_private.log_write_attempt`, gör bara en ren INSERT utan
+någon validering som kan kasta fel, och anropas av Python-lagret som ett
+eget, separat HTTP/PostgREST-anrop efter att ett fel fångats.
+
+### Skäl
+Upptäckt under live-verifiering mot staging 2026-07-12: den ursprungliga
+`insert ... ; raise exception ...`-ordningen loggade aldrig något i praktiken.
+Postgres rullar tillbaka HELA transaktionen när en `raise exception` inte
+fångas, vilket river upp loggposten som skrevs bara ögonblick innan i samma
+anrop. Bara `success`-vägen (som aldrig raisar) persisterade sin loggrad.
+Konsekvens: rate limit-räknaren (baserad på antal loggade försök senaste 60
+sekunderna) räknade i praktiken bara lyckade skrivningar — kunde aldrig
+faktiskt bromsa en nyckel som upprepade gånger skickar ogiltig indata eller
+missar risk-check-godkännandet, vilket var hela poängen med gränsen.
+
+### Konsekvens
+En separat RPC-transaktion per loggpost innebär en liten extra
+nätverksrundtripp vid avvisade anrop (aldrig vid lyckade), och loggningen är
+"best effort" — om `log_write_attempt`-anropet i sig misslyckas (nätverksfel
+m.m.) sväljs det tyst i Python (`log_write_attempt` i `pro_templates.py`)
+snarare än att krascha användarens svar. Rate limit-räknaren missar därför
+fortfarande spam av rent ogiltiga nyckelhashar (de avvisas redan innan
+räknarens SELECT körs i `save_prompt_for_key`) — men skyddar korrekt mot en
+giltig Pro-nyckel som missbrukas upprepade gånger, vilket är det
+säkerhetsrelevanta scenariot.
+
+## 2026-07-12 - Smalt, Pro-gated write-undantag från read-only-gränsen
+
+### Beslut
+Servern fick sitt första write-verktyg, `save_workspace_prompt`, trots den
+tidigare uttalade "servern är read-only"-gränsen i `PROJECT.md`/`CLAUDE.md`.
+
+### Skäl
+Användaren vill kunna säga "spara det här som en mall" i valfri MCP-klient
+(Claude, ChatGPT, Copilot) mot den publikt nåbara adressen, inte bara från en
+lokalt körande stdio-process. Verktyget är avsiktligt smalt: bara en enda
+skrivväg, bara Pro-nycklar, `visibility` hårdkodad till privat, och innehållet
+är avsett att redan vara klientgeneraliserat (namn/personnummer borttaget)
+innan det når servern — se `docs/superpowers/specs/2026-07-12-mcp-save-as-template-write-design.md`.
+
+### Konsekvens
+Servern är inte längre strikt metadata-only. Framtida write-tools måste
+motivera samma smala, loggade, Pro-gated mönster explicit — detta beslut är
+inte en generell öppning för godtycklig skrivning.
+
 ## 2026-07-08 - Kontextstyrda Pro-verktyg porterade in med samma tillitsmodell som list_pro_templates
 
 ### Beslut

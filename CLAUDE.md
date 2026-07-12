@@ -116,9 +116,36 @@ Klienten skickar sin MCP-nyckel som HTTP-header `X-MCP-Key` i varje anrop:
 
 Alla tre är tillagda i `hosted_guard.py`s allowlist (`list_shared_workspace_prompts` tillåter argumentet `workspace_id`, övriga två inga argument alls).
 
+### Write: `save_workspace_prompt` (2026-07-12)
+
+Första write-verktyget i den hostade servern — se "Beslut: medveten omprövning
+av read-only-gränsen" i `docs/superpowers/specs/2026-07-12-mcp-save-as-template-write-design.md`
+och motsvarande post i `DECISIONS.md`. Pro-gated (avvisar Free-nycklar), skriver
+alltid `visibility='private'`, `status='draft'` i användarens personliga
+arbetsyta. Kräver `risk_check_passed=true` (satt av klientmodellen efter ett
+`check_input_risk`-anrop och användarens uttryckliga godkännande — servern kan
+inte tekniskt verifiera detta, se specen). RPC:n (`app_private.save_prompt_for_key`,
+i `promptbanken`-repot) valideras och avvisas med tydliga svenska felmeddelanden
+(ogiltig nyckel, inte Pro, rate limit, ogiltig indata, risk-check ej godkänd,
+mallgräns nådd). Varje avvisat försök loggas i `app_private.mcp_write_attempts`
+för rate limiting (max 10 försök/60s per nyckel) och observability — loggningen
+sker som ett separat, oberoende RPC-anrop (`log_write_attempt`) från Python-lagret
+EFTER att ett fel fångats, inte inifrån samma transaktion som avvisar anropet
+(en tidig version försökte logga-innan-raise inom samma transaktion, vilket
+aldrig persisterade — Postgres rullar tillbaka hela transaktionen vid en
+ohanterad exception, se `DECISIONS.md`). Idempotens via valfri `idempotency_key`
+(UUID) — samma nyckel inom samma arbetsyta returnerar den befintliga raden
+istället för att skapa en dubblett. Ny REST-endpoint: `POST /api/v1/my-prompts`
+(samma path som den befintliga `GET`, olika metod).
+
+`check_input_risk` porterades hit från lokala `promptbanken/mcp-server/` samtidigt
+(2026-07-12) — behövs som obligatoriskt förarbetssteg innan `save_workspace_prompt`
+anropas. Tillgängligt i både hosted och local-läge (tidigare bara local-läge i
+den här filen).
+
 ## Driftlägen
-- **hosted**: bara metadata-tools (`list_skills`, `get_skill`, `health_check`, m.fl.) — ingen användartext skickas hit
-- **local**: även `route_skill`, `compile_skill_prompt`, `check_input_risk`
+- **hosted**: metadata-tools + det Pro-gated write-verktyget `save_workspace_prompt` (se ovan) — `check_input_risk` är sedan 2026-07-12 tillgängligt i båda lägena (behövs av write-flödet i hosted-läge)
+- **local**: dessutom `route_skill`, `compile_skill_prompt`
 
 ## Endpoints
 ```
@@ -126,7 +153,8 @@ POST/GET /mcp                                              # Streamable HTTP, pr
 GET      /sse, POST /messages/                             # legacy SSE, bara 16 statiska prompts, ingen X-MCP-Key
 GET      /healthz
 GET      /api/v1/skills, /skills/simple, /skills/{id}, /skills/{id}/prompt
-GET      /api/v1/routing-instructions, /pro-templates, /my-prompts
+GET      /api/v1/routing-instructions, /pro-templates
+GET/POST /api/v1/my-prompts                                 # GET: lista; POST: spara ny (Pro-gated)
 GET      /api/v1/my-private-prompts, /my-shared-workspaces
 GET      /api/v1/shared-workspaces/{workspace_id}/prompts
 GET      /openapi.json

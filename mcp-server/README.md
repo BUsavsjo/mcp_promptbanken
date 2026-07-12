@@ -112,6 +112,7 @@ GET  /api/v1/skills/simple
 GET  /api/v1/skills/{skill_id}
 GET  /api/v1/skills/{skill_id}/prompt
 GET  /api/v1/routing-instructions
+POST /api/v1/my-prompts             # Pro-gated write: save a new prompt (see save_workspace_prompt tool)
 GET  /openapi.json
 GET  /sse
 POST /messages/
@@ -211,6 +212,11 @@ Local:
 - `route_skill`
 - `compile_skill_prompt`
 - `check_input_risk`
+
+Beskrivning av de tools som inte bara returnerar metadata:
+
+- `check_input_risk(text)` — checks text for common personal-data patterns (personnummer, e-post, telefonnummer, arendenummer); never blocks, only warns.
+- `save_workspace_prompt(title, content, category, source, risk_check_passed, idempotency_key)` — Pro-gated write, saves a new prompt into the caller's personal workspace as `visibility='private'`, `status='draft'`. Requires `risk_check_passed=true` (rejected otherwise). Accepts an optional `idempotency_key` (UUID) to make retries safe.
 
 ## Centrala filer
 

@@ -14,7 +14,7 @@ Kommunala användare behöver kunna hitta och använda gemensamma promptmallar p
 - Dokumentera drift, säkerhet, loggning och tillägg av nya promptar.
 
 ## Avgränsning
-Projektet ska inte köra någon AI-modell, spara användarinput eller fungera som ett stort projektnav. Denna första arbetsminnesversion ska bara bestå av lokala markdown-filer i repot.
+Projektet ska inte köra någon AI-modell eller fungera som ett stort projektnav. Servern var till 2026-07-12 helt read-only; den har sedan dess ett enda, smalt write-undantag (`save_workspace_prompt`, Pro-gated, se DECISIONS.md) för att spara en redan klientgenererad och GDPR-granskad mall — den tar fortfarande aldrig emot eller sparar rå användarchatt. Denna första arbetsminnesversion ska bara bestå av lokala markdown-filer i repot.
 
 ## Nuläge
 Projektet innehåller en MCP-server i `mcp-server/`, promptmallar i `mcp-server/prompts/`, skill-katalog i `mcp-server/skills.json`, Docker-stöd och npm-script i rotens `package.json`.
