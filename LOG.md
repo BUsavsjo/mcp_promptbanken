@@ -15,6 +15,14 @@
 - Deploya till produktion (Task 8 i planen) efter merge till `main`.
 - Framtida: delning till `shared_workspace_addons` via write, semantisk dubblettdetektering, `search_path`-uppstädning på de äldre läs-RPC:erna, IP-baserad rate limit för ogiltig-nyckel-spam — se speccens "Uttryckligen utanför scope v1" och `TODO.md`.
 
+### Produktionsdeploy (samma dag, senare på passet)
+- Slutgranskning (whole-branch review) godkänd med ett Important-fynd: `save_workspace_prompt` returnerade rått PostgREST-JSON som felmeddelande istället för det rena svenska meddelandet — fixat innan merge.
+- Mergade `feature/save-workspace-prompt` → `main` i båda repona, pushat.
+- VPS-deploy stötte på den kända `docker-compose` 1.29.2 `ContainerConfig`-buggen, löst med dokumenterad workaround (`stop`/`rm -f`/`up -d`).
+- **Ny bugg hittad vid första riktiga produktionsanropet:** `app_private.save_prompt_for_key`/`log_write_attempt` saknade `public`-schema-wrappers — PostgREST exponerar bara `public` via `/rest/v1/rpc/`, samma mönster som `get_workspace_prompts_for_key` redan följer men som missades här. Detta smet igenom alla tidigare granskningar eftersom Task 7:s staging-verifiering anropade `app_private.*` direkt i SQL Editor, aldrig via den faktiska PostgREST-vägen som Python-koden använder — produktionscurlen var första riktiga nätverkstestet av RPC:n. Fixat med migration `20260712120000_public_wrappers_for_save_prompt.sql`, committad direkt till `main` som hotfix (`cee016a`), applicerad mot både produktion och staging.
+- Verifierat end-to-end i produktion med en riktig Pro-testnyckel: lyckad skrivning, idempotens (samma anrop två gånger → samma rad), synlig i `admin.html` under "Mina prompts". Testnyckeln borttagen från admin och raden i "Mina prompts" raderad efter verifiering.
+- **Lärdom för framtida RPC-arbete:** verifiera alltid minst en gång via den faktiska PostgREST REST-vägen (`curl .../rest/v1/rpc/...` eller motsvarande via servern), inte bara direktanrop i SQL Editor — annars missas saknade `public`-wrappers tills produktion.
+
 ## 2026-07-08
 
 ### Gjort
