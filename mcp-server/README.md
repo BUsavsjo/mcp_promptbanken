@@ -201,6 +201,8 @@ Hosted:
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
+- `check_input_risk`
+- `save_workspace_prompt` (Pro-gated write)
 
 Local:
 
@@ -209,9 +211,10 @@ Local:
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
+- `check_input_risk`
+- `save_workspace_prompt` (Pro-gated write)
 - `route_skill`
 - `compile_skill_prompt`
-- `check_input_risk`
 
 Beskrivning av de tools som inte bara returnerar metadata:
 
