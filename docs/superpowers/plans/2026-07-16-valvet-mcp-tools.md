@@ -10,6 +10,8 @@
 
 **Beroende:** Kräver att **Plan A** (`promptbanken`-repot, `docs/superpowers/specs/2026-07-16-valvet-design.md` → `docs/superpowers/plans/2026-07-16-valvet-schema-and-rpcs.md`) är applicerad och verifierad mot **staging** innan Task 4 (end-to-end-verifiering) kan köras — utan de sex `public.*_for_key`-RPC:erna svarar `vault.py` bara med tomma listor/fel.
 
+**⚠️ Reviderad 2026-07-16:** Plan A reviderades efter att `promptbanken`-repot visade sig redan ha en `log_write_attempt`-RPC (byggd för `save_workspace_prompt`, `20260712110000_log_write_attempt.sql`). Plan A breddar den befintliga funktionen med en `p_tool`-parameter istället för att skapa en ny `log_vault_write_attempt`. `vault.py`s `log_write_attempt`-funktion (Task 1 nedan) anropar därför RPC:n `log_write_attempt` (inte `log_vault_write_attempt`), och skickar `p_tool` explicit.
+
 ## Global Constraints
 
 - Servern är metadata/skriv-gated by design (se `PROJECT.md`/`CLAUDE.md`): varje nytt verktyg **måste** läggas till i `hosted_guard.py`s `allowed_methods`/`allowed_tool_args` — annars blockeras det tyst av `HostedMetadataGuardMiddleware` i produktion trots att det finns i `_tool_definitions()`.
@@ -215,16 +217,22 @@ def log_write_attempt(mcp_key: str, tool: str, outcome: str) -> None:
     """Log a rejected write attempt as its OWN, independent PostgREST
     transaction (same pattern/reason as pro_templates.log_write_attempt --
     a raised exception rolls back the whole calling transaction, so logging
-    from inside it would never persist for the rejected-attempt case)."""
+    from inside it would never persist for the rejected-attempt case).
+
+    Calls the SAME log_write_attempt RPC that save_workspace_prompt already
+    uses (pro_templates.log_write_attempt), just with an explicit p_tool so
+    Valvet's write attempts don't get counted as save_workspace_prompt
+    attempts. p_risk_check_passed is omitted (defaults to null server-side)
+    -- Valvet items have no risk-check concept."""
     if not mcp_key or not is_configured():
         return
     try:
         _call_rpc(
-            "log_vault_write_attempt",
-            {"p_key_hash": _hash_key(mcp_key), "p_tool": tool, "p_outcome": outcome},
+            "log_write_attempt",
+            {"p_key_hash": _hash_key(mcp_key), "p_outcome": outcome, "p_tool": tool},
         )
     except Exception as exc:
-        logger.error("log_vault_write_attempt_failed tool=%s outcome=%s error=%s", tool, outcome, exc)
+        logger.error("vault_log_write_attempt_failed tool=%s outcome=%s error=%s", tool, outcome, exc)
 ```
 
 - [ ] **Step 2: Syntax-sanity**
