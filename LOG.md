@@ -1,5 +1,37 @@
 # Logg
 
+## 2026-07-16
+
+### Gjort
+- Systemuppdatering av VPS:en (`promptbanken-dev`): 178+ uppgraderingsbara paket, inklusive `docker.io` 28.2.2 → 29.1.3 och en ny kärna (`6.8.0-79` → `6.8.0-134`).
+- **Stötte på flera diskrelaterade problem eftersom rotpartitionen bara är 4.4G:**
+  - `apt-get upgrade -y` av alla paket i ett svep gick inte (behöver 700-900MB temp-utrymme) — löst genom att dela upp i ~50-paket-omgångar med `apt-get clean` mellan varje.
+  - Borttagning av gamla `linux-headers-6.8.0-79*` för att spara utrymme utlöste istället en full kärnuppgradering (apt löste "ta bort headers" som "installera ny kärna + headers, ta bort gamla headers") — disk gick från 651M till 121M ledigt istället för att öka. Löst genom att slutföra uppgraderingen: reboot till nya kärnan, sedan `apt-get purge` av gamla `linux-image`/`linux-modules`/`linux-modules-extra`.
+  - `linux-firmware` (641MB) hoppades medvetet över — irrelevant på en VPS utan fysisk hårdvara.
+  - Hittade en `unattended-upgrades`-process som hållit dpkg-låset sedan 23 maj (nästan 2 månader) — dödad manuellt efter att ha verifierat att den var övergiven (ny process från `apt-daily.timer` samma dag fick köra klart normalt istället för att dödas).
+  - Hittade och tog bort en **övergiven journalkatalog** (`/var/log/journal/<gammalt-maskin-ID>`, ~209M) som inte längre matchade `/etc/machine-id` — `journalctl --vacuum` vacuumade fel katalog och rapporterade 0B frigjort trots att katalogen var stor. Satte även `SystemMaxUse=100M` i `journald.conf` (var kommenterad ut) för att förhindra att journalen växer okontrollerat igen.
+- Verifierade Docker/container-hälsa efter varje risky steg (reboot, docker.io-uppgradering): `restart: unless-stopped` + `docker enabled` fungerade som väntat, containern kom upp automatiskt varje gång, `/healthz` svarade friskt genomgående.
+- Testade och verifierade `claude-ssh` MCP-pluginet för produktionsdeploy (se 2026-07-13-posten nedan för själva deploy-testet).
+
+- Hittade att `/var/log/btmp`+`btmp.1` (188M) och `auth.log`+`auth.log.1` (51M) vuxit stora av pågående SSH-brute-force-skanning (normalt bakgrundsbrus för en publik VPS). `fail2ban` var inte installerat — installerat och aktiverat (`sshd`-jailen aktiv direkt, bannar upprepade IP:n automatiskt).
+
+### Nästa steg
+- `fwupd` och `linux-firmware` lämnas medvetet "kept back" — ingen åtgärd behövs, irrelevanta på denna VPS.
+- Övervaka disken periodiskt (`df -h /`) — 4.4G är permanent knappt, se `TODO.md` för ev. diskutökning hos providern.
+- Trunkera `/var/log/btmp`/`auth.log` för att frigöra ~230M (säkert, bara loggar) — inte gjort än.
+
+## 2026-07-13
+
+### Gjort
+- Testade och verifierade `claude-ssh` MCP-pluginet mot VPS:en (`wenstrompeter@promptbanken-dev`) — fungerar för `git pull` och `docker-compose`-kommandon utan sudo (användaren är i `docker`-gruppen). Sudo-kommandon (t.ex. `journalctl --vacuum-time`, `apt-get clean`) kräver lösenord och kan inte köras via pluginet — användaren kör dessa manuellt.
+- Disk var kritiskt full (`/dev/sda2` 96%, 189M ledigt): `docker image prune -a -f` (51.77MB), plus manuell `journalctl --vacuum-time=7d` + `apt-get clean` av användaren → 189M → 377M ledigt (92%).
+- Verifierade Dockers resursförbrukning: 144MB disk (1 image), 6.3MB RAM av 378.8MB limit — försumbart, disktrycket kom från systemloggar/apt-cache, inte Docker.
+- Verifierade hela deploy-flödet end-to-end via SSH: `git pull` (hämtade `5e021c2`) → `docker-compose up -d --build` → stötte på den kända `ContainerConfig`-buggen (se `LOG.md` 2026-07-12 och [[project_vps_docker_compose_version]]) → löst med `docker rm -f <renamed_container>` + `docker-compose up -d` → container uppe, loggar rena.
+
+### Nästa steg
+- Överväg att sätta `SystemMaxUse` i `/etc/systemd/journald.conf` så journalen inte växer okontrollerat igen (kräver sudo, användaren gör det manuellt).
+- Städa bort den övergivna dubblettklonen på VPS:en (kvarstående TODO-punkt, se `TODO.md`).
+
 ## 2026-07-12
 
 ### Gjort

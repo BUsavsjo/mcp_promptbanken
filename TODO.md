@@ -4,7 +4,7 @@
 1. [ ] **(Low, defense-in-depth)** `HostedMetadataGuardMiddleware` (`mcp_server.py`) buffrar hela request body i minnet utan egen övre gräns i Python-koden. Verifierat 2026-07-01: Caddyfilen har redan `request_body { max_size 64KB }` på exakt `/messages/*` och `/mcp`, så produktionen är skyddad idag. Kvarstående risk är bara om servern någon gång exponeras utan Caddy framför (t.ex. direkt mot porten, eller en annan reverse proxy utan samma gräns) — överväg ett hårdkodat tak i koden själv så skyddet inte är beroende av proxykonfigurationen.
 2. [ ] **(Low)** Utvärdera om hosted metadata-guard ska köras i `block` istället för `warn` efter en tids drift utan `hosted_payload_warning`-träffar (redan i "Senare" nedan, men hör ihop med säkerhetsläget).
 3. [ ] **(Low)** Verifiera att `PROMPTBANKEN_MCP_ALLOWED_ORIGINS` faktiskt är satt i produktion — `OriginValidationMiddleware` släpper igenom requests helt utan `Origin`-header eller om variabeln är tom, vilket är korrekt för server-till-server-klienter men bör vara ett medvetet val, inte standard.
-4. [ ] **(Low)** Städa bort den övergivna dubblettklonen på VPS:en (`/home/wenstrompeter/mcp_promptbanken/mcp_promptbanken/`) — otrackad, oanvänd av Docker Compose, men ökar attackytan om den av misstag pekas ut av något.
+4. [x] Städa bort den övergivna dubblettklonen på VPS:en (`/home/wenstrompeter/mcp_promptbanken/mcp_promptbanken/`) — otrackad, oanvänd av Docker Compose, men ökar attackytan om den av misstag pekas ut av något. 2026-07-16: verifierad ren (`git status` clean, samma remote, inga containers refererade den) och borttagen.
 5. [ ] **(Low)** `mcp_write_attempts`-loggens `exception when others`-hantering (borttagen i `save_prompt_for_key` under Task 10-fixen, men principen kvarstår för framtida liknande kod) bör inte gruppera flera olika avvisningsorsaker under samma `outcome`-etikett om högre precision behövs för felsökning senare. Ingen brådska idag.
 6. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
@@ -12,6 +12,8 @@
 - [ ] Testa att nya promptmallar i `mcp-server/prompts/` är korrekt registrerade i `mcp-server/skills.json`.
 - [ ] Gå igenom `.gitignore` efter verkliga arbetsflöden och justera om anonymiserad exempeldata behöver versionshanteras.
 - [ ] Kör `caddy fmt --overwrite` på `/etc/caddy/Caddyfile` (kosmetisk formateringsvarning vid reload).
+- [x] Sätt `SystemMaxUse` i `/etc/systemd/journald.conf` på VPS:en så journalen (var 209M) inte fyller disken igen — klart 2026-07-16, se LOG.md. Grundorsaken var en övergiven journalkatalog under ett gammalt maskin-ID, inte bara saknad gräns.
+- [ ] Överväg att be VPS-providern utöka rotpartitionen (bara 4.4G totalt) — tvingade fram batch-uppdelad `apt-get upgrade` 2026-07-16 eftersom en vanlig fullständig uppgradering kräver 700-900MB temp-utrymme som inte får plats.
 
 ## Senare
 - [ ] Dokumentera rekommenderat klientflöde för lokal routing mer praktiskt om klientimplementation tillkommer.
