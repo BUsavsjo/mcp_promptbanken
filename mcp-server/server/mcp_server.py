@@ -15,7 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
@@ -615,6 +615,35 @@ def _allowed_origins() -> set[str]:
     return {origin.strip() for origin in raw.split(",") if origin.strip()}
 
 
+_ROOT_INFO_HTML = """<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Promptbanken MCP</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+       max-width: 32rem; margin: 4rem auto; padding: 0 1.5rem; color: #182230; line-height: 1.6; }
+h1 { font-size: 1.4rem; }
+a { color: #0b63ce; }
+code { background: #edf4ff; padding: 0.1rem 0.35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Promptbanken MCP</h1>
+<p>Det h&auml;r &auml;r en MCP-server (Model Context Protocol), inte en webbsida att bl&auml;ddra p&aring;.
+Anslut den fr&aring;n en AI-klient via <code>/mcp</code>.</p>
+<p>S&aring; kommer du ig&aring;ng: <a href="https://promptbanken.se/mcp.html">promptbanken.se/mcp.html</a></p>
+</body>
+</html>
+"""
+
+
+async def _root_info(request: Request) -> HTMLResponse:
+    logger.info("http_request path=/ status=200")
+    return HTMLResponse(_ROOT_INFO_HTML)
+
+
 async def _healthz(request: Request) -> JSONResponse:
     logger.info("http_request path=/healthz status=200")
     mcp_key = _mcp_key_from_request(request)
@@ -1191,6 +1220,7 @@ async def run_sse_async() -> None:
     app = Starlette(
         debug=mcp.settings.debug,
         routes=[
+            Route("/", endpoint=_root_info, methods=["GET"]),
             Route("/healthz", endpoint=_healthz),
             Route("/openapi.json", endpoint=_openapi),
             Route("/api/v1/skills", endpoint=_api_list_skills),
