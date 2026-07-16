@@ -633,7 +633,7 @@ code { background: #edf4ff; padding: 0.1rem 0.35rem; border-radius: 4px; }
 <h1>Promptbanken MCP</h1>
 <p>Det h&auml;r &auml;r en MCP-server (Model Context Protocol), inte en webbsida att bl&auml;ddra p&aring;.
 Anslut den fr&aring;n en AI-klient via <code>/mcp</code>.</p>
-<p>S&aring; kommer du ig&aring;ng: <a href="https://promptbanken.se/mcp.html">promptbanken.se/mcp.html</a></p>
+<p>S&aring; kommer du ig&aring;ng: <a href="https://kommun.promptbanken.se/mcp.html">kommun.promptbanken.se/mcp.html</a></p>
 </body>
 </html>
 """
