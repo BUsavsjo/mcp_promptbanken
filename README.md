@@ -108,6 +108,17 @@ Tre verktyg speglar den kontextstyrda MCP-modellen som infördes i `promptbanken
 
 Alla tre returnerar `"workspace_status": "no_key"` + tom lista utan `X-MCP-Key`/`Authorization`.
 
+### Valvet — personligt prompt/assistant-valv (2026-07-16)
+
+Sex verktyg för nyckelns egna Valvet-insättningar (`mcp-server/server/vault.py`), skilda från `list_my_prompts`/`save_workspace_prompt` genom en egen `module='valvet'`-markering i `promptbanken`-repots `content_items`:
+
+- `list_my_items`/REST `GET /api/v1/vault/items` — nyckelns egna Valvet-insättningar (personligt prompt/assistant-valv, `module='valvet'`). Utesluter arkiverade om inte `status=archived` skickas explicit.
+- `search_my_items`/REST `GET /api/v1/vault/items/search?query=...` — söker titel/innehåll/kategori bland nyckelns Valvet-insättningar.
+- `get_my_item`/REST `GET /api/v1/vault/items/{id}` — hämtar en insättning i sin helhet, inklusive `updated_at` (krävs för `update_my_item`).
+- `save_my_item`/REST `POST /api/v1/vault/items` — skapar en ny insättning. Kräver `idempotency_key`. Free-nycklar: max 5 sparningar/kalendermånad. Pro: ingen månadskvot.
+- `update_my_item`/REST `PATCH /api/v1/vault/items/{id}` — uppdaterar en insättning. Pro-only. Kräver `expected_updated_at` (optimistic locking — avvisas med tydligt fel om posten ändrats sedan den hämtades).
+- `archive_my_item`/REST `POST /api/v1/vault/items/{id}/archive` — arkiverar eller (med `restore:true`) återställer en insättning. Pro-only. Kräver `confirm:true`.
+
 ### Supabase-migration
 
 RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte detta repo. Migrationen ligger där under `supabase/migrations/20240629_mcp_rpc_functions.sql`.
@@ -135,6 +146,12 @@ I `hosted`-läge exponeras bara tools som returnerar metadata, promptmallar, hä
 - `list_my_private_prompts`
 - `list_my_shared_workspaces`
 - `list_shared_workspace_prompts`
+- `list_my_items`
+- `search_my_items`
+- `get_my_item`
+- `save_my_item`
+- `update_my_item`
+- `archive_my_item`
 
 Klienten ska då göra skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte användarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till hosted-servern.
 

@@ -8,12 +8,17 @@
 - Utökade `hosted_guard.py` med allowlist och argumentvalidering för de tre skrivverktygen. REST, guard och JSON-RPC avvisar även fel typ på valfria strängfält och `restore`.
 - Verifierade med `ast.parse`, `compileall`, `npm run check:python`, riktade payload-/guard-/JSON-RPC-tester och REST-tester med mockat RPC-lager.
 - Startade servern lokalt på port 8766 och verifierade `/healthz` samt att `/mcp` `tools/list` annonserar exakt de tre nya skrivverktygen.
+- Task 3 fick task-recension (spec ✅, Approved, ingen fix-loop) — se `.superpowers/sdd/progress.md`.
+- Slutförde Plan B Task 4: full end-to-end-verifiering mot staging (`cohyrgxeatqexkqihktu`). Temporära Free/Pro-testnycklar skapades via Supabase MCP (samma mönster som Plan A:s egen staging-verifiering), hela curl-flödet i planen kördes och matchade spec exakt: idempotent save, Free-nekad update, Pro:s fullständiga CRUD, optimistic-locking-konflikt, `confirm`-kravet, `tools/list`/`tools/call` matchade REST, `hosted_guard` (körde i `warn`-läge) loggade korrekt `hosted_payload_warning reason=unexpected_arguments`. All testdata städad efteråt, staging återställt till ursprungsläge.
+- Hittade och fixade en riktig bugg under Task 4-verifieringen: `vault.log_write_attempt` gick via `_call_rpc`, som alltid anropar `.json()` på svaret — men RPC:n returnerar 204 No Content (void), så varje loggat write-försök kastade internt och rapporterades felaktigt som `vault_log_write_attempt_failed`, trots att loggraden faktiskt skrevs. Fixad till samma mönster som `pro_templates.log_write_attempt` (parsar aldrig svarskroppen). Omverifierad efter fixen.
+- Slutförde Plan B Task 5: dokumenterade de sex Valvet-verktygen i README.md (ny sektion + hosted-tool-listan), CLAUDE.md (ny sektion, uppdaterad Driftlägen-rad) och TODO.md.
 
 ### Nuläge
-- Task 1–3 i Plan B är implementerade i worktreet. Ingen staging- eller produktionsdata har skrivits under Task 3-verifieringen.
+- Plan B (Task 1–5) är klar i `worktree-valvet-plan-b`. Alla sex Valvet-verktyg är implementerade, task-recenserade och live-verifierade mot staging. Väntar på slutlig helbranch-recension innan branchen avslutas.
 
 ### Nästa steg
-- Kör Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s RPC:er finns där.
+- Slutlig helbranch-recension av Plan B, sedan avsluta branchen (merge/PR-beslut).
+- Produktionsdeploy kräver ett separat, uttryckligt beslut (se `AGENTS.md`/`CLAUDE.md` om deploy-flödet) — inte del av Plan B.
 
 ## 2026-07-16
 

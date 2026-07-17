@@ -143,8 +143,31 @@ istället för att skapa en dubblett. Ny REST-endpoint: `POST /api/v1/my-prompts
 anropas. Tillgängligt i både hosted och local-läge (tidigare bara local-läge i
 den här filen).
 
+### Write: Valvet — full CRUD (2026-07-16)
+
+Sex nya verktyg för Valvet (`mcp-server/server/vault.py`): `list_my_items`,
+`search_my_items`, `get_my_item` (alla plan-oberoende, read-only) och
+`save_my_item`/`update_my_item`/`archive_my_item` (write). Till skillnad
+från `save_workspace_prompt` (som skriver till kommunens `content_items`,
+`module='kommun'` implicit) skriver dessa alltid `module='valvet'` — ett helt
+separat tak och synlighetsregelverk i `promptbanken`-repot, se
+`docs/superpowers/specs/2026-07-16-valvet-design.md` där. `save_my_item` är
+tillgängligt för Free (5/kalendermånad) och Pro (obegränsat); `update_my_item`/
+`archive_my_item` är Pro-only. Samma två-fas-loggning som `save_workspace_prompt`
+(lyckade skrivningar loggas inifrån RPC:n, avvisade loggas separat av Python
+efter ett fångat fel) mot samma `app_private.mcp_write_attempts`-tabell,
+nu med en `tool`-kolumn så flera write-verktyg kan dela loggen utan att
+blanda ihop sina kvoter/rate limits. `update_my_item` kräver `expected_updated_at`
+(optimistic locking); `archive_my_item` kräver `confirm:true` och stödjer
+`restore:true` för att återställa en arkiverad insättning. Live-verifierat
+mot staging 2026-07-17 (se `docs/superpowers/plans/2026-07-16-valvet-mcp-tools.md`,
+Task 4) — hittade och fixade en bugg där `vault.log_write_attempt` kraschade
+internt på varje anrop (försökte parsa JSON-kropp från en 204-RPC), fångades
+tyst men loggade ett falskt `vault_log_write_attempt_failed`-fel trots att
+loggraden faktiskt skrevs.
+
 ## Driftlägen
-- **hosted**: metadata-tools + det Pro-gated write-verktyget `save_workspace_prompt` (se ovan) — `check_input_risk` är sedan 2026-07-12 tillgängligt i båda lägena (behövs av write-flödet i hosted-läge)
+- **hosted**: metadata-tools + de Pro-gated/Free-gated write-verktygen `save_workspace_prompt` och Valvets `save_my_item`/`update_my_item`/`archive_my_item` (se ovan) — `check_input_risk` är sedan 2026-07-12 tillgängligt i båda lägena (behövs av write-flödet i hosted-läge)
 - **local**: dessutom `route_skill`, `compile_skill_prompt`
 
 ## Endpoints

@@ -1,5 +1,55 @@
 # Beslut
 
+## 2026-07-17 - Valvets skrivverktyg utökar 2026-07-12-mönstret till en tvådelad Free/Pro-modell
+
+### Beslut
+Valvets tre skrivverktyg (`save_my_item`, `update_my_item`, `archive_my_item`)
+följer samma smala, loggade write-mönster som `save_workspace_prompt`
+(2026-07-12), men `save_my_item` är öppet för Free-nycklar också (5
+sparningar/kalendermånad), inte bara Pro. `update_my_item`/`archive_my_item`
+förblir Pro-only. Loggningen delar samma `app_private.mcp_write_attempts`-
+tabell som `save_workspace_prompt`, nu med en `tool`-kolumn så flera
+write-verktygs kvoter/rate limits inte blandas ihop.
+
+### Skäl
+Free-planens hela värde är att kunna spara ett fåtal egna promptar/assistenter
+utan att uppgradera — att kräva Pro för `save_my_item` hade gjort Valvet
+meningslöst för Free-användare. `update`/`archive` är däremot mer krävande
+att göra säkert (optimistic locking, arkiv-status) och bedömdes inte vara
+kärnvärdet för en gratisanvändare, så de förblev Pro-only i linje med det
+smala mönster 2026-07-12-beslutet efterlyste för framtida write-tools.
+
+### Konsekvens
+Servern har nu två write-verktyg med olika plan-gating-nivåer istället för
+ett enhetligt Pro-only-mönster. Framtida write-tools måste fortsätta
+motivera sin egen plan-gräns explicit (se 2026-07-12-beslutet) — detta är
+inte en generell sänkning av write-gränsen till Free.
+
+## 2026-07-17 - log_write_attempt ska aldrig parsa RPC-svarets body
+
+### Beslut
+`vault.log_write_attempt` gör ett rått `httpx.post` + `raise_for_status()`
+utan att anropa `.json()` på svaret, istället för att gå via den delade
+`_call_rpc`-hjälparen som de övriga fem Valvet-funktionerna använder.
+
+### Skäl
+Upptäckt live mot staging under Plan B Task 4: `log_write_attempt`-RPC:n
+returnerar `void` (HTTP 204 No Content, tom body). `_call_rpc` anropar alltid
+`.json()` på svaret, vilket kastar `JSONDecodeError` på en tom 204-body —
+fångas av `except Exception`, men loggas som
+`vault_log_write_attempt_failed`, trots att `raise_for_status()` redan hade
+passerat och loggraden faktiskt skrevs. Samma fälla undveks redan i den
+äldre `pro_templates.log_write_attempt` (gör aldrig `.json()`), men
+`vault.py` (Task 1) återanvände `_call_rpc` för bekvämlighet utan att märka
+att den funktionen antar en icke-tom JSON-body.
+
+### Konsekvens
+`_call_rpc` är fortfarande rätt val för alla Valvet-RPC:er som faktiskt
+returnerar en rad/lista (`list_items`, `search_items`, `get_item`,
+`save_item`, `update_item`, `archive_item`) — bara void-RPC:er (just
+`log_write_attempt`) ska gå direkt via `httpx.post`. Framtida void-RPC:er i
+detta repo bör följa samma mönster, inte `_call_rpc`.
+
 ## 2026-07-12 - Loggning av avvisade write-försök flyttad till ett separat RPC-anrop
 
 ### Beslut

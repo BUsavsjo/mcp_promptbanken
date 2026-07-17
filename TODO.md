@@ -9,7 +9,7 @@
 6. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
 ## Nästa steg
-- [ ] Kör Plan B Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s sex `public.*_for_key`-RPC:er är applicerade och verifierade där.
+- [x] Kör Plan B Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s sex `public.*_for_key`-RPC:er är applicerade och verifierade där. — klart 2026-07-17, se LOG.md.
 - [ ] Testa att nya promptmallar i `mcp-server/prompts/` är korrekt registrerade i `mcp-server/skills.json`.
 - [ ] Gå igenom `.gitignore` efter verkliga arbetsflöden och justera om anonymiserad exempeldata behöver versionshanteras.
 - [ ] Kör `caddy fmt --overwrite` på `/etc/caddy/Caddyfile` (kosmetisk formateringsvarning vid reload).
@@ -23,6 +23,7 @@
 - [ ] Utöka `app_private.verify_mcp_key` (i `promptbanken`-repot) med en explicit reason-kod (t.ex. `revoked`/`not_found`/`disabled`) så `workspace_status` kan bli mer specifik än dagens generiska `invalid_key`. Kräver ny migration i `promptbanken`-repot.
 
 ## Klart
+- [x] Valvet MCP-verktyg (`list_my_items`, `search_my_items`, `get_my_item`, `save_my_item`, `update_my_item`, `archive_my_item`) — se `docs/superpowers/plans/2026-07-16-valvet-mcp-tools.md`. Kräver Plan A (`promptbanken`-repot) applicerad mot produktions-Supabase innan detta är live i produktion, inte bara staging.
 - [x] `save_workspace_prompt` (MCP write, Pro-gated) — ny RPC `app_private.save_prompt_for_key` + `app_private.log_write_attempt` i `promptbanken`-repot, ny REST-endpoint `POST /api/v1/my-prompts`, portade `check_input_risk` hit från lokala servern. Se `docs/superpowers/specs/2026-07-12-mcp-save-as-template-write-design.md` och `DECISIONS.md`. 2026-07-12.
 - [x] Portade de tre kontextstyrda Pro-verktygen från `promptbanken`-repots lokala MCP-server ("Pro + Delad arbetsyta", 2026-07-06) till den hostade servern: `list_my_private_prompts`, `list_my_shared_workspaces`, `list_shared_workspace_prompts(workspace_id)` — nya funktioner i `pro_templates.py` (anropar `get_workspace_prompts_for_key`/`list_shared_workspaces_for_key`, anon-beviljade), nya tools + REST-endpoints (`/api/v1/my-private-prompts`, `/api/v1/my-shared-workspaces`, `/api/v1/shared-workspaces/{workspace_id}/prompts`) i `mcp_server.py`, och nya poster i `hosted_guard.py`s allowlist (generaliserade `inspect_tool_args` så fler tools än `get_skill` kan ha validerade argument). Löser TODO-punkten i `promptbanken/TODO.md` om att den hostade servern saknade dessa. 2026-07-08.
 - [x] Nytt verktyg `list_my_prompts` + REST `GET /api/v1/my-prompts` — listar bara den anropande nyckelns egna sparade prompts (`source == "workspace"`), separat från `list_skills`/`list_skills_simple`. Löste att MCP-klienter (bekräftat med ChatGPT) inte hittade "mina prompts" eftersom de var blandade in bland publika mallar utan egen ingång. `workspace_status`: `no_key`/`invalid_key`/`ok`.

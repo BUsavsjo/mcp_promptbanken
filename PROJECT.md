@@ -19,7 +19,7 @@ Projektet ska inte köra någon AI-modell eller fungera som ett stort projektnav
 ## Nuläge
 Projektet innehåller en MCP-server i `mcp-server/`, promptmallar i `mcp-server/prompts/`, skill-katalog i `mcp-server/skills.json`, Docker-stöd och npm-script i rotens `package.json`.
 
-Plan B för Valvet utvecklas i worktreet/branchen `worktree-valvet-plan-b`. Task 1–3 är implementerade: RPC-klienten `vault.py`, tre läsverktyg och tre skrivverktyg med MCP-, REST- och hosted-guard-stöd.
+Plan B för Valvet utvecklas i worktreet/branchen `worktree-valvet-plan-b`. Task 1–5 är klara: RPC-klienten `vault.py`, tre läsverktyg och tre skrivverktyg med MCP-, REST- och hosted-guard-stöd, live-verifierade mot staging, dokumentation uppdaterad.
 
 ## Nästa större steg
-Kör Plan B Task 4: full end-to-end-verifiering mot staging med riktiga Free- och Pro-testnycklar när Plan A:s RPC:er är applicerade där.
+Slutlig helbranch-recension av Plan B, sedan avsluta branchen (merge/PR-beslut). Produktionsdeploy är ett separat, uttryckligt beslut och inte del av Plan B.
