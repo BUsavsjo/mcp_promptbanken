@@ -180,6 +180,10 @@ GET      /api/v1/routing-instructions, /pro-templates
 GET/POST /api/v1/my-prompts                                 # GET: lista; POST: spara ny (Pro-gated)
 GET      /api/v1/my-private-prompts, /my-shared-workspaces
 GET      /api/v1/shared-workspaces/{workspace_id}/prompts
+GET/POST /api/v1/vault/items                                # GET: lista; POST: spara ny (idempotency_key, Free 5/manad)
+GET      /api/v1/vault/items/search
+GET/PATCH /api/v1/vault/items/{item_id}                     # PATCH: uppdatera (Pro-gated, optimistic locking)
+POST     /api/v1/vault/items/{item_id}/archive              # arkivera/aterstall (Pro-gated, confirm:true)
 GET      /openapi.json
 ```
 Alla `/api/v1/*` stöder `X-MCP-Key` (fallback: `Authorization: Bearer`). Guard-allowlist för hosted-läge (`hosted_guard.py`) måste hållas i synk med tool-listan i `mcp_server.py` när nya tools läggs till.

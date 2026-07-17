@@ -1105,6 +1105,42 @@ def _openapi_schema() -> dict[str, Any]:
                     "responses": {"200": {"description": "OK"}},
                 }
             },
+            "/api/v1/vault/items": {
+                "get": {
+                    "summary": "List the caller's own Valvet items (personal prompt/assistant vault)",
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "post": {
+                    "summary": "Save a new Valvet item (requires idempotency_key; Free keys capped at 5/calendar month)",
+                    "responses": {"200": {"description": "Saved"}, "400": {"description": "Rejected"}},
+                },
+            },
+            "/api/v1/vault/items/search": {
+                "get": {
+                    "summary": "Search the caller's own Valvet items by title/content/category",
+                    "parameters": [{"name": "query", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/vault/items/{item_id}": {
+                "get": {
+                    "summary": "Get one Valvet item in full, including updated_at (required for update)",
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "patch": {
+                    "summary": "Update a Valvet item (Pro-only; requires expected_updated_at for optimistic locking)",
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "Updated"}, "400": {"description": "Rejected"}},
+                },
+            },
+            "/api/v1/vault/items/{item_id}/archive": {
+                "post": {
+                    "summary": "Archive or (with restore:true) restore a Valvet item (Pro-only; requires confirm:true)",
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Rejected"}},
+                }
+            },
             "/mcp": {
                 "post": {"summary": "MCP Streamable HTTP endpoint", "responses": {"200": {"description": "JSON-RPC response"}}},
                 "get": {"summary": "Optional MCP server stream", "responses": {"405": {"description": "No server stream"}}},
