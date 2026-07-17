@@ -807,6 +807,11 @@ async def _api_vault_search_items(request: Request) -> JSONResponse:
     mcp_key = _mcp_key_from_request(request)
     q = request.query_params
     query = q.get("query", "")
+    if not query:
+        logger.info("http_request path=/api/v1/vault/items/search status=400")
+        return JSONResponse(
+            _error("INVALID_ARGUMENTS", "query is required"), status_code=400
+        )
     logger.info("http_request path=/api/v1/vault/items/search status=200")
     return JSONResponse(_search_my_items_payload(mcp_key, query, q.get("type"), q.get("category")))
 

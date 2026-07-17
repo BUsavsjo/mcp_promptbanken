@@ -148,6 +148,8 @@ class HostedMetadataGuard:
             risk_check_passed = arguments.get("risk_check_passed")
             if risk_check_passed is not None and not isinstance(risk_check_passed, bool):
                 return {"reason": "invalid_risk_check_passed", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "list_my_items":
+            pass
         elif tool_name == "search_my_items":
             query = arguments.get("query")
             if not isinstance(query, str) or not query:
