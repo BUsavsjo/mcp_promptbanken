@@ -50,3 +50,4 @@ build/
 # Systemfiler
 .DS_Store
 Thumbs.db
+.worktrees/
