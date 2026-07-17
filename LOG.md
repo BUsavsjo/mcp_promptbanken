@@ -1,5 +1,20 @@
 # Logg
 
+## 2026-07-17
+
+### Gjort
+- Slutförde Plan B Task 3 i `worktree-valvet-plan-b`: `save_my_item`, `update_my_item` och `archive_my_item` är inkopplade som FastMCP-tools, manuella `tools/list`-definitioner, JSON-RPC-dispatch och REST-routes i `mcp_server.py`.
+- Lade till write-felklassificering och separat loggning via `vault.log_write_attempt`, inklusive `invalid_key`, `not_pro`, `rate_limited`, `quota_reached`, `not_found` och optimistic-locking-konflikt.
+- Utökade `hosted_guard.py` med allowlist och argumentvalidering för de tre skrivverktygen. REST, guard och JSON-RPC avvisar även fel typ på valfria strängfält och `restore`.
+- Verifierade med `ast.parse`, `compileall`, `npm run check:python`, riktade payload-/guard-/JSON-RPC-tester och REST-tester med mockat RPC-lager.
+- Startade servern lokalt på port 8766 och verifierade `/healthz` samt att `/mcp` `tools/list` annonserar exakt de tre nya skrivverktygen.
+
+### Nuläge
+- Task 1–3 i Plan B är implementerade i worktreet. Ingen staging- eller produktionsdata har skrivits under Task 3-verifieringen.
+
+### Nästa steg
+- Kör Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s RPC:er finns där.
+
 ## 2026-07-16
 
 ### Gjort

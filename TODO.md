@@ -9,6 +9,7 @@
 6. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
 ## Nästa steg
+- [ ] Kör Plan B Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s sex `public.*_for_key`-RPC:er är applicerade och verifierade där.
 - [ ] Testa att nya promptmallar i `mcp-server/prompts/` är korrekt registrerade i `mcp-server/skills.json`.
 - [ ] Gå igenom `.gitignore` efter verkliga arbetsflöden och justera om anonymiserad exempeldata behöver versionshanteras.
 - [ ] Kör `caddy fmt --overwrite` på `/etc/caddy/Caddyfile` (kosmetisk formateringsvarning vid reload).
