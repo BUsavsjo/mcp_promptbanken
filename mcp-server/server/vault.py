@@ -184,9 +184,9 @@ def log_write_attempt(mcp_key: str, tool: str, outcome: str) -> None:
     if not mcp_key or not is_configured():
         return
     try:
-        _call_rpc(
-            "log_write_attempt",
-            {"p_key_hash": _hash_key(mcp_key), "p_outcome": outcome, "p_tool": tool},
-        )
+        url = f"{_SUPABASE_URL}/rest/v1/rpc/log_write_attempt"
+        payload = {"p_key_hash": _hash_key(mcp_key), "p_outcome": outcome, "p_tool": tool}
+        response = httpx.post(url, headers=_headers(), json=payload, timeout=5)
+        response.raise_for_status()
     except Exception as exc:
         logger.error("vault_log_write_attempt_failed tool=%s outcome=%s error=%s", tool, outcome, exc)
