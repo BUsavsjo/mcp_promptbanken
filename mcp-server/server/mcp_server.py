@@ -196,6 +196,114 @@ def _classify_write_error(detail: str) -> str:
     return "limit_reached"
 
 
+_VAULT_WRITE_OUTCOME_PATTERNS = [
+    ("Ogiltig nyckel", "invalid_key"),
+    ("Uppgradera till Pro", "not_pro"),
+    ("För många försök", "rate_limited"),
+    ("Ogiltig typ", "invalid_input"),
+    ("Titel", "invalid_input"),
+    ("Innehåll", "invalid_input"),
+    ("Månadskvoten", "quota_reached"),
+    ("hittades inte", "not_found"),
+    ("ändrats sedan du hämtade", "conflict"),
+    ("confirm måste vara true", "invalid_input"),
+]
+
+
+def _classify_vault_write_error(detail: str) -> str:
+    for needle, outcome in _VAULT_WRITE_OUTCOME_PATTERNS:
+        if needle in detail:
+            return outcome
+    return "limit_reached"
+
+
+def _clean_http_error_message(exc: httpx.HTTPStatusError) -> str:
+    detail = exc.response.text
+    try:
+        payload = exc.response.json()
+    except Exception:
+        return detail
+    if isinstance(payload, dict):
+        message = payload.get("message")
+        if isinstance(message, str):
+            return message
+    return detail
+
+
+def _save_my_item_payload(
+    mcp_key: str,
+    idempotency_key: str,
+    type_: str,
+    title: str,
+    content: str,
+    category: str | None,
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        item = _vault_save_item(mcp_key, idempotency_key, type_, title, content, category)
+        return {"status": "success", "item": item}
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        logger.info("tool_call name=save_my_item status=error detail=%s", detail)
+        outcome = _classify_vault_write_error(detail)
+        _vault_log_write_attempt(mcp_key, "save_my_item", outcome)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("save_my_item_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte spara insättningen."}
+
+
+def _update_my_item_payload(
+    mcp_key: str,
+    item_id: str,
+    expected_updated_at: str,
+    title: str | None,
+    content: str | None,
+    category: str | None,
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        item = _vault_update_item(mcp_key, item_id, expected_updated_at, title, content, category)
+        return {"status": "success", "item": item}
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        logger.info("tool_call name=update_my_item status=error detail=%s", detail)
+        outcome = _classify_vault_write_error(detail)
+        _vault_log_write_attempt(mcp_key, "update_my_item", outcome)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("update_my_item_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte uppdatera insättningen."}
+
+
+def _archive_my_item_payload(
+    mcp_key: str, item_id: str, confirm: bool, restore: bool
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        item = _vault_archive_item(mcp_key, item_id, confirm, restore)
+        return {"status": "success", "item": item}
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        logger.info("tool_call name=archive_my_item status=error detail=%s", detail)
+        outcome = _classify_vault_write_error(detail)
+        tool = "archive_my_item_restore" if restore else "archive_my_item"
+        _vault_log_write_attempt(mcp_key, tool, outcome)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("archive_my_item_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte arkivera/återställa insättningen."}
+
+
 def _save_workspace_prompt_payload(
     mcp_key: str,
     title: str,
@@ -850,6 +958,82 @@ async def _api_save_workspace_prompt(request: Request) -> JSONResponse:
     return JSONResponse(payload, status_code=status_code)
 
 
+async def _api_vault_save_item(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    idempotency_key = body.get("idempotency_key")
+    item_type = body.get("type")
+    title = body.get("title")
+    content = body.get("content")
+    category = body.get("category")
+    if not all(isinstance(v, str) and v for v in (idempotency_key, item_type, title, content)):
+        return JSONResponse(
+            _error("INVALID_ARGUMENTS", "idempotency_key, type, title and content are required strings"),
+            status_code=400,
+        )
+    if category is not None and not isinstance(category, str):
+        return JSONResponse(_error("INVALID_ARGUMENTS", "category must be a string"), status_code=400)
+    payload = _save_my_item_payload(mcp_key, idempotency_key, item_type, title, content, category)
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/items method=POST status=%s", status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
+async def _api_vault_update_item(request: Request) -> JSONResponse:
+    item_id = request.path_params["item_id"]
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    expected_updated_at = body.get("expected_updated_at")
+    if not isinstance(expected_updated_at, str) or not expected_updated_at:
+        return JSONResponse(
+            _error("INVALID_ARGUMENTS", "expected_updated_at is required"), status_code=400
+        )
+    title = body.get("title")
+    content = body.get("content")
+    category = body.get("category")
+    if not all(value is None or isinstance(value, str) for value in (title, content, category)):
+        return JSONResponse(
+            _error("INVALID_ARGUMENTS", "title, content and category must be strings"), status_code=400
+        )
+    payload = _update_my_item_payload(
+        mcp_key, item_id, expected_updated_at, title, content, category
+    )
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/items/%s method=PATCH status=%s", item_id, status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
+async def _api_vault_archive_item(request: Request) -> JSONResponse:
+    item_id = request.path_params["item_id"]
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    confirm = body.get("confirm")
+    restore = body.get("restore", False)
+    if not isinstance(confirm, bool):
+        return JSONResponse(_error("INVALID_ARGUMENTS", "confirm (boolean) is required"), status_code=400)
+    if not isinstance(restore, bool):
+        return JSONResponse(_error("INVALID_ARGUMENTS", "restore must be a boolean"), status_code=400)
+    payload = _archive_my_item_payload(mcp_key, item_id, confirm, restore)
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/items/%s/archive method=POST status=%s", item_id, status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -1089,6 +1273,61 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "save_my_item",
+            "description": (
+                "Save a new item to the caller's Valvet (personal prompt/assistant vault). "
+                "Requires idempotency_key. Free keys: max 5 saves/calendar month."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "idempotency_key": {"type": "string", "format": "uuid"},
+                    "type": {"type": "string", "enum": ["prompt", "assistant"]},
+                    "title": {"type": "string"},
+                    "content": {"type": "string"},
+                    "category": {"type": "string"},
+                },
+                "required": ["idempotency_key", "type", "title", "content"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "update_my_item",
+            "description": (
+                "Update an existing Valvet item. Pro-only. expected_updated_at (from a prior "
+                "get_my_item call) is required for optimistic locking."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "format": "uuid"},
+                    "expected_updated_at": {"type": "string", "format": "date-time"},
+                    "title": {"type": "string"},
+                    "content": {"type": "string"},
+                    "category": {"type": "string"},
+                },
+                "required": ["id", "expected_updated_at"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "archive_my_item",
+            "description": (
+                "Archive or restore a Valvet item. Pro-only. confirm must be true, "
+                "otherwise the call is rejected."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "format": "uuid"},
+                    "confirm": {"type": "boolean"},
+                    "restore": {"type": "boolean", "default": False},
+                },
+                "required": ["id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1215,6 +1454,54 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                         mcp_key, title, content, category, source, risk_check_passed, idempotency_key
                     )
                 ),
+            )
+        if tool_name == "save_my_item":
+            idempotency_key = arguments.get("idempotency_key")
+            item_type = arguments.get("type")
+            title = arguments.get("title")
+            content = arguments.get("content")
+            category = arguments.get("category")
+            if not all(isinstance(v, str) and v for v in (idempotency_key, item_type, title, content)):
+                return _json_rpc_error(request_id, -32602, "Invalid save_my_item arguments")
+            if category is not None and not isinstance(category, str):
+                return _json_rpc_error(request_id, -32602, "category must be a string")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(
+                    _save_my_item_payload(mcp_key, idempotency_key, item_type, title, content, category)
+                ),
+            )
+        if tool_name == "update_my_item":
+            item_id = arguments.get("id")
+            expected_updated_at = arguments.get("expected_updated_at")
+            if not all(isinstance(v, str) and v for v in (item_id, expected_updated_at)):
+                return _json_rpc_error(request_id, -32602, "Invalid update_my_item arguments")
+            title = arguments.get("title")
+            content = arguments.get("content")
+            category = arguments.get("category")
+            if not all(value is None or isinstance(value, str) for value in (title, content, category)):
+                return _json_rpc_error(
+                    request_id, -32602, "title, content and category must be strings"
+                )
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(
+                    _update_my_item_payload(
+                        mcp_key, item_id, expected_updated_at, title, content, category
+                    )
+                ),
+            )
+        if tool_name == "archive_my_item":
+            item_id = arguments.get("id")
+            confirm = arguments.get("confirm")
+            restore = arguments.get("restore", False)
+            if not isinstance(item_id, str) or not item_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid archive_my_item arguments")
+            if not isinstance(restore, bool):
+                return _json_rpc_error(request_id, -32602, "restore must be a boolean")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(_archive_my_item_payload(mcp_key, item_id, confirm, restore)),
             )
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
@@ -1379,8 +1666,15 @@ async def run_sse_async() -> None:
             Route("/api/v1/my-shared-workspaces", endpoint=_api_my_shared_workspaces),
             Route("/api/v1/shared-workspaces/{workspace_id}/prompts", endpoint=_api_shared_workspace_prompts),
             Route("/api/v1/vault/items", endpoint=_api_vault_list_items, methods=["GET"]),
+            Route("/api/v1/vault/items", endpoint=_api_vault_save_item, methods=["POST"]),
             Route("/api/v1/vault/items/search", endpoint=_api_vault_search_items, methods=["GET"]),
             Route("/api/v1/vault/items/{item_id}", endpoint=_api_vault_get_item, methods=["GET"]),
+            Route("/api/v1/vault/items/{item_id}", endpoint=_api_vault_update_item, methods=["PATCH"]),
+            Route(
+                "/api/v1/vault/items/{item_id}/archive",
+                endpoint=_api_vault_archive_item,
+                methods=["POST"],
+            ),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
@@ -1440,6 +1734,48 @@ def save_workspace_prompt(
     return _save_workspace_prompt_payload(
         "", title, content, category, source, risk_check_passed, idempotency_key
     )
+
+
+@mcp.tool()
+def save_my_item(
+    idempotency_key: str,
+    type: str,
+    title: str,
+    content: str,
+    category: str | None = None,
+) -> dict[str, Any]:
+    """Save a new item to the caller's Valvet (personal prompt/assistant
+    vault). Requires an idempotency_key (client-generated UUID) so a retried
+    call never creates a duplicate. Free keys are limited to 5 saves per
+    calendar month; Pro keys have no monthly cap."""
+    logger.info("tool_call name=save_my_item")
+    return _save_my_item_payload("", idempotency_key, type, title, content, category)
+
+
+@mcp.tool()
+def update_my_item(
+    id: str,
+    expected_updated_at: str,
+    title: str | None = None,
+    content: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any]:
+    """Update an existing Valvet item. Pro-only. expected_updated_at must be
+    the updated_at value from a prior get_my_item/list_my_items call
+    (optimistic locking) -- on mismatch, re-fetch and retry."""
+    logger.info("tool_call name=update_my_item")
+    return _update_my_item_payload("", id, expected_updated_at, title, content, category)
+
+
+@mcp.tool()
+def archive_my_item(id: str, confirm: bool, restore: bool = False) -> dict[str, Any]:
+    """Archive (or, with restore=true, un-archive) a Valvet item. Pro-only.
+    confirm must be explicitly true -- the call is rejected otherwise, to
+    guard against an ambiguous or injected instruction archiving the wrong
+    item. Archiving an already-archived item (or restoring an already-active
+    one) is a safe no-op."""
+    logger.info("tool_call name=archive_my_item")
+    return _archive_my_item_payload("", id, confirm, restore)
 
 
 if __name__ == "__main__":

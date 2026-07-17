@@ -32,6 +32,9 @@ class HostedMetadataGuard:
             "list_my_items",
             "search_my_items",
             "get_my_item",
+            "save_my_item",
+            "update_my_item",
+            "archive_my_item",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
@@ -51,6 +54,9 @@ class HostedMetadataGuard:
             "list_my_items": {"type", "category", "status"},
             "search_my_items": {"query", "type", "category"},
             "get_my_item": {"id"},
+            "save_my_item": {"idempotency_key", "type", "title", "content", "category"},
+            "update_my_item": {"id", "expected_updated_at", "title", "content", "category"},
+            "archive_my_item": {"id", "confirm", "restore"},
         }
 
     def inspect_body(self, body: bytes) -> dict[str, Any] | None:
@@ -158,6 +164,32 @@ class HostedMetadataGuard:
             item_id = arguments.get("id")
             if not isinstance(item_id, str) or not item_id:
                 return {"reason": "invalid_item_id", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "save_my_item":
+            idempotency_key = arguments.get("idempotency_key")
+            item_type = arguments.get("type")
+            title = arguments.get("title")
+            content = arguments.get("content")
+            if not all(isinstance(v, str) and v for v in (idempotency_key, item_type, title, content)):
+                return {"reason": "invalid_save_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+            category = arguments.get("category")
+            if category is not None and not isinstance(category, str):
+                return {"reason": "invalid_save_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "update_my_item":
+            item_id = arguments.get("id")
+            expected_updated_at = arguments.get("expected_updated_at")
+            if not all(isinstance(v, str) and v for v in (item_id, expected_updated_at)):
+                return {"reason": "invalid_update_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+            optional_values = (arguments.get("title"), arguments.get("content"), arguments.get("category"))
+            if not all(value is None or isinstance(value, str) for value in optional_values):
+                return {"reason": "invalid_update_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "archive_my_item":
+            item_id = arguments.get("id")
+            confirm = arguments.get("confirm")
+            restore = arguments.get("restore", False)
+            if not isinstance(item_id, str) or not item_id or not isinstance(confirm, bool):
+                return {"reason": "invalid_archive_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+            if not isinstance(restore, bool):
+                return {"reason": "invalid_archive_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None
