@@ -29,6 +29,9 @@ class HostedMetadataGuard:
             "list_shared_workspace_prompts",
             "check_input_risk",
             "save_workspace_prompt",
+            "list_my_items",
+            "search_my_items",
+            "get_my_item",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
@@ -45,6 +48,9 @@ class HostedMetadataGuard:
             "save_workspace_prompt": {
                 "title", "content", "category", "source", "risk_check_passed", "idempotency_key"
             },
+            "list_my_items": {"type", "category", "status"},
+            "search_my_items": {"query", "type", "category"},
+            "get_my_item": {"id"},
         }
 
     def inspect_body(self, body: bytes) -> dict[str, Any] | None:
@@ -142,6 +148,14 @@ class HostedMetadataGuard:
             risk_check_passed = arguments.get("risk_check_passed")
             if risk_check_passed is not None and not isinstance(risk_check_passed, bool):
                 return {"reason": "invalid_risk_check_passed", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "search_my_items":
+            query = arguments.get("query")
+            if not isinstance(query, str) or not query:
+                return {"reason": "invalid_query", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "get_my_item":
+            item_id = arguments.get("id")
+            if not isinstance(item_id, str) or not item_id:
+                return {"reason": "invalid_item_id", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None

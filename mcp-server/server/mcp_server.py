@@ -25,6 +25,13 @@ from .pro_templates import list_shared_prompts as _fetch_shared_prompts
 from .pro_templates import list_shared_workspaces as _fetch_shared_workspaces
 from .pro_templates import save_prompt as _save_prompt
 from .pro_templates import log_write_attempt as _log_write_attempt
+from .vault import list_items as _vault_list_items
+from .vault import search_items as _vault_search_items
+from .vault import get_item as _vault_get_item
+from .vault import save_item as _vault_save_item
+from .vault import update_item as _vault_update_item
+from .vault import archive_item as _vault_archive_item
+from .vault import log_write_attempt as _vault_log_write_attempt
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -353,6 +360,36 @@ def _shared_workspace_prompts_payload(mcp_key: str, workspace_id: str) -> dict[s
     return {"prompts": _fetch_shared_prompts(mcp_key, workspace_id)}
 
 
+_VAULT_NO_KEY_MESSAGE = (
+    "Ingen MCP-nyckel skickades. Autentisera med din personliga X-MCP-Key för att se dina Valvet-insättningar."
+)
+
+
+def _list_my_items_payload(
+    mcp_key: str = "", type_: str | None = None, category: str | None = None, status: str | None = None
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"workspace_status": "no_key", "workspace_message": _VAULT_NO_KEY_MESSAGE, "items": []}
+    return {"items": _vault_list_items(mcp_key, type_, category, status)}
+
+
+def _search_my_items_payload(
+    mcp_key: str = "", query: str = "", type_: str | None = None, category: str | None = None
+) -> dict[str, Any]:
+    if not mcp_key:
+        return {"workspace_status": "no_key", "workspace_message": _VAULT_NO_KEY_MESSAGE, "items": []}
+    return {"items": _vault_search_items(mcp_key, query, type_, category)}
+
+
+def _get_my_item_payload(mcp_key: str = "", item_id: str = "") -> dict[str, Any]:
+    if not mcp_key:
+        return {"workspace_status": "no_key", "workspace_message": _VAULT_NO_KEY_MESSAGE, "item": None}
+    item = _vault_get_item(mcp_key, item_id)
+    if item is None:
+        return {"status": "error", "message": "Insättningen hittades inte.", "item": None}
+    return {"item": item}
+
+
 @mcp.tool()
 def list_my_private_prompts() -> dict[str, Any]:
     """List the caller's own private Pro prompts (personal workspace). Requires
@@ -376,6 +413,30 @@ def list_shared_workspace_prompts(workspace_id: str) -> dict[str, Any]:
     Requires an explicit workspace_id (from list_my_shared_workspaces)."""
     logger.info("tool_call name=list_shared_workspace_prompts")
     return _shared_workspace_prompts_payload("", workspace_id)
+
+
+@mcp.tool()
+def list_my_items(type: str | None = None, category: str | None = None, status: str | None = None) -> dict[str, Any]:
+    """List the caller's own Valvet items (personal prompt/assistant vault).
+    Excludes archived items unless status='archived' is passed explicitly."""
+    logger.info("tool_call name=list_my_items")
+    return _list_my_items_payload(type_=type, category=category, status=status)
+
+
+@mcp.tool()
+def search_my_items(query: str, type: str | None = None, category: str | None = None) -> dict[str, Any]:
+    """Search the caller's own Valvet items by title/content/category. Never
+    returns archived items."""
+    logger.info("tool_call name=search_my_items")
+    return _search_my_items_payload(query=query, type_=type, category=category)
+
+
+@mcp.tool()
+def get_my_item(id: str) -> dict[str, Any]:
+    """Fetch one Valvet item in full, including its updated_at timestamp
+    (needed as expected_updated_at for a later update_my_item call)."""
+    logger.info("tool_call name=get_my_item")
+    return _get_my_item_payload(item_id=id)
 
 
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
@@ -735,6 +796,28 @@ async def _api_shared_workspace_prompts(request: Request) -> JSONResponse:
     return JSONResponse(_shared_workspace_prompts_payload(mcp_key, workspace_id))
 
 
+async def _api_vault_list_items(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    q = request.query_params
+    logger.info("http_request path=/api/v1/vault/items status=200")
+    return JSONResponse(_list_my_items_payload(mcp_key, q.get("type"), q.get("category"), q.get("status")))
+
+
+async def _api_vault_search_items(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    q = request.query_params
+    query = q.get("query", "")
+    logger.info("http_request path=/api/v1/vault/items/search status=200")
+    return JSONResponse(_search_my_items_payload(mcp_key, query, q.get("type"), q.get("category")))
+
+
+async def _api_vault_get_item(request: Request) -> JSONResponse:
+    item_id = request.path_params["item_id"]
+    mcp_key = _mcp_key_from_request(request)
+    logger.info("http_request path=/api/v1/vault/items/%s status=200", item_id)
+    return JSONResponse(_get_my_item_payload(mcp_key, item_id))
+
+
 async def _api_save_workspace_prompt(request: Request) -> JSONResponse:
     mcp_key = _mcp_key_from_request(request)
     try:
@@ -941,6 +1024,46 @@ def _tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "list_my_items",
+            "description": (
+                "List the caller's own Valvet items (personal prompt/assistant vault). "
+                "Excludes archived items unless status='archived' is passed explicitly."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "enum": ["prompt", "assistant"]},
+                    "category": {"type": "string"},
+                    "status": {"type": "string", "enum": ["draft", "review", "published", "archived"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "search_my_items",
+            "description": "Search the caller's own Valvet items by title/content/category.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "type": {"type": "string", "enum": ["prompt", "assistant"]},
+                    "category": {"type": "string"},
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_my_item",
+            "description": "Fetch one Valvet item in full, including updated_at (needed for update_my_item).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"id": {"type": "string", "format": "uuid"}},
+                "required": ["id"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "save_workspace_prompt",
             "description": (
                 "Save a generalised, already GDPR-checked template into the caller's "
@@ -1053,6 +1176,22 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(
                 request_id, _mcp_content_result(_shared_workspace_prompts_payload(mcp_key, workspace_id))
             )
+        if tool_name == "list_my_items":
+            return _json_rpc_result(request_id, _mcp_content_result(
+                _list_my_items_payload(mcp_key, arguments.get("type"), arguments.get("category"), arguments.get("status"))
+            ))
+        if tool_name == "search_my_items":
+            query = arguments.get("query")
+            if not isinstance(query, str) or not query:
+                return _json_rpc_error(request_id, -32602, "Invalid search_my_items arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(
+                _search_my_items_payload(mcp_key, query, arguments.get("type"), arguments.get("category"))
+            ))
+        if tool_name == "get_my_item":
+            item_id = arguments.get("id")
+            if not isinstance(item_id, str) or not item_id:
+                return _json_rpc_error(request_id, -32602, "Invalid get_my_item arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_get_my_item_payload(mcp_key, item_id)))
         if tool_name == "save_workspace_prompt":
             title = arguments.get("title")
             content = arguments.get("content")
@@ -1234,6 +1373,9 @@ async def run_sse_async() -> None:
             Route("/api/v1/my-private-prompts", endpoint=_api_my_private_prompts),
             Route("/api/v1/my-shared-workspaces", endpoint=_api_my_shared_workspaces),
             Route("/api/v1/shared-workspaces/{workspace_id}/prompts", endpoint=_api_shared_workspace_prompts),
+            Route("/api/v1/vault/items", endpoint=_api_vault_list_items, methods=["GET"]),
+            Route("/api/v1/vault/items/search", endpoint=_api_vault_search_items, methods=["GET"]),
+            Route("/api/v1/vault/items/{item_id}", endpoint=_api_vault_get_item, methods=["GET"]),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
