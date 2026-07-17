@@ -912,7 +912,7 @@ git commit -m "feat: wire save_my_item, update_my_item, archive_my_item into the
 
 **Förutsättning:** Plan A applicerad och verifierad mot staging Supabase-projektet, och `.env`/miljövariabler pekar dit (`SUPABASE_URL`, `SUPABASE_ANON_KEY`). En riktig Free- och en riktig Pro-testnyckels **rå** värden (inte hash) behövs.
 
-- [ ] **Step 1: Starta servern mot staging**
+- [x] **Step 1: Starta servern mot staging** — kört 2026-07-17 mot staging-projektet `cohyrgxeatqexkqihktu`. `hosted_guard=warn` (inte `block`) i denna körning.
 
 ```powershell
 $env:SUPABASE_URL = "<staging-url>"
@@ -920,7 +920,9 @@ $env:SUPABASE_ANON_KEY = "<staging-anon-key>"
 npm run serve
 ```
 
-- [ ] **Step 2: Kör igenom hela flödet med curl**
+- [x] **Step 2: Kör igenom hela flödet med curl** — kört 2026-07-17. Ingen befintlig rå Free/Pro-testnyckel fanns (bara hashar i DB), så temporära testnycklar skapades via Supabase MCP: `test-free-user`s befintliga nyckel (Free tillåter bara 1 aktiv) tillfälligt revokerad och en ny testnyckel infogad i dess ställe, en Pro-testnyckel infogad på `test-owner-personal` (som saknade en sedan Plan A:s egen städning). Samma mönster som Plan A:s staging-verifiering använde. Alla resultat matchade spec exakt: tomt valv, idempotent save (samma id vid retry), lista/sök/hämta, Free nekad update med Pro-uppsälj-meddelandet, Pro:s fullständiga CRUD (save/update/archive/restore) fungerade, optimistic-locking-konflikt avvisad korrekt med ett gammalt `expected_updated_at`, `confirm:false` avvisad korrekt. All testdata (2 content_items, 2 temp api_keys) städad efteråt; `test-free-user`s ursprungliga nyckel återställd (un-revoked) — staging tillbaka i sitt ursprungsläge.
+
+  **Bugg hittad och fixad under verifieringen** (commit `1567ad3`): `vault.log_write_attempt` gick via `_call_rpc`, som alltid anropar `.json()` på svaret — men RPC:n returnerar void/204 No Content, så varje loggat write-försök kastade internt och rapporterades felaktigt som `vault_log_write_attempt_failed`, trots att loggraden faktiskt skrevs (raise_for_status() hade redan passerat). Fixad till samma mönster som den befintliga `pro_templates.log_write_attempt` (parsar aldrig svarskroppen). Omverifierad efter fixen: inget falskt fellogg-meddelande längre, loggningen fungerar fortfarande (204 mottas rent).
 
 ```powershell
 $freeKey = "<fri-nyckel>"
@@ -957,7 +959,7 @@ curl -s -X POST http://localhost:8000/api/v1/vault/items/<pro-id>/archive -H "X-
 
 Förväntat: exakt de resultat/felmeddelanden som beskrivs i kommentarerna.
 
-- [ ] **Step 3: Verifiera via `/mcp` (tools/list och tools/call)**
+- [x] **Step 3: Verifiera via `/mcp` (tools/list och tools/call)** — kört 2026-07-17. `tools/list` innehöll alla 6 Valvet-verktyg (plus alla befintliga). `tools/call list_my_items` gav samma innehåll som REST-varianten, inpackat i MCP:s `content`-format.
 
 ```powershell
 curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "X-MCP-Key: $proKey" `
@@ -965,7 +967,7 @@ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H
 ```
 Förväntat: samma resultat som REST-varianten, inpackat i MCP:s `content`-format.
 
-- [ ] **Step 4: Verifiera att `hosted_guard` faktiskt blockerar oväntade argument**
+- [x] **Step 4: Verifiera att `hosted_guard` faktiskt blockerar oväntade argument** — kört 2026-07-17. Servern körde i `warn`-läge (inte `block`), så anropet gick igenom men loggade `hosted_payload_warning path=/mcp reason=unexpected_arguments method=tools/call tool=archive_my_item` i serverloggen precis som förväntat för `warn`-läge — bekräftar att guard-inspektionen faktiskt körs och identifierar `extra_field` korrekt (i `block`-läge hade samma reason gett en avvisning istället för en varning).
 
 ```powershell
 curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "X-MCP-Key: $proKey" `
