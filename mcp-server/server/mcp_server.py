@@ -1670,7 +1670,17 @@ class HostedMetadataGuardMiddleware:
 async def run_sse_async() -> None:
     sse = SseServerTransport("/messages/")
 
-    async def handle_sse(request: Request) -> None:
+    async def handle_sse(request: Request) -> Response | None:
+        # En ren webblasarnavigering till /sse skickar "text/html" forst i Accept
+        # och haller sedan anslutningen oppen i evighet (SSE ar en langlivad
+        # strom) -- ser ut som att sidan hanger/blockeras for nagon som bara
+        # klickar pa lanken, istallet for att visa nagot begripligt. Samma
+        # atgard som redan finns for "/" (_ROOT_INFO_HTML) och GET /mcp (405):
+        # riktiga MCP-klienter skickar "text/event-stream" i Accept, inte HTML.
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept and "text/event-stream" not in accept:
+            logger.info("http_request path=/sse status=200 browser_navigation=true")
+            return HTMLResponse(_ROOT_INFO_HTML)
         logger.info("sse_connect path=/sse")
         async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
             started_at = time.monotonic()
