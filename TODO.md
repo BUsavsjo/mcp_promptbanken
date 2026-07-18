@@ -21,6 +21,7 @@
 - [ ] Utvärdera om hosted metadata-guard ska köras i `block` efter drift med `warn`.
 - [ ] Lägg till fler fokuserade tester om serverns API-yta växer.
 - [ ] Utöka `app_private.verify_mcp_key` (i `promptbanken`-repot) med en explicit reason-kod (t.ex. `revoked`/`not_found`/`disabled`) så `workspace_status` kan bli mer specifik än dagens generiska `invalid_key`. Kräver ny migration i `promptbanken`-repot.
+- [ ] `get_my_item` returnerar `status` rakt av utan samma förtydligande som `save_my_item`/`list_my_items` fick 2026-07-18 (se `docs/superpowers/specs/2026-07-18-valvet-status-clarity-design.md`) — påpekat i den avslutande kodgranskningen som valfri uppföljning, inte blockerande.
 
 ## Klart
 - [x] Förtydligade `draft`-status i Valvets MCP-verktyg (`list_my_items`/`save_my_item`-beskrivningar + docstrings förklarar att posten redan är sparad och privat oavsett status) och smalnade av `list_my_items`s `status`-filter till `draft`/`archived` (`review`/`published` var döda/oåtkomliga värden — `update_my_item` har inget `status`-argument). Se `docs/superpowers/specs/2026-07-18-valvet-status-clarity-design.md`.
