@@ -1,5 +1,25 @@
 # Beslut
 
+## 2026-07-18 - Free får update/archive; Pro-only-delen av 2026-07-17-beslutet upphävd
+
+### Beslut
+Produktbeslut 2026-07-18: `update_my_item` och `archive_my_item` är öppna för
+Free-nycklar. Gaten togs bort i promptbanken-repots migration
+`20260718090000_valvet_free_update_archive_via_mcp.sql` (RPC:erna
+`update_my_item_for_key`/`archive_my_item_for_key` kräver inte längre
+`has_active_pro_entitlement`). `save_my_item`-kvoten (Free 5/kalendermånad)
+och `save_workspace_prompt` (Pro-only) är oförändrade.
+
+### Skäl
+Update/archive är grundläggande hygien, inte premiumvärde — att spärra dem
+bakom Pro innebar att en AI-klient kunde skapa poster på Free men aldrig
+rätta eller städa dem.
+
+### Konsekvens
+Serverns verktygsbeskrivningar får inte längre säga "Pro-only" för
+update/archive. Felklassificeringen `not_pro` i `_classify_vault_write_error`
+behålls som skydd ifall RPC-sidan ändras igen.
+
 ## 2026-07-17 - Valvets skrivverktyg utökar 2026-07-12-mönstret till en tvådelad Free/Pro-modell
 
 ### Beslut

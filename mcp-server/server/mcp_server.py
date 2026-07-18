@@ -1130,14 +1130,14 @@ def _openapi_schema() -> dict[str, Any]:
                     "responses": {"200": {"description": "OK"}},
                 },
                 "patch": {
-                    "summary": "Update a Valvet item (Pro-only; requires expected_updated_at for optimistic locking)",
+                    "summary": "Update a Valvet item (available on all plans; requires expected_updated_at for optimistic locking)",
                     "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
                     "responses": {"200": {"description": "Updated"}, "400": {"description": "Rejected"}},
                 },
             },
             "/api/v1/vault/items/{item_id}/archive": {
                 "post": {
-                    "summary": "Archive or (with restore:true) restore a Valvet item (Pro-only; requires confirm:true)",
+                    "summary": "Archive or (with restore:true) restore a Valvet item (available on all plans; requires confirm:true)",
                     "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Rejected"}},
                 }
@@ -1343,8 +1343,8 @@ def _tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "update_my_item",
             "description": (
-                "Update an existing Valvet item. Pro-only. expected_updated_at (from a prior "
-                "get_my_item call) is required for optimistic locking."
+                "Update an existing Valvet item. Available on all plans. expected_updated_at "
+                "(from a prior get_my_item call) is required for optimistic locking."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1362,7 +1362,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "archive_my_item",
             "description": (
-                "Archive or restore a Valvet item. Pro-only. confirm must be true, "
+                "Archive or restore a Valvet item. Available on all plans. confirm must be true, "
                 "otherwise the call is rejected."
             ),
             "inputSchema": {
@@ -1820,8 +1820,8 @@ def update_my_item(
     content: str | None = None,
     category: str | None = None,
 ) -> dict[str, Any]:
-    """Update an existing Valvet item. Pro-only. expected_updated_at must be
-    the updated_at value from a prior get_my_item/list_my_items call
+    """Update an existing Valvet item. Available on all plans. expected_updated_at
+    must be the updated_at value from a prior get_my_item/list_my_items call
     (optimistic locking) -- on mismatch, re-fetch and retry."""
     logger.info("tool_call name=update_my_item")
     return _update_my_item_payload("", id, expected_updated_at, title, content, category)
@@ -1829,9 +1829,9 @@ def update_my_item(
 
 @mcp.tool()
 def archive_my_item(id: str, confirm: bool, restore: bool = False) -> dict[str, Any]:
-    """Archive (or, with restore=true, un-archive) a Valvet item. Pro-only.
-    confirm must be explicitly true -- the call is rejected otherwise, to
-    guard against an ambiguous or injected instruction archiving the wrong
+    """Archive (or, with restore=true, un-archive) a Valvet item. Available on
+    all plans. confirm must be explicitly true -- the call is rejected otherwise,
+    to guard against an ambiguous or injected instruction archiving the wrong
     item. Archiving an already-archived item (or restoring an already-active
     one) is a safe no-op."""
     logger.info("tool_call name=archive_my_item")
