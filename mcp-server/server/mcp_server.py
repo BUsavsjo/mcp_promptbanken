@@ -526,7 +526,8 @@ def list_shared_workspace_prompts(workspace_id: str) -> dict[str, Any]:
 @mcp.tool()
 def list_my_items(type: str | None = None, category: str | None = None, status: str | None = None) -> dict[str, Any]:
     """List the caller's own Valvet items (personal prompt/assistant vault).
-    Excludes archived items unless status='archived' is passed explicitly."""
+    All items are private to the owning key regardless of status. Excludes
+    archived items unless status='archived' is passed explicitly."""
     logger.info("tool_call name=list_my_items")
     return _list_my_items_payload(type_=type, category=category, status=status)
 
@@ -1252,6 +1253,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "list_my_items",
             "description": (
                 "List the caller's own Valvet items (personal prompt/assistant vault). "
+                "All items are private to the owning key regardless of status. "
                 "Excludes archived items unless status='archived' is passed explicitly."
             ),
             "inputSchema": {
@@ -1259,7 +1261,15 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "properties": {
                     "type": {"type": "string", "enum": ["prompt", "assistant"]},
                     "category": {"type": "string"},
-                    "status": {"type": "string", "enum": ["draft", "review", "published", "archived"]},
+                    "status": {
+                        "type": "string",
+                        "enum": ["draft", "archived"],
+                        "description": (
+                            "review and published exist in the database enum but are "
+                            "reserved for a future review/publishing workflow -- no "
+                            "Valvet client (web or MCP) can set them yet."
+                        ),
+                    },
                 },
                 "additionalProperties": False,
             },
@@ -1313,7 +1323,9 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "save_my_item",
             "description": (
                 "Save a new item to the caller's Valvet (personal prompt/assistant vault). "
-                "Requires idempotency_key. Free keys: max 5 saves/calendar month."
+                "Requires idempotency_key. Free keys: max 5 saves/calendar month. "
+                "The item is fully saved and private to the caller immediately -- "
+                "status='draft' only describes editing state, not save state or visibility."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1793,7 +1805,9 @@ def save_my_item(
     """Save a new item to the caller's Valvet (personal prompt/assistant
     vault). Requires an idempotency_key (client-generated UUID) so a retried
     call never creates a duplicate. Free keys are limited to 5 saves per
-    calendar month; Pro keys have no monthly cap."""
+    calendar month; Pro keys have no monthly cap. The item is fully saved
+    and private to the caller immediately -- status='draft' only describes
+    editing state, not save state or visibility."""
     logger.info("tool_call name=save_my_item")
     return _save_my_item_payload("", idempotency_key, type, title, content, category)
 
