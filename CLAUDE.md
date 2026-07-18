@@ -164,7 +164,12 @@ mot staging 2026-07-17 (se `docs/superpowers/plans/2026-07-16-valvet-mcp-tools.m
 Task 4) — hittade och fixade en bugg där `vault.log_write_attempt` kraschade
 internt på varje anrop (försökte parsa JSON-kropp från en 204-RPC), fångades
 tyst men loggade ett falskt `vault_log_write_attempt_failed`-fel trots att
-loggraden faktiskt skrevs.
+loggraden faktiskt skrevs. **Status:** bara `draft`/`archived` är nåbara via
+Valvets verktyg (`update_my_item` har inget `status`-argument, webbappen
+sätter aldrig `review`/`published`) — se README.md och
+`docs/superpowers/specs/2026-07-18-valvet-status-clarity-design.md`. Lägg
+aldrig till `review`/`published` som giltiga i `list_my_items`s
+`status`-enum utan att först bygga ett sätt att faktiskt sätta dem.
 
 ## Driftlägen
 - **hosted**: metadata-tools + de Pro-gated/Free-gated write-verktygen `save_workspace_prompt` och Valvets `save_my_item`/`update_my_item`/`archive_my_item` (se ovan) — `check_input_risk` är sedan 2026-07-12 tillgängligt i båda lägena (behövs av write-flödet i hosted-läge)

@@ -119,6 +119,8 @@ Sex verktyg för nyckelns egna Valvet-insättningar (`mcp-server/server/vault.py
 - `update_my_item`/REST `PATCH /api/v1/vault/items/{id}` — uppdaterar en insättning. Pro-only. Kräver `expected_updated_at` (optimistic locking — avvisas med tydligt fel om posten ändrats sedan den hämtades).
 - `archive_my_item`/REST `POST /api/v1/vault/items/{id}/archive` — arkiverar eller (med `restore:true`) återställer en insättning. Pro-only. Kräver `confirm:true`.
 
+**Status:** en Valvet-post har alltid en av `draft`/`review`/`published`/`archived` i databasens enum, men bara `draft` (standard vid skapande) och `archived` går att nå via Valvets verktyg i Fas 1 — `list_my_items`s `status`-filter accepterar bara dessa två. Posten är fullt sparad och privat till nyckelns ägare direkt vid `save_my_item`; `draft` beskriver bara redigeringsläge, inte om posten finns eller vem som ser den (Valvet-poster har ingen egen synlighetskolumn — de är alltid privata). `review`/`published` är reserverade för ett framtida gransknings-/publiceringsflöde; ingen klient (webb eller MCP) kan sätta dem idag.
+
 ### Supabase-migration
 
 RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte detta repo. Migrationen ligger där under `supabase/migrations/20240629_mcp_rpc_functions.sql`.
