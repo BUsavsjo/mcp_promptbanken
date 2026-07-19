@@ -1,5 +1,28 @@
 # Beslut
 
+## 2026-07-19 - Katalog-Pro avvecklad: hela promptbiblioteket öppet
+
+### Beslut
+Produktbeslut 2026-07-19 (delprojekt 6 i Promptbanken/Valvet-visionen):
+Pro-gating för att LÄSA katalogen avvecklas helt. Migration
+`20260719100000_open_catalog.sql` i promptbanken-repot gör att
+`get_pro_templates_for_mcp_key` (och webbens `list_pro_templates()`) alltid
+returnerar alla 42 mallar med full `prompt_text` och `is_unlocked=true`,
+oavsett nyckel/plan — även utan nyckel. Verktygsnamnet `list_pro_templates`
+behålls som alias (befintliga klienter ska inte brytas). Pro-planen finns
+kvar men gäller enbart Valvet-gränser (insättningar, nycklar, kvoter) och
+egna/delade arbetsytor — inte katalogaccess.
+
+### Skäl
+Promptbanken är den öppna, kurerade katalogen; Valvet är användarens privata
+arbetsbank och enda ingången för att spara/aktivera. Premiumvärdet ligger i
+egna ytor och volym, inte i låst kataloginnehåll.
+
+### Konsekvens
+Verktygsbeskrivningarna för `list_pro_templates` (båda definitionsställena)
+får inte längre påstå teaser/Pro-krav. Teaser-koden i `pro_templates.py`
+behöver inte ändras — RPC:n returnerar aldrig `prompt_text: null` längre.
+
 ## 2026-07-18 - Free får update/archive; Pro-only-delen av 2026-07-17-beslutet upphävd
 
 ### Beslut

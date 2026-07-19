@@ -336,9 +336,9 @@ def _save_workspace_prompt_payload(
 
 @mcp.tool()
 def list_pro_templates() -> dict[str, Any]:
-    """List Promptbanken Pro premium templates. Full prompt text is only
-    included if the MCP key belongs to a workspace with an active Pro plan --
-    otherwise a teaser (title/syfte/output only) is returned for each template."""
+    """List the full Promptbanken template catalog (name kept for backwards
+    compatibility -- the catalog is open since 2026-07-19, no Pro plan
+    required; full prompt text is always included)."""
     logger.info("tool_call name=list_pro_templates")
     return _pro_templates_payload()
 
@@ -1207,8 +1207,8 @@ def _tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "list_pro_templates",
             "description": (
-                "List Promptbanken Pro premium templates. Full prompt text is only included if the "
-                "MCP key belongs to a workspace with an active Pro plan, otherwise a teaser is returned."
+                "List the full Promptbanken template catalog (name kept for backwards compatibility -- "
+                "the catalog is open, no Pro plan required; full prompt text is always included)."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
