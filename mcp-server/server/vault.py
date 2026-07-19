@@ -190,3 +190,43 @@ def log_write_attempt(mcp_key: str, tool: str, outcome: str) -> None:
         response.raise_for_status()
     except Exception as exc:
         logger.error("vault_log_write_attempt_failed tool=%s outcome=%s error=%s", tool, outcome, exc)
+
+
+def list_active_packages(mcp_key: str) -> list[str]:
+    """List the areas (package identifiers) the caller's workspace has activated."""
+    if not mcp_key or not is_configured():
+        return []
+    try:
+        rows = _call_rpc("list_active_packages_for_key", {"p_key_hash": _hash_key(mcp_key)})
+        return [row["area"] for row in rows]
+    except Exception as exc:
+        logger.error("list_active_packages_failed error=%s", exc)
+        return []
+
+
+def activate_package(mcp_key: str, area: str) -> None:
+    """Activate a prompt package (idempotent). Lets exceptions propagate --
+    same reasoning as save_item: a silent failure would hide from the
+    client model that the activation didn't happen."""
+    if not mcp_key or not is_configured():
+        raise RuntimeError("MCP-nyckel saknas eller SUPABASE_URL/SUPABASE_ANON_KEY är inte konfigurerat.")
+    _call_rpc("activate_package_for_key", {"p_key_hash": _hash_key(mcp_key), "p_area": area})
+
+
+def deactivate_package(mcp_key: str, area: str) -> None:
+    """Deactivate a prompt package (idempotent)."""
+    if not mcp_key or not is_configured():
+        raise RuntimeError("MCP-nyckel saknas eller SUPABASE_URL/SUPABASE_ANON_KEY är inte konfigurerat.")
+    _call_rpc("deactivate_package_for_key", {"p_key_hash": _hash_key(mcp_key), "p_area": area})
+
+
+def copy_template(mcp_key: str, template_id: str, confirm: bool) -> dict[str, Any]:
+    """Copy one prompt package template into the caller's Valvet. Requires
+    confirm=true -- it creates real content and counts against the shared
+    monthly copy quota."""
+    if not mcp_key or not is_configured():
+        raise RuntimeError("MCP-nyckel saknas eller SUPABASE_URL/SUPABASE_ANON_KEY är inte konfigurerat.")
+    return _call_rpc(
+        "copy_template_to_valvet_for_key",
+        {"p_key_hash": _hash_key(mcp_key), "p_template_id": template_id, "p_confirm": confirm},
+    )
