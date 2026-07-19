@@ -23,15 +23,16 @@ def is_configured() -> bool:
 
 
 def list_pro_templates(mcp_key: str) -> list[dict[str, Any]]:
-    """Hämtar premium-mallar (teaser eller fullständiga, beroende på nyckelns plan).
+    """Hämtar hela mallbiblioteket (öppet sedan 2026-07-19, se DECISIONS.md).
 
-    RPC:n `get_pro_templates_for_mcp_key` är beviljad direkt till `anon` — att
-    känna till nyckelns sha256-hash är i sig beviset på behörighet, precis som
-    verify_mcp_key/get_workspace_prompts. Ingen mcp_server-roll/JWT behövs här,
-    bara SUPABASE_URL/SUPABASE_ANON_KEY (samma som redan används för workspace-
-    skills i supabase_repository.py).
+    RPC:n `get_pro_templates_for_mcp_key` är beviljad direkt till `anon` och
+    returnerar numera alltid alla mallar med full prompt_text — nyckeln
+    behövs inte längre för katalogen, så en tom nyckel hashas och skickas
+    ändå (RPC:n ignorerar hashen). Ingen mcp_server-roll/JWT behövs här,
+    bara SUPABASE_URL/SUPABASE_ANON_KEY (samma som redan används för
+    workspace-skills i supabase_repository.py).
     """
-    if not mcp_key or not is_configured():
+    if not is_configured():
         return []
 
     url = f"{_SUPABASE_URL}/rest/v1/rpc/get_pro_templates_for_mcp_key"
