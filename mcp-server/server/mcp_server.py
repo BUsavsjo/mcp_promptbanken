@@ -32,6 +32,10 @@ from .vault import save_item as _vault_save_item
 from .vault import update_item as _vault_update_item
 from .vault import archive_item as _vault_archive_item
 from .vault import log_write_attempt as _vault_log_write_attempt
+from .vault import list_active_packages as _vault_list_active_packages
+from .vault import activate_package as _vault_activate_package
+from .vault import deactivate_package as _vault_deactivate_package
+from .vault import copy_template as _vault_copy_template
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -302,6 +306,63 @@ def _archive_my_item_payload(
     except Exception as exc:
         logger.error("archive_my_item_failed error=%s", exc)
         return {"status": "error", "message": "Kunde inte arkivera/återställa insättningen."}
+
+
+def _list_active_packages_payload(mcp_key: str) -> dict[str, Any]:
+    if not mcp_key:
+        return {"areas": []}
+    return {"areas": _vault_list_active_packages(mcp_key)}
+
+
+def _activate_package_payload(mcp_key: str, area: str) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        _vault_activate_package(mcp_key, area)
+        return {"status": "success", "area": area}
+    except httpx.HTTPStatusError as exc:
+        logger.info("tool_call name=activate_package status=error detail=%s", exc.response.text)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("activate_package_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte aktivera paketet."}
+
+
+def _deactivate_package_payload(mcp_key: str, area: str) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        _vault_deactivate_package(mcp_key, area)
+        return {"status": "success", "area": area}
+    except httpx.HTTPStatusError as exc:
+        logger.info("tool_call name=deactivate_package status=error detail=%s", exc.response.text)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("deactivate_package_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte avaktivera paketet."}
+
+
+def _copy_template_to_valvet_payload(mcp_key: str, template_id: str, confirm: bool) -> dict[str, Any]:
+    if not mcp_key:
+        return {"status": "error", "message": "MCP-nyckel krävs (X-MCP-Key eller Authorization)."}
+    try:
+        item = _vault_copy_template(mcp_key, template_id, confirm)
+        return {"status": "success", "item": item}
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        logger.info("tool_call name=copy_template_to_valvet status=error detail=%s", detail)
+        outcome = _classify_vault_write_error(detail)
+        _vault_log_write_attempt(mcp_key, "copy_template_to_valvet", outcome)
+        return {"status": "error", "message": _clean_http_error_message(exc)}
+    except RuntimeError as exc:
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc:
+        logger.error("copy_template_to_valvet_failed error=%s", exc)
+        return {"status": "error", "message": "Kunde inte kopiera mallen."}
 
 
 def _save_workspace_prompt_payload(
@@ -1035,6 +1096,59 @@ async def _api_vault_archive_item(request: Request) -> JSONResponse:
     return JSONResponse(payload, status_code=status_code)
 
 
+async def _api_vault_list_active_packages(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    payload = _list_active_packages_payload(mcp_key)
+    logger.info("http_request path=/api/v1/vault/packages status=200")
+    return JSONResponse(payload)
+
+
+async def _api_vault_activate_package(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    area = body.get("area")
+    if not isinstance(area, str) or not area:
+        return JSONResponse(_error("INVALID_ARGUMENTS", "area (string) is required"), status_code=400)
+    payload = _activate_package_payload(mcp_key, area)
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/packages method=POST status=%s", status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
+async def _api_vault_deactivate_package(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    area = request.path_params["area"]
+    payload = _deactivate_package_payload(mcp_key, area)
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/packages/%s method=DELETE status=%s", area, status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
+async def _api_vault_copy_template(request: Request) -> JSONResponse:
+    mcp_key = _mcp_key_from_request(request)
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_error("INVALID_JSON", "Request body must be JSON"), status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(_error("INVALID_BODY", "Request body must be a JSON object"), status_code=400)
+    template_id = body.get("template_id")
+    confirm = body.get("confirm")
+    if not isinstance(template_id, str) or not template_id:
+        return JSONResponse(_error("INVALID_ARGUMENTS", "template_id (string) is required"), status_code=400)
+    if not isinstance(confirm, bool):
+        return JSONResponse(_error("INVALID_ARGUMENTS", "confirm (boolean) is required"), status_code=400)
+    payload = _copy_template_to_valvet_payload(mcp_key, template_id, confirm)
+    status_code = 200 if payload.get("status") == "success" else 400
+    logger.info("http_request path=/api/v1/vault/packages/copy method=POST status=%s", status_code)
+    return JSONResponse(payload, status_code=status_code)
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -1376,6 +1490,64 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "list_active_packages",
+            "description": (
+                "List the prompt packages (areas) the caller's Valvet workspace has "
+                "activated. Activation only affects which packages the user sees "
+                "expanded on their Valvet web page -- it never changes what "
+                "list_pro_templates returns."
+            ),
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "activate_package",
+            "description": (
+                "Activate a prompt package (identified by its 'area' field from "
+                "list_pro_templates) so its templates appear expanded on the user's "
+                "Valvet page. Idempotent. Only call this when the user has explicitly "
+                "asked to activate a package -- do not call it proactively just "
+                "because it seems helpful."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"area": {"type": "string"}},
+                "required": ["area"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "deactivate_package",
+            "description": (
+                "Deactivate a prompt package. Idempotent. Only call this when the "
+                "user has explicitly asked to deactivate a package -- do not call it "
+                "proactively just because it seems helpful."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"area": {"type": "string"}},
+                "required": ["area"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "copy_template_to_valvet",
+            "description": (
+                "Copy one prompt template (from list_pro_templates, identified by its "
+                "id) into the caller's Valvet as a real, independent, editable item. "
+                "Requires confirm=true -- it creates content and counts against the "
+                "shared monthly copy quota (Free: 5/calendar month, Pro: unlimited)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "template_id": {"type": "string", "format": "uuid"},
+                    "confirm": {"type": "boolean"},
+                },
+                "required": ["template_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1550,6 +1722,26 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(
                 request_id,
                 _mcp_content_result(_archive_my_item_payload(mcp_key, item_id, confirm, restore)),
+            )
+        if tool_name == "list_active_packages":
+            return _json_rpc_result(request_id, _mcp_content_result(_list_active_packages_payload(mcp_key)))
+        if tool_name == "activate_package":
+            area = arguments.get("area")
+            if not isinstance(area, str) or not area:
+                return _json_rpc_error(request_id, -32602, "Invalid activate_package arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_activate_package_payload(mcp_key, area)))
+        if tool_name == "deactivate_package":
+            area = arguments.get("area")
+            if not isinstance(area, str) or not area:
+                return _json_rpc_error(request_id, -32602, "Invalid deactivate_package arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_deactivate_package_payload(mcp_key, area)))
+        if tool_name == "copy_template_to_valvet":
+            template_id = arguments.get("template_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(template_id, str) or not template_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid copy_template_to_valvet arguments")
+            return _json_rpc_result(
+                request_id, _mcp_content_result(_copy_template_to_valvet_payload(mcp_key, template_id, confirm))
             )
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
@@ -1733,6 +1925,10 @@ async def run_sse_async() -> None:
                 endpoint=_api_vault_archive_item,
                 methods=["POST"],
             ),
+            Route("/api/v1/vault/packages", endpoint=_api_vault_list_active_packages, methods=["GET"]),
+            Route("/api/v1/vault/packages", endpoint=_api_vault_activate_package, methods=["POST"]),
+            Route("/api/v1/vault/packages/{area}", endpoint=_api_vault_deactivate_package, methods=["DELETE"]),
+            Route("/api/v1/vault/packages/copy", endpoint=_api_vault_copy_template, methods=["POST"]),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
@@ -1836,6 +2032,34 @@ def archive_my_item(id: str, confirm: bool, restore: bool = False) -> dict[str, 
     one) is a safe no-op."""
     logger.info("tool_call name=archive_my_item")
     return _archive_my_item_payload("", id, confirm, restore)
+
+
+@mcp.tool()
+def list_active_packages() -> dict[str, Any]:
+    """List activated prompt packages (see tools/call description above)."""
+    logger.info("tool_call name=list_active_packages")
+    return _list_active_packages_payload("")
+
+
+@mcp.tool()
+def activate_package(area: str) -> dict[str, Any]:
+    """Activate a prompt package (see tools/call description above)."""
+    logger.info("tool_call name=activate_package")
+    return _activate_package_payload("", area)
+
+
+@mcp.tool()
+def deactivate_package(area: str) -> dict[str, Any]:
+    """Deactivate a prompt package (see tools/call description above)."""
+    logger.info("tool_call name=deactivate_package")
+    return _deactivate_package_payload("", area)
+
+
+@mcp.tool()
+def copy_template_to_valvet(template_id: str, confirm: bool) -> dict[str, Any]:
+    """Copy a prompt template to Valvet (see tools/call description above)."""
+    logger.info("tool_call name=copy_template_to_valvet")
+    return _copy_template_to_valvet_payload("", template_id, confirm)
 
 
 if __name__ == "__main__":
