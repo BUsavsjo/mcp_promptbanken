@@ -35,6 +35,10 @@ class HostedMetadataGuard:
             "save_my_item",
             "update_my_item",
             "archive_my_item",
+            "list_active_packages",
+            "activate_package",
+            "deactivate_package",
+            "copy_template_to_valvet",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
@@ -57,6 +61,10 @@ class HostedMetadataGuard:
             "save_my_item": {"idempotency_key", "type", "title", "content", "category"},
             "update_my_item": {"id", "expected_updated_at", "title", "content", "category"},
             "archive_my_item": {"id", "confirm", "restore"},
+            "list_active_packages": set(),
+            "activate_package": {"area"},
+            "deactivate_package": {"area"},
+            "copy_template_to_valvet": {"template_id", "confirm"},
         }
 
     def inspect_body(self, body: bytes) -> dict[str, Any] | None:
@@ -190,6 +198,17 @@ class HostedMetadataGuard:
                 return {"reason": "invalid_archive_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
             if not isinstance(restore, bool):
                 return {"reason": "invalid_archive_my_item_arguments", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "list_active_packages":
+            pass
+        elif tool_name in ("activate_package", "deactivate_package"):
+            area = arguments.get("area")
+            if not isinstance(area, str) or not area:
+                return {"reason": "invalid_area", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "copy_template_to_valvet":
+            template_id = arguments.get("template_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(template_id, str) or not template_id or not isinstance(confirm, bool):
+                return {"reason": "invalid_copy_template_arguments", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None
