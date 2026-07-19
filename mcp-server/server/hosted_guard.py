@@ -39,6 +39,7 @@ class HostedMetadataGuard:
             "activate_package",
             "deactivate_package",
             "copy_template_to_valvet",
+            "recommend_packages",
         }
         self.allowed_tool_args = {
             "list_skills": set(),
@@ -65,6 +66,7 @@ class HostedMetadataGuard:
             "activate_package": {"area"},
             "deactivate_package": {"area"},
             "copy_template_to_valvet": {"template_id", "confirm"},
+            "recommend_packages": {"role"},
         }
 
     def inspect_body(self, body: bytes) -> dict[str, Any] | None:
@@ -209,6 +211,10 @@ class HostedMetadataGuard:
             confirm = arguments.get("confirm")
             if not isinstance(template_id, str) or not template_id or not isinstance(confirm, bool):
                 return {"reason": "invalid_copy_template_arguments", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "recommend_packages":
+            role = arguments.get("role")
+            if not isinstance(role, str) or not role:
+                return {"reason": "invalid_role", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None

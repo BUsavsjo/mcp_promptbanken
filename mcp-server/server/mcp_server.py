@@ -36,6 +36,7 @@ from .vault import list_active_packages as _vault_list_active_packages
 from .vault import activate_package as _vault_activate_package
 from .vault import deactivate_package as _vault_deactivate_package
 from .vault import copy_template as _vault_copy_template
+from .package_recommendations import recommend as _recommend_packages
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -363,6 +364,11 @@ def _copy_template_to_valvet_payload(mcp_key: str, template_id: str, confirm: bo
     except Exception as exc:
         logger.error("copy_template_to_valvet_failed error=%s", exc)
         return {"status": "error", "message": "Kunde inte kopiera mallen."}
+
+
+def _recommend_packages_payload(role: str) -> dict[str, Any]:
+    templates = _fetch_pro_templates("")
+    return _recommend_packages(role, templates)
 
 
 def _save_workspace_prompt_payload(
@@ -1149,6 +1155,14 @@ async def _api_vault_copy_template(request: Request) -> JSONResponse:
     return JSONResponse(payload, status_code=status_code)
 
 
+async def _api_recommend_packages(request: Request) -> JSONResponse:
+    role = request.query_params.get("role", "")
+    if not role:
+        return JSONResponse(_error("INVALID_ARGUMENTS", "role query param is required"), status_code=400)
+    logger.info("http_request path=/api/v1/vault/packages/recommendations status=200")
+    return JSONResponse(_recommend_packages_payload(role))
+
+
 def _openapi_schema() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
@@ -1548,6 +1562,22 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "recommend_packages",
+            "description": (
+                "Recommend prompt packages (areas) suited to a job role. Pass a "
+                "short role term (e.g. 'chef', 'kommunikator') -- if the calling "
+                "client doesn't know the user's role, it should ask the user first. "
+                "If the role isn't recognized, all packages are returned with "
+                "role_recognized=false rather than an empty result."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"role": {"type": "string"}},
+                "required": ["role"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1743,6 +1773,11 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(
                 request_id, _mcp_content_result(_copy_template_to_valvet_payload(mcp_key, template_id, confirm))
             )
+        if tool_name == "recommend_packages":
+            role = arguments.get("role")
+            if not isinstance(role, str) or not role:
+                return _json_rpc_error(request_id, -32602, "Invalid recommend_packages arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_recommend_packages_payload(role)))
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
 
@@ -1929,6 +1964,7 @@ async def run_sse_async() -> None:
             Route("/api/v1/vault/packages", endpoint=_api_vault_activate_package, methods=["POST"]),
             Route("/api/v1/vault/packages/{area}", endpoint=_api_vault_deactivate_package, methods=["DELETE"]),
             Route("/api/v1/vault/packages/copy", endpoint=_api_vault_copy_template, methods=["POST"]),
+            Route("/api/v1/vault/packages/recommendations", endpoint=_api_recommend_packages, methods=["GET"]),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
@@ -2060,6 +2096,13 @@ def copy_template_to_valvet(template_id: str, confirm: bool) -> dict[str, Any]:
     """Copy a prompt template to Valvet (see tools/call description above)."""
     logger.info("tool_call name=copy_template_to_valvet")
     return _copy_template_to_valvet_payload("", template_id, confirm)
+
+
+@mcp.tool()
+def recommend_packages(role: str) -> dict[str, Any]:
+    """Recommend prompt packages for a job role (see tools/call description above)."""
+    logger.info("tool_call name=recommend_packages")
+    return _recommend_packages_payload(role)
 
 
 if __name__ == "__main__":
