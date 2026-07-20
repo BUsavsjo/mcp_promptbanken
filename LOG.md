@@ -1,5 +1,14 @@
 # Logg
 
+## 2026-07-20 (Peters MCP-omtest efter search_templates/get_template)
+
+### Gjort
+- Peter körde om MCP-testet mot den uppdaterade servern. Positivt: `search_templates`+`get_template`-kedjan fungerar (sök → välj → hämta full prompt), stavfelstolerans (prefix-substring), filter på område/risknivå/kort roll, tydligt felmeddelande på okänt mall-id.
+- Kvarvarande fynd: naturligt formulerade sökfraser ("informera personalen om en driftstörning") gav 0 träffar trots att kärnordet fanns i katalogen (gammal AND-all-tokens-logik krävde att ALLA ord matchade); den fullständiga rollen "IT-samordnare barn och utbildning" kändes fortfarande inte igen trots att "samordnare" ensamt gjorde det.
+- Fixat båda: `_search_templates_payload` (`mcp_server.py`) bytt till poängsatt OR-matchning (titel/tagg-match ger +2, syfte/outputformat/area_label-match ger +1, mall inkluderas vid poäng > 0, resultat sorteras poäng-fallande) med tokenisering via samma `SkillRouter.STOPWORDS`/`_terms`-mekanism som redan finns för `route_skill` (ingen ny stoppordslista, inget hårdkodat undantag för "informera"/"personalen" som Peter föreslog som exempel — den generiska funktionsordslistan räckte). `recommend()` (`package_recommendations.py`) tokeniserar nu rollsträngen med `SkillRouter._terms()` istället för att kräva exakt helsträngsmatchning — fixar även `recommend_packages` rakt av, samma funktion används av båda verktygen.
+- Hittade ett eget falskt larm under verifieringen: `curl` från Git Bash-skalet skickade "ö" fel-kodat (inte UTF-8) och triggade en `UnicodeDecodeError`/500 i servern — bekräftat vara ett terminal/curl-encoding-problem (inte en serverbugg) genom att skicka om exakt samma anrop via Python/httpx (garanterad UTF-8), som gav 200 OK med korrekt resultat.
+- Verifierat i tre lager igen: 19 enhetstester (utökade med Peters exakta repro-frågor + regressionstest att stavfelstolerans/tidigare gröna fall inte gått sönder), smoke-test mot riktig produktions-Supabase-data, full HTTP/JSON-RPC-runda mot lokalt startad hosted-server (`python -m server.http_server`).
+
 ## 2026-07-20 (Peters MCP-användartest, uppföljning)
 
 ### Gjort

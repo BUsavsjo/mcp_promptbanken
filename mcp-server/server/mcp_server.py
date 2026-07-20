@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -206,9 +207,10 @@ def _search_templates_payload(
         if role_recognized:
             allowed_areas = {p["area"] for p in recommendation["packages"]}
 
-    tokens = query.lower().split()
+    raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
+    tokens = [tok for tok in raw_tokens if len(tok) > 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
 
-    matches = []
+    scored: list[tuple[int, dict[str, Any]]] = []
     for t in templates:
         if area and t["area"] != area:
             continue
@@ -217,14 +219,16 @@ def _search_templates_payload(
         if allowed_areas is not None and t["area"] not in allowed_areas:
             continue
         if tokens:
-            haystack = " ".join([
-                t.get("title", ""), t.get("syfte", ""), t.get("output_format", ""),
-                t.get("area_label", ""), " ".join(t.get("tags") or []),
-            ]).lower()
-            if not all(tok in haystack for tok in tokens):
+            strong = (t.get("title", "") + " " + " ".join(t.get("tags") or [])).lower()
+            weak = " ".join([t.get("syfte", ""), t.get("output_format", ""), t.get("area_label", "")]).lower()
+            score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
+            if score <= 0:
                 continue
-        matches.append(t)
+        else:
+            score = 0
+        scored.append((score, t))
 
+    matches = [t for _, t in sorted(scored, key=lambda pair: pair[0], reverse=True)]
     clamped_limit = max(1, min(limit, len(templates) or 1))
     limited = matches[:clamped_limit]
 

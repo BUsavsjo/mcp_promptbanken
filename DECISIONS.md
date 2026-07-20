@@ -1,5 +1,54 @@
 # Beslut
 
+## 2026-07-20 - search_templates: OR/poängsatt matchning + rollmatchning på delord
+
+### Beslut
+Peters omtest av `search_templates`/`recommend_packages` (samma dag som de
+lades till) hittade två brister:
+
+1. `search_templates` krävde att ALLA sökordstoken matchade (AND) — en
+   naturligt formulerad mening ("informera personalen om en driftstörning")
+   gav 0 träffar trots att kärnordet ("driftstörning") fanns i katalogen,
+   eftersom orden "personalen"/"om"/"en" inte matchade något.
+2. `recommend_packages`/`search_templates(role=...)` krävde att HELA
+   rollsträngen normaliserad var exakt lika med ett känt rollnamn — en
+   sammansatt titel som "IT-samordnare barn och utbildning" kändes inte
+   igen trots att "samordnare" ensamt gjorde det.
+
+Fix 1 (`mcp_server.py`, `_search_templates_payload`): bytt från AND-krav
+till poängsatt OR — varje sökordstoken (tokeniserad med `re.findall(r"\w+",
+...)`, filtrerad genom `SkillRouter.STOPWORDS`/`_normalize` — samma
+stoppordslista `route_skill` redan använder, ingen ny lista) ger +2 om den
+matchar titel/taggar eller +1 om den matchar syfte/outputformat/area_label;
+mall inkluderas om poäng > 0 (dvs. minst ETT ord matchar), resultat
+sorteras poäng-fallande (stabil sortering behåller ursprunglig
+`sort_order` vid lika poäng). Ingen hårdkodad lista över "innehållsord att
+strunta i" (t.ex. "informera"/"personalen" som Peter föreslog som exempel)
+— den generiska stoppordslistan (funktionsord: och/för/med/om/en osv.)
+räcker för att lösa exakt samma testfall utan risken att av misstag
+utesluta riktiga sökord i framtida frågor.
+
+Fix 2 (`package_recommendations.py`, `recommend()`): rollsträngen
+tokeniseras nu med samma `SkillRouter._terms()` (delar på icke-ordtecken,
+filtrerar korta ord/stoppord) istället för att jämföras som en hel sträng.
+Matchar ett känt rollnamn (t.ex. "samordnare") mot NÅGOT delord i den
+inskickade rollen. Fixar även `recommend_packages` (inte bara
+`search_templates`), samma bakomliggande funktion.
+
+### Skäl
+Peters omtest visade konkret att den tidigare implementationen var för
+strikt för hur riktiga MCP-klienter/användare faktiskt formulerar sig —
+tekniskt fungerande sökning som i praktiken kräver att användaren redan
+plockat ut "rätt" enstaka sökord är inte token-effektiv i praktiken.
+
+### Konsekvens
+Ren kvalitetsfix av redan deployad funktionalitet, ingen ny yta. Verifierat
+i tre lager (samma metod som ursprungsimplementationen): 19 enhetstester
+(inkl. regressionstest att stavfelstolerans och tidigare gröna testfall
+fortfarande fungerar), smoke-test mot riktig produktions-Supabase-data med
+Peters exakta repro-frågor, samt full HTTP/JSON-RPC-runda mot en lokalt
+startad hosted-server.
+
 ## 2026-07-20 - Nya verktyg search_templates + get_template
 
 ### Beslut

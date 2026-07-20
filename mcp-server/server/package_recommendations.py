@@ -32,11 +32,14 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
     for t in templates:
         counts[t["area"]] = counts.get(t["area"], 0) + 1
 
-    normalized_role = SkillRouter._normalize(role)
+    # SkillRouter._terms splits on non-word chars, drops stopwords/short terms --
+    # lets a compound role ("IT-samordnare barn och utbildning") match on any of
+    # its component words, not just an exact whole-string role name.
+    role_terms = SkillRouter._terms(role) | {SkillRouter._normalize(role)}
     matched_areas = [
         area
         for area, roles in _AREA_ROLES.items()
-        if area in areas and (roles is None or normalized_role in {SkillRouter._normalize(r) for r in roles})
+        if area in areas and (roles is None or role_terms & {SkillRouter._normalize(r) for r in roles})
     ]
 
     role_recognized = bool(matched_areas) and any(
