@@ -35,7 +35,8 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
     # SkillRouter._terms splits on non-word chars, drops stopwords/short terms --
     # lets a compound role ("IT-samordnare barn och utbildning") match on any of
     # its component words, not just an exact whole-string role name.
-    role_terms = SkillRouter._terms(role) | {SkillRouter._normalize(role)}
+    normalized_whole = SkillRouter._normalize(role)
+    role_terms = SkillRouter._terms(role) | {normalized_whole}
     matched_areas = [
         area
         for area, roles in _AREA_ROLES.items()
@@ -51,4 +52,23 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
         {"area": area, "area_label": areas[area], "template_count": counts.get(area, 0)}
         for area in result_areas
     ]
-    return {"role_recognized": role_recognized, "packages": packages}
+
+    all_role_words = {
+        SkillRouter._normalize(r) for roles in _AREA_ROLES.values() if roles for r in roles
+    }
+    matched_role_terms = role_terms & all_role_words
+    matched_role = sorted(matched_role_terms)[0] if matched_role_terms else None
+    if matched_role is None:
+        role_match_source = None
+    elif normalized_whole in all_role_words:
+        role_match_source = "exact"
+    else:
+        role_match_source = "compound"
+
+    return {
+        "role_recognized": role_recognized,
+        "packages": packages,
+        "matched_role": matched_role,
+        "role_match_source": role_match_source,
+        "recommended_areas": [p["area"] for p in packages],
+    }
