@@ -1,5 +1,33 @@
 # Beslut
 
+## 2026-07-20 - search_templates: role som rankningssignal, inte filter
+
+### Beslut
+Peters andra omtest samma dag hittade att `role` i `search_templates`
+fortfarande filtrerade bort mallar utanför rollens rekommenderade områden
+(t.ex. `query=driftstörning` + `role=IT-samordnare...` + `area=kommunikation`
+gav noll träffar). `allowed_areas`-hårdfiltret i `_search_templates_payload`
+togs bort och ersattes med en `+5`-poängbonus som läggs till EFTER
+query-poängens inklusions-gräns — role kan därmed bara omrangordna redan
+relevanta träffar, aldrig lägga till eller ta bort någon. `recommend()`
+utökades additivt med `matched_role`/`role_match_source`
+(`"exact"`/`"compound"`/`null`)/`recommended_areas` för felsökning.
+`SERVICE_VERSION` höjt till `1.2.0`. Se
+`docs/superpowers/specs/2026-07-20-search-templates-role-ranking-design.md`.
+
+### Skäl
+Peters prioritetsordning var uttrycklig: area/risk_level är hårda filter,
+query avgör relevans, role påverkar bara rangordningen. Föregående
+implementation blandade ihop "role som rekommendation" med "role som
+filter", vilket gjorde exakta träffar (rätt sökord, fel område enligt
+rollen) osynliga trots att de var korrekta.
+
+### Konsekvens
+Ren beteendefix ovanpå redan deployad funktionalitet (`84a7c46`), ingen ny
+yta, inga nya input-parametrar. Verifierat med fixture-skript för båda
+filerna samt fullt liveanrop mot produktion med Peters exakta
+acceptanstabell.
+
 ## 2026-07-20 - search_templates: OR/poängsatt matchning + rollmatchning på delord
 
 ### Beslut

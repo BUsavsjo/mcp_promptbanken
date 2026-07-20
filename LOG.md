@@ -1,5 +1,12 @@
 # Logg
 
+## 2026-07-20 (Peters andra MCP-omtest: role som filter, inte rankning)
+
+### Gjort
+- Peter identifierade att `role` i `search_templates` fortfarande hårdfiltrerade bort mallar utanför rollens rekommenderade områden, trots `84a7c46`s rollmatchningsfix. Konkret repro: `driftstörning` + `IT-samordnare...` + `area=kommunikation` gav 0 träffar.
+- Fixat: `allowed_areas`-hårdfiltret i `_search_templates_payload` (`mcp_server.py`) borttaget, ersatt med en `+5`-rankningsbonus som läggs till efter query-scoreens inklusions-gräns — role kan bara omrangordna, aldrig lägga till/ta bort träffar. `recommend()` (`package_recommendations.py`) utökad additivt med `matched_role`/`role_match_source` (`exact`/`compound`/`null`)/`recommended_areas` för felsökning av rollmatchning. `role`-parameterns beskrivning uppdaterad i både lokal docstring och hostat JSON-RPC-schema. `SERVICE_VERSION` höjt `1.1.0` -> `1.2.0`.
+- Verifierat: fixture-skript mot båda ändrade filerna (inkl. Peters exakta repro-frågor), sedan fullt liveanrop mot produktion mot hela Peters acceptanstabell efter deploy.
+
 ## 2026-07-20 (Peters MCP-omtest efter search_templates/get_template)
 
 ### Gjort
