@@ -1,5 +1,34 @@
 # Beslut
 
+## 2026-07-20 - Nya verktyg search_templates + get_template
+
+### Beslut
+Nya MCP-verktyg `search_templates(query?, role?, area?, risk_level?, limit?)`
+och `get_template(template_id)` i `mcp_server.py`/`hosted_guard.py`. Ren
+klient-sidig filtrering ovanpå samma `get_pro_templates_for_mcp_key`-data som
+`list_templates` redan hämtar — ingen ny RPC, ingen ny REST-endpoint, ingen
+DB-migration. `search_templates` returnerar sammanfattningar utan
+`prompt_text` (id/title/syfte/area/area_label/output_format/tags/risk_level);
+`get_template` hämtar en enskild mall i sin helhet. `role`-parametern
+återanvänder `package_recommendations.recommend()` (samma logik som
+`recommend_packages`) — begränsar bara till matchande områden om rollen
+känns igen, annars ingen begränsning (samma "fail open" som
+`recommend_packages`). `limit` clampas till [1, antal mallar], default 10.
+
+### Skäl
+Peters MCP-användartest 2026-07-20: hela 42-mallarskatalogen (full
+`prompt_text` per mall) måste hämtas via `list_templates` idag bara för att
+hitta EN mall — dyrt i tokens/latens för klientmodellen och gör det svårare
+för ChatGPT/Claude att välja rätt mall. `search_templates`+`get_template`
+löser detta utan att ta bort `list_templates` (kvar för klienter som vill
+hämta allt på en gång).
+
+### Konsekvens
+Ren tilläggsändring, inte brytande — `list_templates` oförändrat. REST-yta
+(`/api/v1/*`) fick INGA nya endpoints för sök/hämta-en i denna omgång
+(avsiktligt avgränsat till MCP-ytan, som var vad testet gällde) — kan läggas
+till senare om webb-/REST-klienter behöver samma funktion.
+
 ## 2026-07-20 - MCP-verktyget list_pro_templates omdöpt till list_templates
 
 ### Beslut

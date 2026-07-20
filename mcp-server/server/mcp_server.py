@@ -184,6 +184,68 @@ def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
     }
 
 
+_TEMPLATE_SUMMARY_FIELDS = (
+    "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
+)
+
+
+def _search_templates_payload(
+    query: str = "",
+    role: str = "",
+    area: str = "",
+    risk_level: str = "",
+    limit: int = 10,
+) -> dict[str, Any]:
+    templates = _fetch_pro_templates("")
+
+    allowed_areas: set[str] | None = None
+    role_recognized: bool | None = None
+    if role:
+        recommendation = _recommend_packages(role, templates)
+        role_recognized = recommendation["role_recognized"]
+        if role_recognized:
+            allowed_areas = {p["area"] for p in recommendation["packages"]}
+
+    tokens = query.lower().split()
+
+    matches = []
+    for t in templates:
+        if area and t["area"] != area:
+            continue
+        if risk_level and t.get("risk_level") != risk_level:
+            continue
+        if allowed_areas is not None and t["area"] not in allowed_areas:
+            continue
+        if tokens:
+            haystack = " ".join([
+                t.get("title", ""), t.get("syfte", ""), t.get("output_format", ""),
+                t.get("area_label", ""), " ".join(t.get("tags") or []),
+            ]).lower()
+            if not all(tok in haystack for tok in tokens):
+                continue
+        matches.append(t)
+
+    clamped_limit = max(1, min(limit, len(templates) or 1))
+    limited = matches[:clamped_limit]
+
+    payload: dict[str, Any] = {
+        "total_matches": len(matches),
+        "returned": len(limited),
+        "templates": [{k: t.get(k) for k in _TEMPLATE_SUMMARY_FIELDS} for t in limited],
+    }
+    if role:
+        payload["role_recognized"] = role_recognized
+    return payload
+
+
+def _get_template_payload(template_id: str) -> dict[str, Any]:
+    templates = _fetch_pro_templates("")
+    for t in templates:
+        if t["id"] == template_id:
+            return {"status": "success", "template": t}
+    return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
+
+
 _WRITE_OUTCOME_PATTERNS = [
     ("Ogiltig eller aterkallad", "invalid_key"),
     ("inte aktiv eller saknar MCP-atkomst", "invalid_key"),
@@ -407,6 +469,31 @@ def list_templates() -> dict[str, Any]:
     no plan or key required; full prompt text is always included."""
     logger.info("tool_call name=list_templates")
     return _pro_templates_payload()
+
+
+@mcp.tool()
+def search_templates(
+    query: str = "",
+    role: str = "",
+    area: str = "",
+    risk_level: str = "",
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Search the open Promptbanken template catalog without fetching all 42
+    full prompts. Filter by free-text query (matched against title, syfte,
+    tags, output format), role, area and/or risk_level. Returns lightweight
+    summaries -- no prompt_text -- so use get_template(id) on a chosen result
+    to fetch the full prompt."""
+    logger.info("tool_call name=search_templates")
+    return _search_templates_payload(query, role, area, risk_level, limit)
+
+
+@mcp.tool()
+def get_template(template_id: str) -> dict[str, Any]:
+    """Fetch one full template, including prompt_text, by its id (as returned
+    by search_templates or list_templates)."""
+    logger.info("tool_call name=get_template")
+    return _get_template_payload(template_id)
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -1340,6 +1427,46 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
+            "name": "search_templates",
+            "description": (
+                "Search the open Promptbanken template catalog without fetching all "
+                "42 full prompts. Filter by free-text query (matched against title, "
+                "syfte, tags, output format), role, area and/or risk_level. Returns "
+                "lightweight summaries -- no prompt_text -- so use get_template(id) "
+                "on a chosen result to fetch the full prompt."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "role": {"type": "string"},
+                    "area": {
+                        "type": "string",
+                        "enum": [
+                            "kommunikation", "forandringsledning", "processer",
+                            "beslutsberedning", "visuellt", "ledarskap", "arbetsbank",
+                        ],
+                    },
+                    "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
+                    "limit": {"type": "integer", "default": 10},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_template",
+            "description": (
+                "Fetch one full template, including prompt_text, by its id (as "
+                "returned by search_templates or list_templates)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"template_id": {"type": "string", "format": "uuid"}},
+                "required": ["template_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "list_my_prompts",
             "description": (
                 "List only the caller's own saved prompts from their Promptbanken workspace "
@@ -1656,6 +1783,19 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
         if tool_name == "list_templates":
             return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
+        if tool_name == "search_templates":
+            limit = arguments.get("limit", 10)
+            if not isinstance(limit, int):
+                return _json_rpc_error(request_id, -32602, "Invalid search_templates arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_search_templates_payload(
+                arguments.get("query", ""), arguments.get("role", ""),
+                arguments.get("area", ""), arguments.get("risk_level", ""), limit,
+            )))
+        if tool_name == "get_template":
+            template_id = arguments.get("template_id")
+            if not isinstance(template_id, str) or not template_id:
+                return _json_rpc_error(request_id, -32602, "Invalid get_template arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_get_template_payload(template_id)))
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
         if tool_name == "list_my_private_prompts":

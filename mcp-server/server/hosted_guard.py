@@ -23,6 +23,8 @@ class HostedMetadataGuard:
             "health_check",
             "get_client_routing_instructions",
             "list_templates",
+            "search_templates",
+            "get_template",
             "list_my_prompts",
             "list_my_private_prompts",
             "list_my_shared_workspaces",
@@ -47,6 +49,8 @@ class HostedMetadataGuard:
             "health_check": set(),
             "get_client_routing_instructions": set(),
             "list_templates": set(),
+            "search_templates": {"query", "role", "area", "risk_level", "limit"},
+            "get_template": {"template_id"},
             "list_my_prompts": set(),
             "list_my_private_prompts": set(),
             "list_my_shared_workspaces": set(),
@@ -215,6 +219,18 @@ class HostedMetadataGuard:
             role = arguments.get("role")
             if not isinstance(role, str) or not role:
                 return {"reason": "invalid_role", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "search_templates":
+            for key in ("query", "role", "area", "risk_level"):
+                value = arguments.get(key)
+                if value is not None and not isinstance(value, str):
+                    return {"reason": "invalid_search_templates_arguments", "method": method, "tool": tool_name, "id": request_id}
+            limit = arguments.get("limit")
+            if limit is not None and not isinstance(limit, int):
+                return {"reason": "invalid_search_templates_arguments", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "get_template":
+            template_id = arguments.get("template_id")
+            if not isinstance(template_id, str) or not template_id:
+                return {"reason": "invalid_template_id", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None

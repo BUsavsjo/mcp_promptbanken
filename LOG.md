@@ -1,5 +1,15 @@
 # Logg
 
+## 2026-07-20 (Peters MCP-användartest, uppföljning)
+
+### Gjort
+- Peter körde ett MCP-fokuserat användartest (ansluta/status, `list_templates`, hitta mall utifrån behov, hämta full prompt, `recommend_packages` per yrkesroll, kontrollera datahantering). Positivt: stabila svar, fullständiga promptar, integritetsmodellen (råtext skickas aldrig till Promptbanken) upplevdes bra.
+- Fynd loggade i TODO.md "Nästa steg": saknat publikt `search_templates`/`get_template` (hela 42-mallarskatalogen måste hämtas idag), rollen "IT-samordnare barn och utbildning" känns inte igen av `recommend_packages`, oklart för användaren varför både 21 skills och 42 mallar finns. Peter prioriterade `search_templates`/`get_template` först.
+- Byggde `search_templates(query?, role?, area?, risk_level?, limit?)` + `get_template(template_id)` i `mcp_server.py`/`hosted_guard.py` (tools/list-schema, JSON-RPC-dispatch, `@mcp.tool()`, guard-allowlist + argumentvalidering). Klient-sidig filtrering ovanpå samma `get_pro_templates_for_mcp_key`-data som `list_templates`/`recommend_packages` redan hämtar — ingen ny RPC/REST/migration. Se DECISIONS.md.
+- Hittade och fixade en egen bugg under testningen: `limit=0` klamrades fel (`limit or 10` behandlade `0` som "ej satt" och gav 10 istället för att klamra till minimum 1) — bytt till `min(limit, ...)` utan `or`-fallback, eftersom anropsvägarna redan garanterar ett int-värde.
+- Verifierat i tre lager: (1) 15 enhetstester av filterlogiken med handskriven exempeldata (query/area/risk_level/role-filtrering, `role_recognized` true/false, limit-klamring, `get_template` hit/miss, att summeringar utelämnar `prompt_text`) — alla gröna efter fixen; (2) samma anrop mot riktig produktions-Supabase-data (`get_pro_templates_for_mcp_key` via lokal process med riktiga `SUPABASE_URL`/`SUPABASE_ANON_KEY`); (3) full HTTP/JSON-RPC-runda mot en lokalt startad hosted-server (`python -m server.http_server`, samma kodväg som produktion) — bekräftade bland annat att `role="IT-samordnare barn och utbildning"` verkligen ger `role_recognized: false` (reproducerar Peters fynd) och att guarden korrekt avvisar fel typ på `limit` och saknat `template_id` (`-32602`).
+- Ej gjort denna omgång (kvar i TODO "Nästa steg", Peter valde att inte prioritera nu): rollmappningsfixen för "IT-samordnare barn och utbildning" och förtydligande av skills-vs-mallar-distinktionen i verktygsbeskrivningarna.
+
 ## 2026-07-20
 
 ### Gjort
