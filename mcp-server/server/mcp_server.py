@@ -1438,9 +1438,11 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "description": (
                 "Search the open Promptbanken template catalog without fetching all "
                 "42 full prompts. Filter by free-text query (matched against title, "
-                "syfte, tags, output format), role, area and/or risk_level. Returns "
-                "lightweight summaries -- no prompt_text -- so use get_template(id) "
-                "on a chosen result to fetch the full prompt."
+                "syfte, tags, output format), area and/or risk_level. role ranks "
+                "results toward relevant job functions -- it does not exclude "
+                "templates from other areas. Returns lightweight summaries -- no "
+                "prompt_text -- so use get_template(id) on a chosen result to fetch "
+                "the full prompt."
             ),
             "inputSchema": {
                 "type": "object",
