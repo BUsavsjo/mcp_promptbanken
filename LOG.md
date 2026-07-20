@@ -1,5 +1,13 @@
 # Logg
 
+## 2026-07-20
+
+### Gjort
+- Döpte om MCP-verktyget `list_pro_templates` → `list_templates` (`mcp_server.py`: tools/list-schema, JSON-RPC-dispatch, `@mcp.tool()`-funktion; `hosted_guard.py`: allowlist på båda ställena). Katalogen har varit öppen för alla sedan 2026-07-19 (se DECISIONS.md), och det gamla namnet upplevdes förvirrande av Peter trots dokumenterad "namnet är historiskt"-förklaring. Modulen `pro_templates.py`, RPC:n `get_pro_templates_for_mcp_key` och REST-pathen `/api/v1/pro-templates` byttes INTE — internt/historiskt, syns inte för MCP-klienter. Dokumentation uppdaterad i README.md/CLAUDE.md, nytt beslutslogg-inlägg i DECISIONS.md.
+- Pushat till origin/main (`cc5affc`) och deployat på VPS:en med Peters explicita go-ahead (två separata bekräftelser krävdes — push och docker-rebuild klassades båda som riskabla av auto-mode-klassificeraren).
+- Deploy-anmärkning: `docker compose` (v2-pluginet) saknas nu på VPS:en — bara gamla fristående `docker-compose` 1.29.2 kvar (`unknown command: docker compose`, inga cli-plugins installerade). Byggde och körde med `docker-compose` istället. Stötte på samma kända `KeyError: 'ContainerConfig'`-bugg som 2026-07-19 vid recreate av befintlig container — löst med samma workaround (`docker-compose stop`+`rm -f`+`up -d` istället för direkt `up -d --build`).
+- Verifierat live mot `mcp.promptbanken.se`: `/healthz` ok, `tools/list` visar `list_templates` (inte `list_pro_templates`), `tools/call list_templates` returnerar full katalog (`unlocked: true`, 42 mallar), inga fel i containerloggarna.
+
 ## 2026-07-19
 
 ### Gjort
