@@ -128,7 +128,7 @@ def _server_mode() -> str:
 
 
 SERVER_MODE = _server_mode()
-SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.1.0")
+SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.2.0")
 HOSTED_GUARD_MODE = os.getenv("PROMPTBANKEN_MCP_HOSTED_GUARD", "warn").strip().lower()
 logger.info("server_config mode=%s skill_count=%s", SERVER_MODE, len(repository.list_skills()))
 
@@ -199,13 +199,12 @@ def _search_templates_payload(
 ) -> dict[str, Any]:
     templates = _fetch_pro_templates("")
 
-    allowed_areas: set[str] | None = None
-    role_recognized: bool | None = None
+    role_bonus_areas: set[str] = set()
+    recommendation: dict[str, Any] | None = None
     if role:
         recommendation = _recommend_packages(role, templates)
-        role_recognized = recommendation["role_recognized"]
-        if role_recognized:
-            allowed_areas = {p["area"] for p in recommendation["packages"]}
+        if recommendation["role_recognized"]:
+            role_bonus_areas = {p["area"] for p in recommendation["packages"]}
 
     raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
     tokens = [tok for tok in raw_tokens if len(tok) > 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
@@ -216,8 +215,6 @@ def _search_templates_payload(
             continue
         if risk_level and t.get("risk_level") != risk_level:
             continue
-        if allowed_areas is not None and t["area"] not in allowed_areas:
-            continue
         if tokens:
             strong = (t.get("title", "") + " " + " ".join(t.get("tags") or [])).lower()
             weak = " ".join([t.get("syfte", ""), t.get("output_format", ""), t.get("area_label", "")]).lower()
@@ -226,6 +223,8 @@ def _search_templates_payload(
                 continue
         else:
             score = 0
+        if t["area"] in role_bonus_areas:
+            score += 5
         scored.append((score, t))
 
     matches = [t for _, t in sorted(scored, key=lambda pair: pair[0], reverse=True)]
@@ -237,8 +236,11 @@ def _search_templates_payload(
         "returned": len(limited),
         "templates": [{k: t.get(k) for k in _TEMPLATE_SUMMARY_FIELDS} for t in limited],
     }
-    if role:
-        payload["role_recognized"] = role_recognized
+    if role and recommendation is not None:
+        payload["role_recognized"] = recommendation["role_recognized"]
+        payload["matched_role"] = recommendation["matched_role"]
+        payload["role_match_source"] = recommendation["role_match_source"]
+        payload["recommended_areas"] = recommendation["recommended_areas"]
     return payload
 
 
@@ -485,9 +487,10 @@ def search_templates(
 ) -> dict[str, Any]:
     """Search the open Promptbanken template catalog without fetching all 42
     full prompts. Filter by free-text query (matched against title, syfte,
-    tags, output format), role, area and/or risk_level. Returns lightweight
-    summaries -- no prompt_text -- so use get_template(id) on a chosen result
-    to fetch the full prompt."""
+    tags, output format), area and/or risk_level. role ranks results toward
+    relevant job functions -- it does not exclude templates from other
+    areas. Returns lightweight summaries -- no prompt_text -- so use
+    get_template(id) on a chosen result to fetch the full prompt."""
     logger.info("tool_call name=search_templates")
     return _search_templates_payload(query, role, area, risk_level, limit)
 
@@ -1443,7 +1446,13 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string"},
-                    "role": {"type": "string"},
+                    "role": {
+                        "type": "string",
+                        "description": (
+                            "Ranks results toward relevant job functions. Does not "
+                            "exclude templates from other areas."
+                        ),
+                    },
                     "area": {
                         "type": "string",
                         "enum": [
