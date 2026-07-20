@@ -9,6 +9,9 @@
 6. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
 ## Nästa steg
+- [ ] **Deploy (2026-07-20):** `list_pro_templates` → `list_templates` (kod klar i `mcp_server.py`/`hosted_guard.py`, se DECISIONS.md 2026-07-20) — brytande ändring, kräver Peters go-ahead innan push till origin/main + `docker compose up -d --build` på VPS:en.
+- [ ] **Bug (Peters test 2026-07-20):** `check_input_risk`/`RiskChecker` gav falsk positiv på ordet "ärendenummer" trots att det bara förekom som en säkerhetsinstruktion i prompttexten, inte som faktiskt ärendenummer i användarens indata. Verkar matcha på ordet självt snarare än på ett faktiskt nummerformat — se `risk_checker.py`.
+- [ ] **Dokumentationsbrist (Peters test 2026-07-20):** `save_my_item` (Valvet) kräver `idempotency_key` som ett UUID, men verktygsbeskrivningen gör inte tydligt att det är obligatoriskt/måste vara giltigt UUID-format — förtydliga i tool-beskrivningen i `mcp_server.py` och ev. i README.
 - [x] Kör Plan B Task 4 end-to-end mot staging med riktiga Free- och Pro-testnycklar när Plan A:s sex `public.*_for_key`-RPC:er är applicerade och verifierade där. — klart 2026-07-17, se LOG.md.
 - [ ] Testa att nya promptmallar i `mcp-server/prompts/` är korrekt registrerade i `mcp-server/skills.json`.
 - [ ] Gå igenom `.gitignore` efter verkliga arbetsflöden och justera om anonymiserad exempeldata behöver versionshanteras.

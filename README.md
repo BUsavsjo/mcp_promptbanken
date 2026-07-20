@@ -143,7 +143,7 @@ I `hosted`-läge exponeras bara tools som returnerar metadata, promptmallar, hä
 - `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
-- `list_pro_templates`
+- `list_templates`
 - `list_my_prompts`
 - `list_my_private_prompts`
 - `list_my_shared_workspaces`
@@ -374,9 +374,9 @@ För teknisk katalog används `list_skills`. För en enklare användarvy använd
 
 När en ny prompt läggs till ska guiden i `docs/add-new-prompt.md` följas.
 
-### Pro-mallar (premium)
+### Mallkatalogen (öppen)
 
-Verktyget `list_pro_templates` och REST-endpointen `GET /api/v1/pro-templates` hämtar Promptbanken Pro-mallarna via RPC:n `get_pro_templates_for_mcp_key` (definierad i `promptbanken`-repot, `supabase/migrations/20260703100000_pro_templates_for_mcp_key.sql`). Ingen nyckel eller en nyckel som inte tillhör ett aktivt Pro-workspace ger en teaser (titel, syfte och outputformat, men `prompt_text` är `null` per mall). En giltig Pro-nyckel ger fullständig `prompt_text` för alla mallar.
+Verktyget `list_templates` och REST-endpointen `GET /api/v1/pro-templates` hämtar hela Promptbanken-mallkatalogen via RPC:n `get_pro_templates_for_mcp_key` (definierad i `promptbanken`-repot, `supabase/migrations/20260703100000_pro_templates_for_mcp_key.sql`). Katalogen är öppen sedan 2026-07-19 (se `DECISIONS.md`) — ingen nyckel eller plan krävs, alla mallar returneras alltid med fullständig `prompt_text`. RPC-namnet, REST-pathen (`/pro-templates`) och Python-modulen (`pro_templates.py`) är historiska och byts inte i denna omgång — bara det MCP-verktygsnamn klienter ser (`list_pro_templates` → `list_templates`).
 
 RPC:n är beviljad direkt till `anon` — att känna till nyckelns sha256-hash är i sig beviset på behörighet (samma modell som `verify_mcp_key`), så det krävs bara `SUPABASE_URL`/`SUPABASE_ANON_KEY`, ingen `SUPABASE_MCP_ROLE_JWT`.
 

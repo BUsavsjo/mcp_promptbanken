@@ -1,5 +1,27 @@
 # Beslut
 
+## 2026-07-20 - MCP-verktyget list_pro_templates omdöpt till list_templates
+
+### Beslut
+Verktygsnamnet `list_pro_templates` (aliasbeslutet 2026-07-19 nedan) byts till
+`list_templates` — i tools/list-schema, JSON-RPC-dispatch och
+`hosted_guard.py`s allowlist i `mcp_server.py`. Peters uttryckliga val efter
+att namnet upplevdes förvirrande nu när katalogen är öppen för alla. Modulen
+`pro_templates.py`, RPC:n `get_pro_templates_for_mcp_key` och REST-pathen
+`/api/v1/pro-templates` byts INTE i denna omgång — internt/historiskt, inte
+vad en MCP-klient ser i verktygslistan.
+
+### Skäl
+"Alias för bakåtkompatibilitet" räckte inte som förklaring i praktiken —
+namnet syns direkt för slutanvändare i MCP-klienters verktygslista och
+signalerar felaktigt att något kräver Pro.
+
+### Konsekvens
+Brytande ändring för klienter som redan anropar `list_pro_templates` — kräver
+ny deploy till `mcp.promptbanken.se` och att befintliga integrationer/cachade
+verktygslistor uppdateras. Ej pushat/deployat än — kräver Peters go-ahead
+(se konvention i CLAUDE.md/[[promptbanken-live-db-access]]).
+
 ## 2026-07-19 - Katalog-Pro avvecklad: hela promptbiblioteket öppet
 
 ### Beslut

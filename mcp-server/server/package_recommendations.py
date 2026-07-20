@@ -23,7 +23,7 @@ _AREA_ROLES: dict[str, set[str] | None] = {
 
 
 def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
-    """templates: the full list_pro_templates() payload (area/area_label per row)."""
+    """templates: the full list_templates() payload (area/area_label per row)."""
     areas: dict[str, str] = {}
     for t in templates:
         areas.setdefault(t["area"], t["area_label"])

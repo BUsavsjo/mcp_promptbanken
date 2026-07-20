@@ -402,11 +402,10 @@ def _save_workspace_prompt_payload(
 
 
 @mcp.tool()
-def list_pro_templates() -> dict[str, Any]:
-    """List the full Promptbanken template catalog (name kept for backwards
-    compatibility -- the catalog is open since 2026-07-19, no Pro plan
-    required; full prompt text is always included)."""
-    logger.info("tool_call name=list_pro_templates")
+def list_templates() -> dict[str, Any]:
+    """List the full Promptbanken template catalog. The catalog is open --
+    no plan or key required; full prompt text is always included."""
+    logger.info("tool_call name=list_templates")
     return _pro_templates_payload()
 
 
@@ -1333,10 +1332,10 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
-            "name": "list_pro_templates",
+            "name": "list_templates",
             "description": (
-                "List the full Promptbanken template catalog (name kept for backwards compatibility -- "
-                "the catalog is open, no Pro plan required; full prompt text is always included)."
+                "List the full Promptbanken template catalog. The catalog is open -- "
+                "no plan or key required; full prompt text is always included."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
@@ -1510,7 +1509,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "List the prompt packages (areas) the caller's Valvet workspace has "
                 "activated. Activation only affects which packages the user sees "
                 "expanded on their Valvet web page -- it never changes what "
-                "list_pro_templates returns."
+                "list_templates returns."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
@@ -1518,7 +1517,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "activate_package",
             "description": (
                 "Activate a prompt package (identified by its 'area' field from "
-                "list_pro_templates) so its templates appear expanded on the user's "
+                "list_templates) so its templates appear expanded on the user's "
                 "Valvet page. Idempotent. Only call this when the user has explicitly "
                 "asked to activate a package -- do not call it proactively just "
                 "because it seems helpful."
@@ -1547,7 +1546,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "copy_template_to_valvet",
             "description": (
-                "Copy one prompt template (from list_pro_templates, identified by its "
+                "Copy one prompt template (from list_templates, identified by its "
                 "id) into the caller's Valvet as a real, independent, editable item. "
                 "Requires confirm=true -- it creates content and counts against the "
                 "shared monthly copy quota (Free: 5/calendar month, Pro: unlimited)."
@@ -1655,7 +1654,7 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             return _json_rpc_result(request_id, _mcp_content_result(_health_check_payload(mcp_key)))
         if tool_name == "get_client_routing_instructions":
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
-        if tool_name == "list_pro_templates":
+        if tool_name == "list_templates":
             return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
