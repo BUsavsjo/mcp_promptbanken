@@ -15,6 +15,12 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     read_only: true
     tmpfs:
       - /tmp
@@ -22,3 +28,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+  autoheal:
+    image: willfarrell/autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
