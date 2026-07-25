@@ -202,6 +202,24 @@ Läs dessa innan större ändringar:
 
 Uppdatera alltid `TODO.md`, `LOG.md` och `DECISIONS.md` efter ett arbetspass.
 
+## Utvecklingsverktyg
+Tools definieras som vanliga typade Python-funktioner med `@mcp.tool()` (FastMCP genererar JSON-schema från typannoteringarna — inga explicita Pydantic `BaseModel`-klasser i repot idag).
+
+Lint/typecheck (konfig i `mcp-server/pyproject.toml`, dev-paket i `mcp-server/requirements-dev.txt`):
+```powershell
+cd mcp-server
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt   # en gång
+.venv/Scripts/python.exe -m ruff check .
+.venv/Scripts/python.exe -m pyright .
+```
+
+MCP Inspector mot lokal stdio-server:
+```powershell
+npx @modelcontextprotocol/inspector node mcp-server/scripts/run-mcp.js
+```
+
+`.mcp.json` i repo-roten registrerar den lokala servern (`promptbanken-local`, stdio) projekt-lokalt för Claude Code.
+
 ## Ny skill/prompt
 Följ `docs/add-new-prompt.md` när en ny prompt läggs till i `skills.json`/`prompts/`.
 
