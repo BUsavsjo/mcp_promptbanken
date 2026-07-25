@@ -1,5 +1,31 @@
 # Logg
 
+## 2026-07-25 (Kontextprofiler i öppen katalog för hostade MCP:n)
+
+### Gjort
+- Portade hostade katalogläsningen från gamla `get_pro_templates_for_mcp_key`-formatet till den nya publika katalogen i `promptbanken`-repot via nya RPC-anrop i `mcp-server/server/catalog.py`: `list_published_prompts`, `get_published_prompt`, `list_published_packages`, `get_published_package`, `list_published_package_prompts`, alla med `p_context_keys text[]`.
+- Behöll bakåtkompatibla tool-namn för användarsidan: `list_templates`, `search_templates`, `get_template` finns kvar men accepterar nu valfri `context_keys`-lista och läser från den nya katalogen i stället. Lade också till nya kompletterande tools `list_packages`, `get_package`, `list_package_prompts`.
+- Lade ett tunt adapterlager i `mcp_server.py` som mappar nya katalogfält (`summary`, `audience_label`, `tone_hint`, `slug`) till det äldre template-formatet så befintliga klienter inte behöver byta direkt.
+- Uppdaterade `hosted_guard.py` så `context_keys` och de nya paketverktygen tillåts och valideras i hosted-läge.
+- Lade till riktade regressionstester i `mcp-server/tests/test_catalog_context_tools.py` för tre saker: `list_templates(context_keys)` via JSON-RPC-dispatch, tool-schema/definitions för nya parametrar och pakettools, samt att hosted guard accepterar `context_keys`.
+
+### Verifierat
+- `python -m unittest tests.test_catalog_context_tools -v` -> 3 tester gröna.
+- `python -m compileall server tests` -> grönt.
+- `npm run check:python` -> grönt (`Listing 'server'...` utan fel).
+
+### Kvarstår
+- Deploy till VPS/produktionen är inte gjord i detta arbetspass.
+- Ingen liveverifiering mot `https://mcp.promptbanken.se/mcp` ännu efter denna kodändring.
+
+## 2026-07-25 (Docker healthcheck + autoheal efter tyst hang)
+
+### Gjort
+- Upptäckt via ny VPS-deploy-skillens statuskoll: `promptbanken-mcp`-containern hade hängt sen ca 10:35 (TCP accepterade anslutningar, HTTP-svar kom aldrig — inget krasch i loggarna, `docker ps` visade ändå "Up"). `docker-compose`s `restart: unless-stopped` fångar bara process-exit, inte ett hängande event loop.
+- Lade till `healthcheck` i `docker-compose.yml` för `promptbanken-mcp` (Python `urllib` mot `/healthz`, ingen curl i imagen) + en `autoheal`-sidecar (`willfarrell/autoheal`, pinnad på digest) som restartar containern automatiskt när Docker markerar den `unhealthy`.
+- Deploy: `ef7b53d` pushat till origin/main, dragit på VPS:en, `docker-compose up -d --build`. Samma kända `KeyError: 'ContainerConfig'`-bugg vid recreate som tidigare (se 2026-07-20-posten) — löst med samma workaround (`docker rm -f` på den omdöpta containern, sedan plain `up -d`). Verifierat: `docker ps` visar `healthy`, `/healthz` svarar 200.
+- Bakgrunds-säkerhetsgranskning flaggade `docker.sock`-mounten i `autoheal` som container-escape-risk (root-ekvivalent host-access om autoheal-imagen komprometteras) och den opinnade `willfarrell/autoheal:latest`-taggen som supply-chain-risk. Den andra fixad direkt (pinnad till digest). Den första är ett inneboende tradeoff i autoheal-mönstret — kvar i TODO.md för medvetet beslut, inte byggt bort.
+
 ## 2026-07-20 (Peters andra MCP-omtest: role som filter, inte rankning)
 
 ### Gjort

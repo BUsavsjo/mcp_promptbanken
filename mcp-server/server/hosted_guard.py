@@ -25,6 +25,9 @@ class HostedMetadataGuard:
             "list_templates",
             "search_templates",
             "get_template",
+            "list_packages",
+            "get_package",
+            "list_package_prompts",
             "list_my_prompts",
             "list_my_private_prompts",
             "list_my_shared_workspaces",
@@ -48,9 +51,12 @@ class HostedMetadataGuard:
             "list_skills_simple": set(),
             "health_check": set(),
             "get_client_routing_instructions": set(),
-            "list_templates": set(),
-            "search_templates": {"query", "role", "area", "risk_level", "limit"},
-            "get_template": {"template_id"},
+            "list_templates": {"context_keys"},
+            "search_templates": {"query", "role", "area", "risk_level", "limit", "context_keys"},
+            "get_template": {"template_id", "context_keys"},
+            "list_packages": {"context_keys", "package_type"},
+            "get_package": {"package_slug", "context_keys"},
+            "list_package_prompts": {"package_slug", "context_keys"},
             "list_my_prompts": set(),
             "list_my_private_prompts": set(),
             "list_my_shared_workspaces": set(),
@@ -227,10 +233,49 @@ class HostedMetadataGuard:
             limit = arguments.get("limit")
             if limit is not None and not isinstance(limit, int):
                 return {"reason": "invalid_search_templates_arguments", "method": method, "tool": tool_name, "id": request_id}
+            context_keys = arguments.get("context_keys")
+            if context_keys is not None and (
+                not isinstance(context_keys, list)
+                or not all(isinstance(item, str) for item in context_keys)
+            ):
+                return {"reason": "invalid_search_templates_arguments", "method": method, "tool": tool_name, "id": request_id}
         elif tool_name == "get_template":
             template_id = arguments.get("template_id")
             if not isinstance(template_id, str) or not template_id:
                 return {"reason": "invalid_template_id", "method": method, "tool": tool_name, "id": request_id}
+            context_keys = arguments.get("context_keys")
+            if context_keys is not None and (
+                not isinstance(context_keys, list)
+                or not all(isinstance(item, str) for item in context_keys)
+            ):
+                return {"reason": "invalid_template_id", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "list_templates":
+            context_keys = arguments.get("context_keys")
+            if context_keys is not None and (
+                not isinstance(context_keys, list)
+                or not all(isinstance(item, str) for item in context_keys)
+            ):
+                return {"reason": "invalid_context_keys", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name == "list_packages":
+            package_type = arguments.get("package_type")
+            if package_type is not None and not isinstance(package_type, str):
+                return {"reason": "invalid_package_type", "method": method, "tool": tool_name, "id": request_id}
+            context_keys = arguments.get("context_keys")
+            if context_keys is not None and (
+                not isinstance(context_keys, list)
+                or not all(isinstance(item, str) for item in context_keys)
+            ):
+                return {"reason": "invalid_context_keys", "method": method, "tool": tool_name, "id": request_id}
+        elif tool_name in ("get_package", "list_package_prompts"):
+            package_slug = arguments.get("package_slug")
+            if not isinstance(package_slug, str) or not package_slug:
+                return {"reason": "invalid_package_slug", "method": method, "tool": tool_name, "id": request_id}
+            context_keys = arguments.get("context_keys")
+            if context_keys is not None and (
+                not isinstance(context_keys, list)
+                or not all(isinstance(item, str) for item in context_keys)
+            ):
+                return {"reason": "invalid_context_keys", "method": method, "tool": tool_name, "id": request_id}
         elif arguments:
             return {"reason": "unexpected_arguments", "method": method, "tool": tool_name, "id": request_id}
         return None

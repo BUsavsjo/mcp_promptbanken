@@ -1,5 +1,29 @@
 # Beslut
 
+## 2026-07-25 - hostad katalog läser nu publika katalog-RPC:er med context_keys
+
+### Beslut
+Den hostade MCP-serverns öppna katalog ska inte längre läsa den äldre
+`get_pro_templates_for_mcp_key`-ytan för vanliga kataloganrop. I stället
+ska `list_templates`/`search_templates`/`get_template` vara
+bakåtkompatibla verktygsnamn ovanpå de nya publika katalog-RPC:erna
+`list_published_prompts`/`get_published_prompt`, med valfri
+`context_keys: string[]`. Paket exponeras additivt som nya tools:
+`list_packages`, `get_package`, `list_package_prompts`.
+
+### Skäl
+Användarsidan behövde profilkombinationer som `["kommun", "skola"]`
+utan att bryta befintliga MCP-klienter som redan använder
+`list_templates`-familjen. Att behålla namnen men byta datakälla ger
+lägst migrationsrisk och låter webb, databas och hostad MCP spegla samma
+publicerade katalog.
+
+### Konsekvens
+Hosted guard och JSON-RPC-scheman måste tillåta `context_keys`, och
+template-svaren mappas via ett tunt adapterlager från den nya
+katalogmodellen till ungefär samma shape som tidigare. Live-deploy och
+extern verifiering återstår efter denna kodändring.
+
 ## 2026-07-20 - search_templates: role som rankningssignal, inte filter
 
 ### Beslut

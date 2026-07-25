@@ -20,6 +20,7 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
+from . import catalog as _catalog
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -190,14 +191,74 @@ _TEMPLATE_SUMMARY_FIELDS = (
 )
 
 
+def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
+    if not context_keys:
+        return ["generell"]
+    normalized = [key.strip() for key in context_keys if isinstance(key, str) and key.strip()]
+    return normalized or ["generell"]
+
+
+def _catalog_prompt_to_template_summary(prompt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": prompt.get("id"),
+        "title": prompt.get("title"),
+        "syfte": prompt.get("summary"),
+        "area": None,
+        "area_label": prompt.get("audience_label"),
+        "output_format": None,
+        "tags": [],
+        "risk_level": "medium",
+    }
+
+
+def _catalog_prompt_to_template(prompt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **_catalog_prompt_to_template_summary(prompt),
+        "slug": prompt.get("slug"),
+        "icon_key": prompt.get("icon_key"),
+        "image_key": prompt.get("image_key"),
+        "color_theme": prompt.get("color_theme"),
+        "prompt_text": prompt.get("prompt_text"),
+        "example_input": prompt.get("example_input"),
+        "audience_label": prompt.get("audience_label"),
+        "tone_hint": prompt.get("tone_hint"),
+        "context_key": prompt.get("context_key"),
+    }
+
+
+def _catalog_package_to_payload(package: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": package.get("id"),
+        "slug": package.get("slug"),
+        "package_type": package.get("package_type"),
+        "icon_key": package.get("icon_key"),
+        "image_key": package.get("image_key"),
+        "color_theme": package.get("color_theme"),
+        "title": package.get("title"),
+        "summary": package.get("summary"),
+        "intro_text": package.get("intro_text"),
+        "audience_label": package.get("audience_label"),
+        "context_key": package.get("context_key"),
+    }
+
+
+def _list_templates_payload(context_keys: list[str] | None = None) -> dict[str, Any]:
+    prompts = _catalog.list_published_prompts(context_keys=_normalize_context_keys(context_keys))
+    return {
+        "unlocked": True,
+        "templates": [_catalog_prompt_to_template(prompt) for prompt in prompts],
+    }
+
+
 def _search_templates_payload(
     query: str = "",
     role: str = "",
     area: str = "",
     risk_level: str = "",
     limit: int = 10,
+    context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    templates = _fetch_pro_templates("")
+    templates = _list_templates_payload(context_keys)["templates"]
 
     role_bonus_areas: set[str] = set()
     recommendation: dict[str, Any] | None = None
@@ -211,19 +272,26 @@ def _search_templates_payload(
 
     scored: list[tuple[int, dict[str, Any]]] = []
     for t in templates:
-        if area and t["area"] != area:
+        if area and t.get("area") != area:
             continue
         if risk_level and t.get("risk_level") != risk_level:
             continue
         if tokens:
             strong = (t.get("title", "") + " " + " ".join(t.get("tags") or [])).lower()
-            weak = " ".join([t.get("syfte", ""), t.get("output_format", ""), t.get("area_label", "")]).lower()
+            weak = " ".join(
+                [
+                    t.get("syfte", ""),
+                    t.get("output_format", ""),
+                    t.get("area_label", ""),
+                    t.get("tone_hint", ""),
+                ]
+            ).lower()
             score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
             if score <= 0:
                 continue
         else:
             score = 0
-        if t["area"] in role_bonus_areas:
+        if t.get("area") in role_bonus_areas:
             score += 5
         scored.append((score, t))
 
@@ -244,12 +312,59 @@ def _search_templates_payload(
     return payload
 
 
-def _get_template_payload(template_id: str) -> dict[str, Any]:
-    templates = _fetch_pro_templates("")
-    for t in templates:
-        if t["id"] == template_id:
-            return {"status": "success", "template": t}
+def _get_template_payload(template_id: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+    prompts = _catalog.list_published_prompts(context_keys=_normalize_context_keys(context_keys))
+    selected = next((prompt for prompt in prompts if str(prompt.get("id")) == template_id), None)
+    if selected is None:
+        return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
+
+    variants = _catalog.get_published_prompt(
+        selected["slug"], context_keys=_normalize_context_keys(context_keys)
+    )
+    if not variants:
+        return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
+
+    for variant in variants:
+        if str(variant.get("id")) == template_id:
+            return {"status": "success", "template": _catalog_prompt_to_template(variant)}
+    for variant in variants:
+        if variant.get("slug") == selected["slug"]:
+            return {"status": "success", "template": _catalog_prompt_to_template(variant)}
     return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
+
+
+def _list_packages_payload(
+    context_keys: list[str] | None = None, package_type: str | None = None
+) -> dict[str, Any]:
+    packages = _catalog.list_published_packages(
+        context_keys=_normalize_context_keys(context_keys),
+        package_type=package_type,
+    )
+    return {"packages": [_catalog_package_to_payload(package) for package in packages]}
+
+
+def _get_package_payload(package_slug: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+    variants = _catalog.get_published_package(
+        package_slug, context_keys=_normalize_context_keys(context_keys)
+    )
+    if not variants:
+        return {"status": "error", "message": f"Inget paket hittades med slug {package_slug!r}."}
+    return {"status": "success", "package": _catalog_package_to_payload(variants[0]), "variants": variants}
+
+
+def _list_package_prompts_payload(
+    package_slug: str, context_keys: list[str] | None = None
+) -> dict[str, Any]:
+    prompts = _catalog.list_published_package_prompts(
+        package_slug, context_keys=_normalize_context_keys(context_keys)
+    )
+    return {"prompts": [_catalog_prompt_to_template(prompt) | {
+        "sort_order": prompt.get("sort_order"),
+        "step_title": prompt.get("step_title"),
+        "step_intro": prompt.get("step_intro"),
+        "is_required": prompt.get("is_required"),
+        "prompt_slug": prompt.get("prompt_slug"),
+    } for prompt in prompts]}
 
 
 _WRITE_OUTCOME_PATTERNS = [
@@ -470,11 +585,12 @@ def _save_workspace_prompt_payload(
 
 
 @mcp.tool()
-def list_templates() -> dict[str, Any]:
+def list_templates(context_keys: list[str] | None = None) -> dict[str, Any]:
     """List the full Promptbanken template catalog. The catalog is open --
-    no plan or key required; full prompt text is always included."""
+    no plan or key required; full prompt text is always included. Pass
+    context_keys like ["kommun", "skola"] to combine profile variants."""
     logger.info("tool_call name=list_templates")
-    return _pro_templates_payload()
+    return _list_templates_payload(context_keys)
 
 
 @mcp.tool()
@@ -484,23 +600,52 @@ def search_templates(
     area: str = "",
     risk_level: str = "",
     limit: int = 10,
+    context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
     """Search the open Promptbanken template catalog without fetching all 42
     full prompts. Filter by free-text query (matched against title, syfte,
     tags, output format), area and/or risk_level. role ranks results toward
     relevant job functions -- it does not exclude templates from other
-    areas. Returns lightweight summaries -- no prompt_text -- so use
+    areas. context_keys can combine profile variants. Returns lightweight summaries -- no prompt_text -- so use
     get_template(id) on a chosen result to fetch the full prompt."""
     logger.info("tool_call name=search_templates")
-    return _search_templates_payload(query, role, area, risk_level, limit)
+    return _search_templates_payload(query, role, area, risk_level, limit, context_keys)
 
 
 @mcp.tool()
-def get_template(template_id: str) -> dict[str, Any]:
+def get_template(template_id: str, context_keys: list[str] | None = None) -> dict[str, Any]:
     """Fetch one full template, including prompt_text, by its id (as returned
-    by search_templates or list_templates)."""
+    by search_templates or list_templates). context_keys can combine profile variants."""
     logger.info("tool_call name=get_template")
-    return _get_template_payload(template_id)
+    return _get_template_payload(template_id, context_keys)
+
+
+@mcp.tool()
+def list_packages(
+    context_keys: list[str] | None = None, package_type: str | None = None
+) -> dict[str, Any]:
+    """List published Promptbanken packages/workflows. context_keys can combine
+    profile variants; package_type filters when supplied."""
+    logger.info("tool_call name=list_packages")
+    return _list_packages_payload(context_keys, package_type)
+
+
+@mcp.tool()
+def get_package(package_slug: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+    """Fetch one published package by slug, including the best matching
+    profile variant for the supplied context_keys."""
+    logger.info("tool_call name=get_package")
+    return _get_package_payload(package_slug, context_keys)
+
+
+@mcp.tool()
+def list_package_prompts(
+    package_slug: str, context_keys: list[str] | None = None
+) -> dict[str, Any]:
+    """List the prompts inside one published package, in sort order, using the
+    best matching profile variant for the supplied context_keys."""
+    logger.info("tool_call name=list_package_prompts")
+    return _list_package_prompts_payload(package_slug, context_keys)
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -1429,9 +1574,16 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "list_templates",
             "description": (
                 "List the full Promptbanken template catalog. The catalog is open -- "
-                "no plan or key required; full prompt text is always included."
+                "no plan or key required; full prompt text is always included. "
+                "Pass context_keys to combine profile variants."
             ),
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
+                },
+                "additionalProperties": False,
+            },
         },
         {
             "name": "search_templates",
@@ -1440,9 +1592,9 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "42 full prompts. Filter by free-text query (matched against title, "
                 "syfte, tags, output format), area and/or risk_level. role ranks "
                 "results toward relevant job functions -- it does not exclude "
-                "templates from other areas. Returns lightweight summaries -- no "
-                "prompt_text -- so use get_template(id) on a chosen result to fetch "
-                "the full prompt."
+                "templates from other areas. context_keys can combine profile "
+                "variants. Returns lightweight summaries -- no prompt_text -- so "
+                "use get_template(id) on a chosen result to fetch the full prompt."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1464,6 +1616,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
                     },
                     "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
                     "limit": {"type": "integer", "default": 10},
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
                 },
                 "additionalProperties": False,
             },
@@ -1472,12 +1625,64 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "get_template",
             "description": (
                 "Fetch one full template, including prompt_text, by its id (as "
-                "returned by search_templates or list_templates)."
+                "returned by search_templates or list_templates). context_keys can "
+                "combine profile variants."
             ),
             "inputSchema": {
                 "type": "object",
-                "properties": {"template_id": {"type": "string", "format": "uuid"}},
+                "properties": {
+                    "template_id": {"type": "string", "format": "uuid"},
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
+                },
                 "required": ["template_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "list_packages",
+            "description": (
+                "List published Promptbanken packages/workflows. context_keys can "
+                "combine profile variants; package_type filters when supplied."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "package_type": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_package",
+            "description": (
+                "Fetch one published package by slug, including the best matching "
+                "profile variant for the supplied context_keys."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_slug": {"type": "string"},
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["package_slug"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "list_package_prompts",
+            "description": (
+                "List the prompts inside one published package, in sort order, "
+                "using the best matching profile variant for the supplied "
+                "context_keys."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_slug": {"type": "string"},
+                    "context_keys": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["package_slug"],
                 "additionalProperties": False,
             },
         },
@@ -1738,6 +1943,15 @@ def _mcp_content_result(value: Any) -> dict[str, Any]:
     }
 
 
+def _optional_context_keys(arguments: dict[str, Any]) -> list[str] | None:
+    context_keys = arguments.get("context_keys")
+    if context_keys is None:
+        return None
+    if not isinstance(context_keys, list) or not all(isinstance(item, str) for item in context_keys):
+        return []
+    return context_keys
+
+
 def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str, Any] | None:
     request_id = message.get("id")
     method = message.get("method")
@@ -1797,20 +2011,54 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
         if tool_name == "get_client_routing_instructions":
             return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
         if tool_name == "list_templates":
-            return _json_rpc_result(request_id, _mcp_content_result(_pro_templates_payload(mcp_key)))
+            context_keys = _optional_context_keys(arguments)
+            if context_keys == []:
+                return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
+            return _json_rpc_result(request_id, _mcp_content_result(_list_templates_payload(context_keys)))
         if tool_name == "search_templates":
             limit = arguments.get("limit", 10)
-            if not isinstance(limit, int):
+            context_keys = _optional_context_keys(arguments)
+            if not isinstance(limit, int) or context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid search_templates arguments")
             return _json_rpc_result(request_id, _mcp_content_result(_search_templates_payload(
                 arguments.get("query", ""), arguments.get("role", ""),
-                arguments.get("area", ""), arguments.get("risk_level", ""), limit,
+                arguments.get("area", ""), arguments.get("risk_level", ""), limit, context_keys,
             )))
         if tool_name == "get_template":
             template_id = arguments.get("template_id")
-            if not isinstance(template_id, str) or not template_id:
+            context_keys = _optional_context_keys(arguments)
+            if not isinstance(template_id, str) or not template_id or context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid get_template arguments")
-            return _json_rpc_result(request_id, _mcp_content_result(_get_template_payload(template_id)))
+            return _json_rpc_result(
+                request_id, _mcp_content_result(_get_template_payload(template_id, context_keys))
+            )
+        if tool_name == "list_packages":
+            context_keys = _optional_context_keys(arguments)
+            package_type = arguments.get("package_type")
+            if context_keys == [] or (package_type is not None and not isinstance(package_type, str)):
+                return _json_rpc_error(request_id, -32602, "Invalid list_packages arguments")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(_list_packages_payload(context_keys, package_type)),
+            )
+        if tool_name == "get_package":
+            package_slug = arguments.get("package_slug")
+            context_keys = _optional_context_keys(arguments)
+            if not isinstance(package_slug, str) or not package_slug or context_keys == []:
+                return _json_rpc_error(request_id, -32602, "Invalid get_package arguments")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(_get_package_payload(package_slug, context_keys)),
+            )
+        if tool_name == "list_package_prompts":
+            package_slug = arguments.get("package_slug")
+            context_keys = _optional_context_keys(arguments)
+            if not isinstance(package_slug, str) or not package_slug or context_keys == []:
+                return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(_list_package_prompts_payload(package_slug, context_keys)),
+            )
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
         if tool_name == "list_my_private_prompts":
