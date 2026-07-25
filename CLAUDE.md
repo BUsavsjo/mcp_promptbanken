@@ -229,3 +229,7 @@ Följ `docs/add-new-prompt.md` när en ny prompt läggs till i `skills.json`/`pr
 - Inga nya abstraktioner utan tydlig nytta
 - Lägg aldrig API-nycklar, tokens eller `.env`-filer i Git
 - Validera alltid `skill_id` med `SkillRepository.is_valid_skill_id()` innan användning
+
+## Octopus hub
+
+Part of the octopus project hub — see `C:\Users\petwen\OneDrive - Höglandsförbundet\Projekt\octopus` for vision/status/blockers before larger changes.
