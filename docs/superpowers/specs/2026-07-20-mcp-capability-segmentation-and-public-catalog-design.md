@@ -89,15 +89,19 @@ Framtida workspace-skrivning, granskning och publicering ska utformas så att:
 
 ## Endpointstrategi
 
-En gemensam modern endpoint behålls:
+Den långsiktiga universella endpointen är:
 
 `/mcp`
 
-Samma endpoint ska stödja:
+I publiceringsetapp 1 stöder `/mcp` endast:
 
 - publik anslutning utan nyckel
-- personlig Free-/Pro-anslutning med MCP-nyckel
-- framtida organisationsanslutning med arbetsytebehörigheter
+- publicerade read-only-katalogverktyg
+
+Nyckelbaserad personlig Free-/Pro-anslutning ligger tillfälligt på `/mcp/key`.
+Efter OAuth-etappen ska `/mcp` stödja både anonym katalog och inloggat
+personligt Valv. Framtida organisationsanslutning med arbetsytebehörigheter
+kan därefter läggas på samma OAuth-baserade kapabilitetsmodell.
 
 `tools/list` är en produkt- och UX-yta, inte en säkerhetsmekanism.
 Behörighet ska alltid verifieras på serversidan vid själva anropet i
@@ -107,18 +111,87 @@ Om klientstöd finns ska servern på sikt kunna signalera
 `notifications/tools/list_changed` när kapabiliteter ändras, annars får
 klienten återansluta. Detta är önskvärt men inte ett krav för etapp 1.
 
+## Beslut för OpenAI-publicering
+
+OpenAI-publicering delas upp i två leveranser. Detta ersätter det tidigare
+antagandet att den publika katalogen och det personliga Valvet måste publiceras
+samtidigt.
+
+### Publiceringsetapp 1: Promptbanken Öppen
+
+Den endpoint som skickas till OpenAI är:
+
+`https://mcp.promptbanken.se/mcp`
+
+Den ska vara anonym, stabil och strikt read-only. Dess `tools/list` och
+`tools/call` ska endast omfatta de publika katalogverktygen i denna spec.
+En statisk MCP-nyckel ska inte låsa upp privata verktyg på den publicerade
+ytan.
+
+Nuvarande Free-/Pro-nycklar får under övergången fortsätta användas av andra
+MCP-klienter via en separat, icke publicerad kompatibilitetsendpoint:
+
+`https://mcp.promptbanken.se/mcp/key`
+
+Kompatibilitetsendpointen måste verifiera nyckeln innan privata verktyg visas
+eller anropas. Den får inte anges i OpenAI-listningen.
+
+### Publiceringsetapp 2: Valvet via OAuth
+
+Valvet läggs till på samma universella publicerade endpoint `/mcp` först när
+OAuth 2.1 enligt MCP:s auth-modell är implementerat. Då gäller:
+
+- anonym anslutning ser endast `public_catalog`
+- OAuth-inloggad Free-användare ser `public_catalog` och `personal_vault`
+- OAuth-inloggad Pro-användare ser samma basverktyg som Free
+- Free och Pro skiljs genom kvoter, usage och innehållsbehörighet, inte genom
+  att paketaktivering saknas i Free
+- `list_active_packages`, `activate_package` och `deactivate_package` finns i
+  både Free och Pro
+- `tools/call` verifierar OAuth-token, användare, workspace och plan på
+  serversidan
+
+När OAuth-etappen är verifierad kan `/mcp/key` avvecklas efter dokumenterad
+trafik- och klientinventering.
+
+### Krav från OpenAI-granskningen
+
+Före första submission ska den publicerade ytan uppfylla följande:
+
+- varje exponerat verktyg har korrekt namn, titel, beskrivning, input-schema
+  och annotations
+- publika katalogverktyg markeras `readOnlyHint: true`,
+  `destructiveHint: false` och `openWorldHint: false`
+- inga Valvet-, workspace-, användar- eller skrivverktyg förekommer i den
+  anonyma `tools/list`
+- okända eller privata verktygsanrop på `/mcp` ger ett säkert MCP-fel och
+  utför ingen operation
+- privacy policy, användarvillkor och supportkontakt finns på publika URL:er
+- submissionsmaterial innehåller verifierade testprompter och förväntade svar
+- produktionsendpointen är stabil, loggar inte rå prompttext eller
+  personuppgifter och har tydliga fallback-fel
+
+Officiella kravkällor:
+
+- https://developers.openai.com/plugins/deploy/app-review
+- https://developers.openai.com/plugins/build/auth
+- https://developers.openai.com/plugins/guides/optimize-metadata
+- https://developers.openai.com/plugins/guides/security-privacy
+- https://developers.openai.com/plugins/deploy/submission
+
 ## Slutlig verktygsmodell för etapp 1
 
 ### Publika verktyg
 
 - `health_check`
-- `list_packages`
-- `get_package`
+- `get_client_routing_instructions`
+- `list_templates`
 - `search_templates`
 - `get_template`
+- `list_packages`
+- `get_package`
+- `list_package_prompts`
 - `recommend_packages`
-- `list_skills`
-- `get_skill`
 
 Dessa verktyg ska vara synliga utan nyckel och arbeta mot publicerat,
 öppet kataloginnehåll.
@@ -308,8 +381,9 @@ Inga brytande ändringar ska göras innan inventeringen är genomförd.
 
 ### Steg B: ny primär verktygsmodell
 
-Inför den nya verktygsmodellen och capability-segmenterad `tools/list`.
-Gamla namn ska inte vara primära i `tools/list`.
+Inför den nya verktygsmodellen med fast publik `tools/list` på `/mcp` och
+capability-segmenterad `tools/list` på `/mcp/key`. Gamla namn ska inte vara
+primära i någon verktygslista.
 
 Om kompatibilitetslager behövs ska det avgöras efter trafikinventering,
 inte antas från början.
@@ -400,9 +474,10 @@ Minst följande ska verifieras:
 2. Publik användare kan lista paket och söka mallar.
 3. Nya publicerade paket i Supabase visas utan kodändring i verktygsregistret.
 4. Publik användare kan inte läsa privata Valv-objekt.
-5. Giltig Free-nyckel visar tillåtna Valv-verktyg.
-6. Giltig Pro-nyckel visar rätt kapabiliteter, usage och eventuellt utökat kataloginnehåll.
-7. Ogiltig eller återkallad nyckel ger tydligt och säkert fel.
+5. Giltig Free-nyckel visar tillåtna Valv-verktyg på `/mcp/key`.
+6. Giltig Pro-nyckel visar rätt kapabiliteter, usage och eventuellt utökat
+   kataloginnehåll på `/mcp/key`.
+7. Ogiltig eller återkallad nyckel ger tydligt och säkert fel på `/mcp/key`.
 8. Kvoter kontrolleras på servern.
 9. En kopierad mall blir en självständig Valv-kopia.
 10. Uppdatering av originalmallen skriver inte över Valv-kopian.
@@ -411,12 +486,22 @@ Minst följande ska verifieras:
 13. Verktygsbeskrivningarna hjälper modellen välja rätt verktyg.
 14. SSE-endpointens status är inventerad och dokumenterad.
 15. Befintliga tester fortsätter fungera eller ersätts med tydligt motiverad verifiering.
+16. `/mcp` exponerar exakt den beslutade publika read-only-verktygsytan.
+17. Alla verktyg på `/mcp` har korrekta MCP-annotations för OpenAI-granskning.
+18. En MCP-nyckel ändrar inte verktygsytan eller behörigheten på `/mcp`.
+19. `/mcp/key` visar privata Valvet-verktyg först efter verifierad Free- eller
+    Pro-nyckel.
+20. Paketaktivering fungerar för både Free och Pro via `/mcp/key`.
+21. OpenAI-listningens privacy-, villkors-, support- och testmaterial är
+    verifierat före submission.
+22. Valvet exponeras inte i den publicerade OpenAI-anslutningen före OAuth 2.1.
 
 ## Uttryckligen utanför scope i etapp 1
 
 - full organisationsbank
 - review-/approve-/publish-flöde
 - versionsåterställning för organisationsobjekt
+- OAuth 2.1 och Valvet på den OpenAI-publicerade `/mcp`-endpointen
 - bred ommodellering av hela databasen om befintlig modell räcker
 - överkonstruerat kompatibilitetslager innan faktisk trafik verifierats
 
@@ -426,6 +511,7 @@ Nästa steg efter denna spec är en implementationplan för etapp 1 med fyra
 huvuddelar:
 
 1. nulägesanalys och SSE-inventering
-2. capability-segmenterad verktygsmodell på `/mcp`
+2. fast publik verktygsmodell på `/mcp` och capability-segmenterad modell på
+   `/mcp/key`
 3. publik katalog via stabil Supabase-baserad datakälla
 4. tydlig personlig Valv-grupp med paketaktivering och kopiering
