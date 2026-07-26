@@ -66,6 +66,36 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertIsNone(warning)
 
+    def test_hosted_guard_allows_render_arguments_for_catalog_tools(self) -> None:
+        guard = HostedMetadataGuard(repository)
+
+        for tool_name, id_key in (
+            ("get_template", "template_id"),
+            ("get_package", "package_slug"),
+            ("list_package_prompts", "package_slug"),
+        ):
+            with self.subTest(tool_name=tool_name):
+                warning = guard.inspect_json_rpc_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "tools/call",
+                        "params": {
+                            "name": tool_name,
+                            "arguments": {
+                                id_key: "abc",
+                                "context_keys": ["företag"],
+                                "role": "handläggare",
+                                "audience": "företagare",
+                                "tone": "formellt",
+                                "input_text": "Ansökan saknar bilaga.",
+                            },
+                        },
+                    }
+                )
+
+                self.assertIsNone(warning)
+
     def test_search_templates_tolerates_nullable_catalog_fields(self) -> None:
         with patch("server.mcp_server._list_templates_payload") as mocked_payload:
             mocked_payload.return_value = {
