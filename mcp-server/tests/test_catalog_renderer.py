@@ -10,6 +10,44 @@ from server.mcp_server import _catalog_prompt_to_template
 
 
 class CatalogRendererTests(unittest.TestCase):
+    def test_renders_tone_with_the_grammatical_form_required_by_the_sentence(self) -> None:
+        variant = {
+            "prompt_text": "Skriv ett {{ton}} svar med en {{ton}} stil.",
+            "parameter_schema": {
+                "fields": [{"key": "ton", "source": "global"}],
+            },
+            "default_bindings": {"ton": "tydlig och vänlig"},
+        }
+
+        self.assertEqual(
+            render_template_variant(variant),
+            "Skriv ett tydligt och vänligt svar med en tydlig och vänlig stil.",
+        )
+        self.assertEqual(
+            render_template_variant(variant, {"ton": "formellt"}),
+            "Skriv ett formellt svar med en formell stil.",
+        )
+
+    def test_recomputes_tone_form_after_a_context_override(self) -> None:
+        variant = {
+            "prompt_text": "Skriv ett {{ton}} svar.",
+            "parameter_schema": {
+                "fields": [
+                    {"key": "kontext", "source": "global"},
+                    {"key": "ton", "source": "global"},
+                ],
+            },
+            "default_bindings": {"ton": "tydlig och vänlig"},
+            "binding_overrides": [
+                {"when": {"kontext": "skola"}, "set": {"ton": "pedagogisk"}}
+            ],
+        }
+
+        self.assertEqual(
+            render_template_variant(variant, {"kontext": "skola"}),
+            "Skriv ett pedagogiskt svar.",
+        )
+
     def test_renders_global_bindings_and_context_override(self) -> None:
         variant = {
             "prompt_text": "Skriv ett {{ton}} svar till {{malgrupp}}. Du är {{roll}} i {{kontext}}.",

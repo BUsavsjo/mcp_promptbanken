@@ -10,6 +10,8 @@ from server.hosted_guard import HostedMetadataGuard
 from server.mcp_server import (
     _handle_mcp_message,
     _catalog_prompt_to_template_summary,
+    _get_package_payload,
+    _get_template_payload,
     _list_package_prompts_payload,
     _list_templates_payload,
     _search_templates_payload,
@@ -206,6 +208,62 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(payload["templates"][0]["area"], "kommunikation")
         self.assertEqual(payload["templates"][0]["area_label"], "Kommunikation och publicering")
 
+    def test_list_templates_renders_catalog_metadata_and_reports_selected_context(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+        ):
+            mocked_prompts.return_value = [
+                {
+                    "id": "prompt-1",
+                    "slug": "rutin",
+                    "title": "Rutiner",
+                    "prompt_text": "Gör instruktioner tydliga för {{malgrupp}} i {{kontext}}.",
+                    "audience_label": "medarbetare",
+                    "context_key": "kommun",
+                    "parameter_schema": {
+                        "fields": [
+                            {"key": "kontext", "source": "global"},
+                            {"key": "malgrupp", "source": "global"},
+                        ]
+                    },
+                    "default_bindings": {"malgrupp": "medarbetare"},
+                }
+            ]
+
+            payload = _list_templates_payload(["kommun", "skola"])
+
+        self.assertEqual(
+            payload["templates"][0]["rendered_prompt_text"],
+            "Gör instruktioner tydliga för medarbetare i kommun.",
+        )
+        self.assertEqual(payload["requested_context_keys"], ["kommun", "skola"])
+        self.assertEqual(payload["matched_context_keys"], ["kommun"])
+        self.assertEqual(payload["variant_source"], "profile_variant")
+
+    def test_list_templates_uses_audience_and_tone_metadata_when_bindings_are_missing(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+        ):
+            mocked_prompts.return_value = [
+                {
+                    "id": "prompt-1",
+                    "slug": "enkel_infografik",
+                    "title": "Enkel infografik",
+                    "prompt_text": "Skapa en {{ton}} stil för {{malgrupp}}.",
+                    "audience_label": "medarbetare",
+                    "tone_hint": "tydlig och vänlig",
+                }
+            ]
+
+            payload = _list_templates_payload(["kommun"])
+
+        self.assertEqual(
+            payload["templates"][0]["rendered_prompt_text"],
+            "Skapa en tydlig och vänlig stil för medarbetare.",
+        )
+
     def test_list_package_prompts_fills_stable_identity_fields(self) -> None:
         with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts:
             mocked_package_prompts.return_value = [
@@ -223,6 +281,83 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(prompt["id"], "mejl")
         self.assertEqual(prompt["slug"], "mejl")
         self.assertEqual(prompt["area"], "kommunikation")
+
+    def test_get_template_reports_the_selected_profile_variant(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog.get_published_prompt") as mocked_detail,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+        ):
+            mocked_prompts.return_value = [
+                {"id": "prompt-1", "slug": "mejl", "title": "Mejl"}
+            ]
+            mocked_detail.return_value = [
+                {
+                    "id": "prompt-1",
+                    "slug": "mejl",
+                    "title": "Mejl",
+                    "context_key": "skola",
+                    "prompt_text": "Skriv för {{malgrupp}}.",
+                    "parameter_schema": {
+                        "fields": [{"key": "malgrupp", "source": "global"}]
+                    },
+                    "default_bindings": {"malgrupp": "vårdnadshavare"},
+                },
+                {
+                    "id": "prompt-1",
+                    "slug": "mejl",
+                    "title": "Mejl",
+                    "context_key": "generell",
+                    "prompt_text": "Skriv för {{malgrupp}}.",
+                    "parameter_schema": {
+                        "fields": [{"key": "malgrupp", "source": "global"}]
+                    },
+                    "default_bindings": {"malgrupp": "invånare"},
+                },
+            ]
+
+            payload = _get_template_payload("prompt-1", ["kommun", "skola"])
+
+        self.assertEqual(payload["requested_context_keys"], ["kommun", "skola"])
+        self.assertEqual(payload["matched_context_keys"], ["skola"])
+        self.assertEqual(payload["variant_source"], "profile_variant")
+        self.assertEqual(payload["template"]["context_key"], "skola")
+
+    def test_get_package_reports_fallback_when_no_profile_variant_matches(self) -> None:
+        with patch("server.mcp_server._catalog.get_published_package") as mocked_package:
+            mocked_package.return_value = [
+                {
+                    "id": "package-1",
+                    "slug": "kommunikation",
+                    "context_key": "generell",
+                    "title": "Kommunikation",
+                }
+            ]
+
+            payload = _get_package_payload("kommunikation", ["privat"])
+
+        self.assertEqual(payload["requested_context_keys"], ["privat"])
+        self.assertEqual(payload["matched_context_keys"], [])
+        self.assertEqual(payload["variant_source"], "fallback_generell")
+
+    def test_list_package_prompts_reports_context_matches(self) -> None:
+        with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_prompts:
+            mocked_prompts.return_value = [
+                {
+                    "prompt_id": "prompt-1",
+                    "prompt_slug": "mejl",
+                    "title": "Mejl",
+                    "context_key": "skola",
+                }
+            ]
+
+            payload = _list_package_prompts_payload(
+                "kommunikation", ["kommun", "skola"]
+            )
+
+        self.assertEqual(payload["requested_context_keys"], ["kommun", "skola"])
+        self.assertEqual(payload["matched_context_keys"], ["skola"])
+        self.assertEqual(payload["variant_source"], "profile_variant")
 
 
 if __name__ == "__main__":

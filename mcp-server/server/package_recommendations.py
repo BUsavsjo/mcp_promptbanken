@@ -12,13 +12,31 @@ from .skill_router import SkillRouter
 
 # None = universellt (matchar alltid, oavsett roll).
 _AREA_ROLES: dict[str, set[str] | None] = {
-    "kommunikation": {"kommunikator", "handlaggare", "kundcenter"},
-    "forandringsledning": {"samordnare", "verksamhetsutvecklare", "chef"},
-    "processer": {"verksamhetsutvecklare", "utredare", "samordnare"},
-    "beslutsberedning": {"utredare", "handlaggare", "chef", "sekreterare"},
+    "kommunikation": {"kommunikator", "handlaggare", "kundcenter", "samordnare", "rektor"},
+    "forandringsledning": {"samordnare", "verksamhetsutvecklare", "chef", "rektor"},
+    "processer": {"verksamhetsutvecklare", "utredare", "samordnare", "rektor"},
+    "beslutsberedning": {"utredare", "handlaggare", "chef", "sekreterare", "rektor"},
     "visuellt": {"kommunikator", "pedagog"},
-    "ledarskap": {"chef", "samordnare"},
+    "ledarskap": {"chef", "samordnare", "rektor"},
     "arbetsbank": None,
+}
+
+_ROLE_AREA_PRIORITY = {
+    "rektor": [
+        "ledarskap",
+        "kommunikation",
+        "processer",
+        "forandringsledning",
+        "beslutsberedning",
+        "arbetsbank",
+    ],
+    "samordnare": [
+        "forandringsledning",
+        "processer",
+        "ledarskap",
+        "kommunikation",
+        "arbetsbank",
+    ],
 }
 
 
@@ -46,18 +64,23 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
     role_recognized = bool(matched_areas) and any(
         _AREA_ROLES[area] is not None for area in matched_areas
     )
-    result_areas = matched_areas if role_recognized else list(areas.keys())
-
-    packages = [
-        {"area": area, "area_label": areas[area], "template_count": counts.get(area, 0)}
-        for area in result_areas
-    ]
 
     all_role_words = {
         SkillRouter._normalize(r) for roles in _AREA_ROLES.values() if roles for r in roles
     }
     matched_role_terms = role_terms & all_role_words
     matched_role = sorted(matched_role_terms)[0] if matched_role_terms else None
+    result_areas = matched_areas if role_recognized else list(areas.keys())
+    priority = _ROLE_AREA_PRIORITY.get(matched_role or "")
+    if role_recognized and priority:
+        rank = {area: index for index, area in enumerate(priority)}
+        result_areas = sorted(result_areas, key=lambda area: rank.get(area, len(rank)))
+
+    packages = [
+        {"area": area, "area_label": areas[area], "template_count": counts.get(area, 0)}
+        for area in result_areas
+    ]
+
     if matched_role is None:
         role_match_source = None
     elif normalized_whole in all_role_words:

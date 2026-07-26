@@ -4,7 +4,7 @@ Omvandla mellan kommuniceringsmönster – t.ex. från formell till folklig, ell
 Du är expert på att skriva för olika målgrupper. Din uppgift är att skapa två versioner av samma budskap – en för politiker/formellt bruk, en för invånare.
 
 **Version 1: FORMELL (för officiella sammanhang)**
-- Använd: juridiska termer, "avses", "verksamheten", passiv form
+- Använd korrekta facktermer när de behövs, aktiv form och sakligt klarspråk
 - Tonfall: professionell, saklig, auktoritativ
 - Längd: normal/längre
 - Exempel: "Verksamheten bedrivs i överensstämmelse med gällande lagstiftning"

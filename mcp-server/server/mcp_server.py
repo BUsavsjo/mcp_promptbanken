@@ -237,6 +237,33 @@ def _render_bindings(
     return bindings
 
 
+def _variant_diagnostics(
+    context_keys: list[str] | None,
+    variants: list[dict[str, Any]],
+) -> dict[str, Any]:
+    requested = _normalize_context_keys(context_keys)
+    selected = list(
+        dict.fromkeys(
+            str(variant["context_key"])
+            for variant in variants
+            if variant.get("context_key")
+        )
+    )
+    matched = [key for key in selected if key != "generell" and key in requested]
+    has_fallback = any(key == "generell" for key in selected) or not selected
+    if matched and has_fallback:
+        source = "mixed"
+    elif matched:
+        source = "profile_variant"
+    else:
+        source = "fallback_generell"
+    return {
+        "requested_context_keys": requested,
+        "matched_context_keys": matched,
+        "variant_source": source,
+    }
+
+
 def _static_skill_metadata() -> dict[str, dict[str, Any]]:
     global _static_skill_metadata_cache
     if _static_skill_metadata_cache is not None:
@@ -405,7 +432,15 @@ def _list_templates_payload(context_keys: list[str] | None = None) -> dict[str, 
     area_index = _catalog_area_index(normalized_contexts)
     return {
         "unlocked": True,
-        "templates": [_catalog_prompt_to_template(prompt, area_index=area_index) for prompt in prompts],
+        **_variant_diagnostics(normalized_contexts, prompts),
+        "templates": [
+            _catalog_prompt_to_template(
+                prompt,
+                render_bindings=_render_bindings(normalized_contexts),
+                area_index=area_index,
+            )
+            for prompt in prompts
+        ],
     }
 
 
@@ -501,11 +536,19 @@ def _get_template_payload(
     for variant in variants:
         if str(variant.get("id")) == template_id:
             area_index = _catalog_area_index(context_keys)
-            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings, area_index)}
+            return {
+                "status": "success",
+                **_variant_diagnostics(context_keys, [variant]),
+                "template": _catalog_prompt_to_template(variant, render_bindings, area_index),
+            }
     for variant in variants:
         if variant.get("slug") == selected["slug"]:
             area_index = _catalog_area_index(context_keys)
-            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings, area_index)}
+            return {
+                "status": "success",
+                **_variant_diagnostics(context_keys, [variant]),
+                "template": _catalog_prompt_to_template(variant, render_bindings, area_index),
+            }
     return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
 
@@ -535,6 +578,7 @@ def _get_package_payload(
         return {"status": "error", "message": f"Inget paket hittades med slug {package_slug!r}."}
     return {
         "status": "success",
+        **_variant_diagnostics(context_keys, [variants[0]]),
         "package": _catalog_package_to_payload(variants[0], render_bindings),
         "variants": [_catalog_package_to_payload(variant, render_bindings) for variant in variants],
     }
@@ -559,13 +603,16 @@ def _list_package_prompts_payload(
         for prompt in prompts
         for key in filter(None, (_catalog_prompt_identifier(prompt), _catalog_prompt_slug(prompt)))
     }
-    return {"prompts": [_catalog_prompt_to_template(prompt, render_bindings, area_index) | {
-        "sort_order": prompt.get("sort_order"),
-        "step_title": prompt.get("step_title"),
-        "step_intro": prompt.get("step_intro"),
-        "is_required": prompt.get("is_required"),
-        "prompt_slug": prompt.get("prompt_slug"),
-    } for prompt in prompts]}
+    return {
+        **_variant_diagnostics(normalized_contexts, prompts),
+        "prompts": [_catalog_prompt_to_template(prompt, render_bindings, area_index) | {
+            "sort_order": prompt.get("sort_order"),
+            "step_title": prompt.get("step_title"),
+            "step_intro": prompt.get("step_intro"),
+            "is_required": prompt.get("is_required"),
+            "prompt_slug": prompt.get("prompt_slug"),
+        } for prompt in prompts],
+    }
 
 
 _WRITE_OUTCOME_PATTERNS = [
