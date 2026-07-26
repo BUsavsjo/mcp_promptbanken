@@ -191,6 +191,21 @@ _TEMPLATE_SUMMARY_FIELDS = (
     "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
 )
 
+_PUBLIC_OPEN_TOOL_NAMES = {
+    "health_check",
+    "get_client_routing_instructions",
+    "list_templates",
+    "search_templates",
+    "get_template",
+    "list_packages",
+    "get_package",
+    "list_package_prompts",
+    "recommend_packages",
+}
+
+_CATALOG_AREA_CACHE_TTL_SECONDS = 60
+_catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
+
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
     if not context_keys:
@@ -221,13 +236,81 @@ def _render_bindings(
     return bindings
 
 
-def _catalog_prompt_to_template_summary(prompt: dict[str, Any]) -> dict[str, Any]:
+def _catalog_prompt_identifier(prompt: dict[str, Any]) -> str | None:
+    value = (
+        prompt.get("id")
+        or prompt.get("prompt_id")
+        or prompt.get("published_prompt_id")
+        or prompt.get("slug")
+        or prompt.get("prompt_slug")
+    )
+    return str(value) if value else None
+
+
+def _catalog_prompt_slug(prompt: dict[str, Any]) -> str | None:
+    value = prompt.get("slug") or prompt.get("prompt_slug")
+    return str(value) if value else None
+
+
+def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict[str, str | None]]:
+    normalized_contexts = tuple(_normalize_context_keys(context_keys))
+    now = time.monotonic()
+    cached = _catalog_area_cache.get(normalized_contexts)
+    if cached and now - cached[0] < _CATALOG_AREA_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    index: dict[str, dict[str, str | None]] = {}
+    packages = _catalog.list_published_packages(context_keys=list(normalized_contexts))
+    for package in packages:
+        area = package.get("slug")
+        if not isinstance(area, str) or not area:
+            continue
+        area_label = package.get("title") or package.get("audience_label") or area
+        package_context = package.get("context_key")
+        for prompt in _catalog.list_published_package_prompts(area, context_keys=list(normalized_contexts)):
+            meta = {
+                "area": area,
+                "area_label": str(area_label) if area_label else area,
+                "context_key": prompt.get("context_key") or package_context,
+            }
+            prompt_id = _catalog_prompt_identifier(prompt)
+            prompt_slug = _catalog_prompt_slug(prompt)
+            if prompt_id:
+                index[prompt_id] = meta
+            if prompt_slug:
+                index[prompt_slug] = meta
+
+    _catalog_area_cache[normalized_contexts] = (now, index)
+    return index
+
+
+def _catalog_prompt_area_meta(
+    prompt: dict[str, Any], area_index: dict[str, dict[str, str | None]] | None = None
+) -> dict[str, str | None]:
+    if area_index:
+        prompt_id = _catalog_prompt_identifier(prompt)
+        prompt_slug = _catalog_prompt_slug(prompt)
+        if prompt_id and prompt_id in area_index:
+            return area_index[prompt_id]
+        if prompt_slug and prompt_slug in area_index:
+            return area_index[prompt_slug]
     return {
-        "id": prompt.get("id"),
+        "area": prompt.get("area"),
+        "area_label": prompt.get("area_label") or prompt.get("audience_label"),
+        "context_key": prompt.get("context_key"),
+    }
+
+
+def _catalog_prompt_to_template_summary(
+    prompt: dict[str, Any], area_index: dict[str, dict[str, str | None]] | None = None
+) -> dict[str, Any]:
+    area_meta = _catalog_prompt_area_meta(prompt, area_index)
+    return {
+        "id": _catalog_prompt_identifier(prompt),
         "title": prompt.get("title"),
         "syfte": prompt.get("summary"),
-        "area": None,
-        "area_label": prompt.get("audience_label"),
+        "area": area_meta.get("area"),
+        "area_label": area_meta.get("area_label"),
         "output_format": None,
         "tags": [],
         "risk_level": "medium",
@@ -235,11 +318,14 @@ def _catalog_prompt_to_template_summary(prompt: dict[str, Any]) -> dict[str, Any
 
 
 def _catalog_prompt_to_template(
-    prompt: dict[str, Any], render_bindings: dict[str, Any] | None = None
+    prompt: dict[str, Any],
+    render_bindings: dict[str, Any] | None = None,
+    area_index: dict[str, dict[str, str | None]] | None = None,
 ) -> dict[str, Any]:
+    area_meta = _catalog_prompt_area_meta(prompt, area_index)
     return {
-        **_catalog_prompt_to_template_summary(prompt),
-        "slug": prompt.get("slug"),
+        **_catalog_prompt_to_template_summary(prompt, area_index),
+        "slug": _catalog_prompt_slug(prompt),
         "icon_key": prompt.get("icon_key"),
         "image_key": prompt.get("image_key"),
         "color_theme": prompt.get("color_theme"),
@@ -247,7 +333,7 @@ def _catalog_prompt_to_template(
         "example_input": prompt.get("example_input"),
         "audience_label": prompt.get("audience_label"),
         "tone_hint": prompt.get("tone_hint"),
-        "context_key": prompt.get("context_key"),
+        "context_key": area_meta.get("context_key"),
         "parameter_schema": prompt.get("parameter_schema"),
         "default_bindings": prompt.get("default_bindings"),
         "binding_overrides": prompt.get("binding_overrides"),
@@ -278,10 +364,12 @@ def _catalog_package_to_payload(
 
 
 def _list_templates_payload(context_keys: list[str] | None = None) -> dict[str, Any]:
-    prompts = _catalog.list_published_prompts(context_keys=_normalize_context_keys(context_keys))
+    normalized_contexts = _normalize_context_keys(context_keys)
+    prompts = _catalog.list_published_prompts(context_keys=normalized_contexts)
+    area_index = _catalog_area_index(normalized_contexts)
     return {
         "unlocked": True,
-        "templates": [_catalog_prompt_to_template(prompt) for prompt in prompts],
+        "templates": [_catalog_prompt_to_template(prompt, area_index=area_index) for prompt in prompts],
     }
 
 
@@ -376,10 +464,12 @@ def _get_template_payload(
 
     for variant in variants:
         if str(variant.get("id")) == template_id:
-            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings)}
+            area_index = _catalog_area_index(context_keys)
+            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings, area_index)}
     for variant in variants:
         if variant.get("slug") == selected["slug"]:
-            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings)}
+            area_index = _catalog_area_index(context_keys)
+            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings, area_index)}
     return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
 
@@ -426,7 +516,12 @@ def _list_package_prompts_payload(
     prompts = _catalog.list_published_package_prompts(
         package_slug, context_keys=_normalize_context_keys(context_keys)
     )
-    return {"prompts": [_catalog_prompt_to_template(prompt, render_bindings) | {
+    area_index = {
+        key: {"area": package_slug, "area_label": package_slug, "context_key": prompt.get("context_key")}
+        for prompt in prompts
+        for key in filter(None, (_catalog_prompt_identifier(prompt), _catalog_prompt_slug(prompt)))
+    }
+    return {"prompts": [_catalog_prompt_to_template(prompt, render_bindings, area_index) | {
         "sort_order": prompt.get("sort_order"),
         "step_title": prompt.get("step_title"),
         "step_intro": prompt.get("step_intro"),
@@ -1047,6 +1142,23 @@ def health_check() -> dict[str, Any]:
 def get_client_routing_instructions() -> dict[str, Any]:
     """Return instructions for client-side skill routing without sending user text to the MCP server."""
     logger.info("tool_call name=get_client_routing_instructions")
+    catalog_privacy_instruction = (
+        "I hosted-läge ska MCP-klienten inte skicka användarens uppgift, indata, dokumenttext, "
+        "personuppgifter eller sekretessbelagd information till Promptbanken MCP. Använd den "
+        "öppna katalogen för publik läsning: list_templates, search_templates, get_template, "
+        "list_packages, get_package, list_package_prompts och recommend_packages. Skicka bara "
+        "roll, målgrupp, ton och korta parameterbindningar när en mall ska renderas."
+    )
+    catalog_client_flow = [
+        "Börja med recommend_packages(role) om användarens roll är känd; annars fråga efter roll eller visa alla paket med list_packages.",
+        "Använd search_templates(query, role, area, risk_level, context_keys) för att hitta relevanta publika mallar utan att hämta allt innehåll.",
+        "Använd area från list_packages eller recommend_packages för områdesfilter, till exempel kommunikation eller beslutsberedning.",
+        "När användaren valt mall: hämta full text med get_template(template_id, context_keys, role, audience, tone).",
+        "För arbetsflöden: visa paket med list_packages, hämta paketinfo med get_package och stegen med list_package_prompts.",
+        "Använd rendered_prompt_text eller rendered_intro_text när fältet finns; annars visa prompt_text/intro_text och parameter_schema.",
+        "Om klienten behöver användarens faktiska ärendetext ska den infogas lokalt efter riskkontroll. Skicka inte personuppgifter eller sekretess till den öppna MCP-servern.",
+        "Valvet-, personliga workspace- och skrivverktyg kräver autentiserad MCP-nyckel och ska inte förväntas i den öppna connectorn.",
+    ]
     return {
         "mode": SERVER_MODE,
         "privacy_instruction": (
@@ -1121,6 +1233,8 @@ def get_client_routing_instructions() -> dict[str, Any]:
             "check_input_risk är tillgängligt i både hosted och local läge (behövs som "
             "förarbetssteg innan save_workspace_prompt anropas i hosted läge)."
         ),
+        "privacy_instruction": catalog_privacy_instruction,
+        "client_flow": catalog_client_flow,
         "skills": [skill.to_dict() for skill in repository.list_skills()],
     }
 
@@ -1611,8 +1725,8 @@ async def _openapi(_: Request) -> JSONResponse:
     return JSONResponse(_openapi_schema())
 
 
-def _tool_definitions() -> list[dict[str, Any]]:
-    return [
+def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
+    tools = [
         {
             "name": "list_skills",
             "description": "List all Promptbanken skills with metadata, excluding full prompt text.",
@@ -2030,6 +2144,13 @@ def _tool_definitions() -> list[dict[str, Any]]:
             },
         },
     ]
+    if mcp_key:
+        return tools
+    return [tool for tool in tools if tool["name"] in _PUBLIC_OPEN_TOOL_NAMES]
+
+
+def _is_open_public_tool(tool_name: str) -> bool:
+    return tool_name in _PUBLIC_OPEN_TOOL_NAMES
 
 
 def _json_rpc_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
@@ -2078,10 +2199,16 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
     if method == "ping":
         return _json_rpc_result(request_id, {})
     if method == "tools/list":
-        return _json_rpc_result(request_id, {"tools": _tool_definitions()})
+        return _json_rpc_result(request_id, {"tools": _tool_definitions(mcp_key)})
     if method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+        if not mcp_key and isinstance(tool_name, str) and not _is_open_public_tool(tool_name):
+            return _json_rpc_error(
+                request_id,
+                -32601,
+                "Verktyget kräver autentiserad MCP-nyckel och exponeras inte i den öppna connectorn.",
+            )
         if tool_name == "list_skills":
             return _json_rpc_result(request_id, _mcp_content_result(
                 [skill.to_dict() for skill in _all_skills(mcp_key)]

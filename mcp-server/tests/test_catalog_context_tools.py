@@ -7,7 +7,14 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.hosted_guard import HostedMetadataGuard
-from server.mcp_server import _handle_mcp_message, _search_templates_payload, _tool_definitions, repository
+from server.mcp_server import (
+    _handle_mcp_message,
+    _list_package_prompts_payload,
+    _list_templates_payload,
+    _search_templates_payload,
+    _tool_definitions,
+    repository,
+)
 
 
 class CatalogContextToolsTests(unittest.TestCase):
@@ -48,6 +55,38 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertIn("audience", definitions["list_package_prompts"]["inputSchema"]["properties"])
         self.assertIn("tone", definitions["list_package_prompts"]["inputSchema"]["properties"])
         self.assertIn("input_text", definitions["list_package_prompts"]["inputSchema"]["properties"])
+
+    def test_open_tool_definitions_hide_private_and_write_tools(self) -> None:
+        public_names = {tool["name"] for tool in _tool_definitions()}
+
+        self.assertIn("search_templates", public_names)
+        self.assertIn("get_template", public_names)
+        self.assertIn("recommend_packages", public_names)
+        self.assertNotIn("save_workspace_prompt", public_names)
+        self.assertNotIn("save_my_item", public_names)
+        self.assertNotIn("update_my_item", public_names)
+        self.assertNotIn("archive_my_item", public_names)
+        self.assertNotIn("list_my_items", public_names)
+        self.assertNotIn("copy_template_to_valvet", public_names)
+
+    def test_authenticated_tool_definitions_include_private_tools(self) -> None:
+        authenticated_names = {tool["name"] for tool in _tool_definitions("mcp_key")}
+
+        self.assertIn("save_workspace_prompt", authenticated_names)
+        self.assertIn("list_my_items", authenticated_names)
+
+    def test_open_connector_blocks_private_tool_calls(self) -> None:
+        response = _handle_mcp_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "save_my_item", "arguments": {}},
+            },
+            "",
+        )
+
+        self.assertEqual(response["error"]["code"], -32601)
 
     def test_hosted_guard_allows_context_keys_for_catalog_tools(self) -> None:
         guard = HostedMetadataGuard(repository)
@@ -116,6 +155,44 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(payload["total_matches"], 1)
         self.assertEqual(payload["templates"][0]["id"], "123")
+
+    def test_list_templates_derives_area_from_package_membership(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog.list_published_packages") as mocked_packages,
+            patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts,
+            patch("server.mcp_server._catalog_area_cache", {}),
+        ):
+            mocked_prompts.return_value = [
+                {"id": "prompt-1", "slug": "mejl", "title": "Mejl", "summary": "Skriv mejl"}
+            ]
+            mocked_packages.return_value = [
+                {"slug": "kommunikation", "title": "Kommunikation och publicering"}
+            ]
+            mocked_package_prompts.return_value = [{"prompt_slug": "mejl"}]
+
+            payload = _list_templates_payload(["generell"])
+
+        self.assertEqual(payload["templates"][0]["area"], "kommunikation")
+        self.assertEqual(payload["templates"][0]["area_label"], "Kommunikation och publicering")
+
+    def test_list_package_prompts_fills_stable_identity_fields(self) -> None:
+        with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts:
+            mocked_package_prompts.return_value = [
+                {
+                    "prompt_slug": "mejl",
+                    "title": "Mejl",
+                    "summary": "Skriv mejl",
+                    "sort_order": 1,
+                }
+            ]
+
+            payload = _list_package_prompts_payload("kommunikation", ["generell"])
+
+        prompt = payload["prompts"][0]
+        self.assertEqual(prompt["id"], "mejl")
+        self.assertEqual(prompt["slug"], "mejl")
+        self.assertEqual(prompt["area"], "kommunikation")
 
 
 if __name__ == "__main__":
