@@ -205,6 +205,7 @@ _PUBLIC_OPEN_TOOL_NAMES = {
 
 _CATALOG_AREA_CACHE_TTL_SECONDS = 60
 _catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
+_static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
@@ -234,6 +235,40 @@ def _render_bindings(
     if input_text is not None:
         bindings["input"] = input_text
     return bindings
+
+
+def _static_skill_metadata() -> dict[str, dict[str, Any]]:
+    global _static_skill_metadata_cache
+    if _static_skill_metadata_cache is not None:
+        return _static_skill_metadata_cache
+
+    metadata: dict[str, dict[str, Any]] = {}
+    for skill in repository.list_skills():
+        skill_dict = skill.to_dict()
+        keys = {skill.id, skill.name, skill.display_name}
+        file_stem = Path(skill.file).stem if skill.file else ""
+        if file_stem:
+            keys.add(file_stem)
+        for key in keys:
+            if key:
+                metadata[SkillRouter._normalize(key)] = skill_dict
+    _static_skill_metadata_cache = metadata
+    return metadata
+
+
+def _catalog_static_metadata(prompt: dict[str, Any]) -> dict[str, Any]:
+    metadata = _static_skill_metadata()
+    candidates = [
+        prompt.get("slug"),
+        prompt.get("prompt_slug"),
+        prompt.get("title"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate:
+            match = metadata.get(SkillRouter._normalize(candidate))
+            if match:
+                return match
+    return {}
 
 
 def _catalog_prompt_identifier(prompt: dict[str, Any]) -> str | None:
@@ -305,15 +340,16 @@ def _catalog_prompt_to_template_summary(
     prompt: dict[str, Any], area_index: dict[str, dict[str, str | None]] | None = None
 ) -> dict[str, Any]:
     area_meta = _catalog_prompt_area_meta(prompt, area_index)
+    static_meta = _catalog_static_metadata(prompt)
     return {
         "id": _catalog_prompt_identifier(prompt),
         "title": prompt.get("title"),
         "syfte": prompt.get("summary"),
         "area": area_meta.get("area"),
         "area_label": area_meta.get("area_label"),
-        "output_format": None,
-        "tags": [],
-        "risk_level": "medium",
+        "output_format": prompt.get("output_format") or prompt.get("output_type") or static_meta.get("output_type"),
+        "tags": prompt.get("tags") or static_meta.get("intents") or [],
+        "risk_level": prompt.get("risk_level") or static_meta.get("risk_level"),
     }
 
 
@@ -333,7 +369,7 @@ def _catalog_prompt_to_template(
         "example_input": prompt.get("example_input"),
         "audience_label": prompt.get("audience_label"),
         "tone_hint": prompt.get("tone_hint"),
-        "context_key": area_meta.get("context_key"),
+        "context_key": prompt.get("context_key") or area_meta.get("context_key"),
         "parameter_schema": prompt.get("parameter_schema"),
         "default_bindings": prompt.get("default_bindings"),
         "binding_overrides": prompt.get("binding_overrides"),
@@ -512,12 +548,14 @@ def _list_package_prompts_payload(
     tone: str | None = None,
     input_text: str | None = None,
 ) -> dict[str, Any]:
+    normalized_contexts = _normalize_context_keys(context_keys)
+    selected_context = normalized_contexts[0] if normalized_contexts and normalized_contexts[0] != "generell" else None
     render_bindings = _render_bindings(context_keys, role, audience, tone, input_text)
     prompts = _catalog.list_published_package_prompts(
-        package_slug, context_keys=_normalize_context_keys(context_keys)
+        package_slug, context_keys=normalized_contexts
     )
     area_index = {
-        key: {"area": package_slug, "area_label": package_slug, "context_key": prompt.get("context_key")}
+        key: {"area": package_slug, "area_label": package_slug, "context_key": prompt.get("context_key") or selected_context}
         for prompt in prompts
         for key in filter(None, (_catalog_prompt_identifier(prompt), _catalog_prompt_slug(prompt)))
     }
@@ -2199,7 +2237,8 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
     if method == "ping":
         return _json_rpc_result(request_id, {})
     if method == "tools/list":
-        return _json_rpc_result(request_id, {"tools": _tool_definitions(mcp_key)})
+        tools_key = "" if SERVER_MODE == "hosted" else mcp_key
+        return _json_rpc_result(request_id, {"tools": _tool_definitions(tools_key)})
     if method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}

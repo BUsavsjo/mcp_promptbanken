@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.hosted_guard import HostedMetadataGuard
 from server.mcp_server import (
     _handle_mcp_message,
+    _catalog_prompt_to_template_summary,
     _list_package_prompts_payload,
     _list_templates_payload,
     _search_templates_payload,
@@ -88,6 +89,17 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(response["error"]["code"], -32601)
 
+    def test_hosted_tools_list_stays_public_even_with_connector_token(self) -> None:
+        response = _handle_mcp_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            "connector-token",
+        )
+
+        names = {tool["name"] for tool in response["result"]["tools"]}
+        self.assertIn("search_templates", names)
+        self.assertNotIn("save_my_item", names)
+        self.assertNotIn("list_my_items", names)
+
     def test_hosted_guard_allows_context_keys_for_catalog_tools(self) -> None:
         guard = HostedMetadataGuard(repository)
 
@@ -155,6 +167,24 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(payload["total_matches"], 1)
         self.assertEqual(payload["templates"][0]["id"], "123")
+
+    def test_catalog_summary_uses_static_risk_and_output_metadata(self) -> None:
+        with patch("server.mcp_server._static_skill_metadata") as mocked_metadata:
+            mocked_metadata.return_value = {
+                "beslutsunderlag": {
+                    "risk_level": "high",
+                    "output_type": "decision_brief",
+                    "intents": ["decision_support"],
+                }
+            }
+
+            payload = _catalog_prompt_to_template_summary(
+                {"id": "prompt-1", "slug": "beslutsunderlag", "title": "Beslutsunderlag"}
+            )
+
+        self.assertEqual(payload["risk_level"], "high")
+        self.assertEqual(payload["output_format"], "decision_brief")
+        self.assertEqual(payload["tags"], ["decision_support"])
 
     def test_list_templates_derives_area_from_package_membership(self) -> None:
         with (
