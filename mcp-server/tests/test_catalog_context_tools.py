@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.hosted_guard import HostedMetadataGuard
-from server.mcp_server import _handle_mcp_message, _tool_definitions, repository
+from server.mcp_server import _handle_mcp_message, _search_templates_payload, _tool_definitions, repository
 
 
 class CatalogContextToolsTests(unittest.TestCase):
@@ -65,6 +65,27 @@ class CatalogContextToolsTests(unittest.TestCase):
         )
 
         self.assertIsNone(warning)
+
+    def test_search_templates_tolerates_nullable_catalog_fields(self) -> None:
+        with patch("server.mcp_server._list_templates_payload") as mocked_payload:
+            mocked_payload.return_value = {
+                "templates": [
+                    {
+                        "id": "123",
+                        "title": "Svar på medborgarmejl",
+                        "tags": None,
+                        "syfte": None,
+                        "output_format": None,
+                        "area_label": None,
+                        "tone_hint": None,
+                    }
+                ]
+            }
+
+            payload = _search_templates_payload(query="medborgarmejl", context_keys=["företag"])
+
+        self.assertEqual(payload["total_matches"], 1)
+        self.assertEqual(payload["templates"][0]["id"], "123")
 
 
 if __name__ == "__main__":

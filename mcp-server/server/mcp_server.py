@@ -295,6 +295,13 @@ def _search_templates_payload(
 ) -> dict[str, Any]:
     templates = _list_templates_payload(context_keys)["templates"]
 
+    def _search_text(value: Any) -> str:
+        if isinstance(value, list):
+            return " ".join(_search_text(item) for item in value)
+        if value is None:
+            return ""
+        return str(value)
+
     role_bonus_areas: set[str] = set()
     recommendation: dict[str, Any] | None = None
     if role:
@@ -312,13 +319,13 @@ def _search_templates_payload(
         if risk_level and t.get("risk_level") != risk_level:
             continue
         if tokens:
-            strong = (t.get("title", "") + " " + " ".join(t.get("tags") or [])).lower()
+            strong = (_search_text(t.get("title")) + " " + _search_text(t.get("tags"))).lower()
             weak = " ".join(
                 [
-                    t.get("syfte", ""),
-                    t.get("output_format", ""),
-                    t.get("area_label", ""),
-                    t.get("tone_hint", ""),
+                    _search_text(t.get("syfte")),
+                    _search_text(t.get("output_format")),
+                    _search_text(t.get("area_label")),
+                    _search_text(t.get("tone_hint")),
                 ]
             ).lower()
             score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
