@@ -2234,6 +2234,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
     return [tool for tool in tools if tool["name"] in _PUBLIC_OPEN_TOOL_NAMES]
 
 
+def _tool_definitions_for_profile(profile: str) -> list[dict[str, Any]]:
+    if profile == "public":
+        return _tool_definitions("")
+    if profile == "key_authenticated":
+        return _tool_definitions("__verified_key__")
+    raise ValueError(f"Unknown MCP tool profile: {profile}")
+
+
 def _is_open_public_tool(tool_name: str) -> bool:
     return tool_name in _PUBLIC_OPEN_TOOL_NAMES
 
