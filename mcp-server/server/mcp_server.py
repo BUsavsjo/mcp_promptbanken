@@ -57,6 +57,13 @@ def _supabase_repo_for_key(mcp_key: str) -> SupabaseRepository | None:
     return SupabaseRepository(mcp_key)
 
 
+def _mcp_key_is_valid(mcp_key: str) -> bool:
+    if not mcp_key:
+        return False
+    repo = _supabase_repo_for_key(mcp_key)
+    return repo is not None and repo.key_is_valid()
+
+
 def _resolve_all_skills(mcp_key: str = ""):
     """Returnerar (alla skills, workspace_status).
 
@@ -2289,7 +2296,11 @@ def _optional_context_keys(arguments: dict[str, Any]) -> list[str] | None:
     return context_keys
 
 
-def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str, Any] | None:
+def _handle_mcp_message(
+    message: dict[str, Any],
+    mcp_key: str = "",
+    tool_profile: str = "public",
+) -> dict[str, Any] | None:
     request_id = message.get("id")
     method = message.get("method")
     params = message.get("params") if isinstance(message.get("params"), dict) else {}
@@ -2310,17 +2321,24 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
     if method == "ping":
         return _json_rpc_result(request_id, {})
     if method == "tools/list":
-        tools_key = "" if SERVER_MODE == "hosted" else mcp_key
-        return _json_rpc_result(request_id, {"tools": _tool_definitions(tools_key)})
+        if tool_profile == "key_authenticated" and not _mcp_key_is_valid(mcp_key):
+            return _json_rpc_error(request_id, -32001, "Ogiltig eller återkallad MCP-nyckel.")
+        return _json_rpc_result(
+            request_id,
+            {"tools": _tool_definitions_for_profile(tool_profile)},
+        )
     if method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
-        if not mcp_key and isinstance(tool_name, str) and not _is_open_public_tool(tool_name):
+        is_private_tool = isinstance(tool_name, str) and not _is_open_public_tool(tool_name)
+        if tool_profile == "public" and is_private_tool:
             return _json_rpc_error(
                 request_id,
                 -32601,
                 "Verktyget kräver autentiserad MCP-nyckel och exponeras inte i den öppna connectorn.",
             )
+        if tool_profile == "key_authenticated" and is_private_tool and not _mcp_key_is_valid(mcp_key):
+            return _json_rpc_error(request_id, -32001, "Ogiltig eller återkallad MCP-nyckel.")
         if tool_name == "list_skills":
             return _json_rpc_result(request_id, _mcp_content_result(
                 [skill.to_dict() for skill in _all_skills(mcp_key)]
@@ -2550,32 +2568,50 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
     return _json_rpc_error(request_id, -32601, "Method not found")
 
 
-async def _mcp_streamable_http(request: Request) -> Response:
+async def _mcp_http_response(request: Request, tool_profile: str) -> Response:
+    path = request.url.path
     if request.method == "GET":
-        logger.info("http_request path=/mcp method=GET status=405")
+        logger.info("http_request path=%s method=GET status=405", path)
         return Response(status_code=405, headers={"Allow": "POST"})
     if request.method == "DELETE":
-        logger.info("http_request path=/mcp method=DELETE status=405")
+        logger.info("http_request path=%s method=DELETE status=405", path)
         return Response(status_code=405, headers={"Allow": "POST"})
 
     try:
         payload = await request.json()
     except json.JSONDecodeError:
-        logger.info("http_request path=/mcp method=POST status=400 result=invalid_json")
+        logger.info("http_request path=%s method=POST status=400 result=invalid_json", path)
         return JSONResponse(_json_rpc_error(None, -32700, "Parse error"), status_code=400)
 
     is_batch = isinstance(payload, list)
     messages = payload if is_batch else [payload]
     if not all(isinstance(message, dict) for message in messages):
-        logger.info("http_request path=/mcp method=POST status=400 result=invalid_message_shape")
+        logger.info("http_request path=%s method=POST status=400 result=invalid_message_shape", path)
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
     mcp_key = _mcp_key_from_request(request)
-    responses = [response for message in messages if (response := _handle_mcp_message(message, mcp_key)) is not None]
-    logger.info("http_request path=/mcp method=POST status=%s batch=%s", 200 if responses else 202, is_batch)
+    responses = [
+        response
+        for message in messages
+        if (response := _handle_mcp_message(message, mcp_key, tool_profile)) is not None
+    ]
+    logger.info(
+        "http_request path=%s method=POST status=%s batch=%s",
+        path,
+        200 if responses else 202,
+        is_batch,
+    )
     if not responses:
         return Response(status_code=202)
     return JSONResponse(responses if is_batch else responses[0])
+
+
+async def _mcp_streamable_http(request: Request) -> Response:
+    return await _mcp_http_response(request, "public")
+
+
+async def _mcp_key_streamable_http(request: Request) -> Response:
+    return await _mcp_http_response(request, "key_authenticated")
 
 
 class OriginValidationMiddleware:
@@ -2583,12 +2619,12 @@ class OriginValidationMiddleware:
         self.app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope.get("type") == "http" and scope.get("path") == "/mcp":
+        if scope.get("type") == "http" and scope.get("path") in {"/mcp", "/mcp/key"}:
             headers = dict(scope.get("headers") or [])
             origin = headers.get(b"origin", b"").decode("utf-8")
             allowed_origins = _allowed_origins()
             if origin and allowed_origins and origin not in allowed_origins:
-                logger.warning("origin_denied path=/mcp origin_present=true")
+                logger.warning("origin_denied path=%s origin_present=true", scope.get("path"))
                 response = JSONResponse({"detail": "Origin not allowed"}, status_code=403)
                 await response(scope, receive, send)
                 return
@@ -2626,7 +2662,7 @@ class HostedMetadataGuardMiddleware:
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         guarded_path = scope.get("path")
-        if SERVER_MODE != "hosted" or scope.get("type") != "http" or guarded_path not in {"/messages/", "/mcp"}:
+        if SERVER_MODE != "hosted" or scope.get("type") != "http" or guarded_path not in {"/messages/", "/mcp", "/mcp/key"}:
             await self.app(scope, receive, send)
             return
 
@@ -2734,6 +2770,7 @@ async def run_sse_async() -> None:
             Route("/api/v1/vault/packages/copy", endpoint=_api_vault_copy_template, methods=["POST"]),
             Route("/api/v1/vault/packages/recommendations", endpoint=_api_recommend_packages, methods=["GET"]),
             Route("/mcp", endpoint=_mcp_streamable_http, methods=["GET", "POST", "DELETE"]),
+            Route("/mcp/key", endpoint=_mcp_key_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],
