@@ -37,9 +37,17 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertIn("context_keys", definitions["list_templates"]["inputSchema"]["properties"])
         self.assertIn("context_keys", definitions["search_templates"]["inputSchema"]["properties"])
         self.assertIn("context_keys", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertIn("role", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertIn("audience", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertIn("tone", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertIn("input_text", definitions["get_template"]["inputSchema"]["properties"])
         self.assertIn("list_packages", definitions)
         self.assertIn("get_package", definitions)
         self.assertIn("list_package_prompts", definitions)
+        self.assertIn("role", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertIn("audience", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertIn("tone", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertIn("input_text", definitions["list_package_prompts"]["inputSchema"]["properties"])
 
     def test_hosted_guard_allows_context_keys_for_catalog_tools(self) -> None:
         guard = HostedMetadataGuard(repository)

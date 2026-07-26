@@ -21,6 +21,7 @@ from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
+from .catalog_renderer import render_template_variant
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -198,6 +199,28 @@ def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
     return normalized or ["generell"]
 
 
+def _render_bindings(
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
+) -> dict[str, Any]:
+    bindings: dict[str, Any] = {}
+    normalized_contexts = _normalize_context_keys(context_keys)
+    if normalized_contexts:
+        bindings["kontext"] = normalized_contexts[0]
+    if role:
+        bindings["roll"] = role
+    if audience:
+        bindings["malgrupp"] = audience
+    if tone:
+        bindings["ton"] = tone
+    if input_text is not None:
+        bindings["input"] = input_text
+    return bindings
+
+
 def _catalog_prompt_to_template_summary(prompt: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": prompt.get("id"),
@@ -211,7 +234,9 @@ def _catalog_prompt_to_template_summary(prompt: dict[str, Any]) -> dict[str, Any
     }
 
 
-def _catalog_prompt_to_template(prompt: dict[str, Any]) -> dict[str, Any]:
+def _catalog_prompt_to_template(
+    prompt: dict[str, Any], render_bindings: dict[str, Any] | None = None
+) -> dict[str, Any]:
     return {
         **_catalog_prompt_to_template_summary(prompt),
         "slug": prompt.get("slug"),
@@ -223,10 +248,16 @@ def _catalog_prompt_to_template(prompt: dict[str, Any]) -> dict[str, Any]:
         "audience_label": prompt.get("audience_label"),
         "tone_hint": prompt.get("tone_hint"),
         "context_key": prompt.get("context_key"),
+        "parameter_schema": prompt.get("parameter_schema"),
+        "default_bindings": prompt.get("default_bindings"),
+        "binding_overrides": prompt.get("binding_overrides"),
+        "rendered_prompt_text": render_template_variant(prompt, render_bindings),
     }
 
 
-def _catalog_package_to_payload(package: dict[str, Any]) -> dict[str, Any]:
+def _catalog_package_to_payload(
+    package: dict[str, Any], render_bindings: dict[str, Any] | None = None
+) -> dict[str, Any]:
     return {
         "id": package.get("id"),
         "slug": package.get("slug"),
@@ -239,6 +270,10 @@ def _catalog_package_to_payload(package: dict[str, Any]) -> dict[str, Any]:
         "intro_text": package.get("intro_text"),
         "audience_label": package.get("audience_label"),
         "context_key": package.get("context_key"),
+        "parameter_schema": package.get("parameter_schema"),
+        "default_bindings": package.get("default_bindings"),
+        "binding_overrides": package.get("binding_overrides"),
+        "rendered_intro_text": render_template_variant(package, render_bindings),
     }
 
 
@@ -312,7 +347,15 @@ def _search_templates_payload(
     return payload
 
 
-def _get_template_payload(template_id: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+def _get_template_payload(
+    template_id: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
+) -> dict[str, Any]:
+    render_bindings = _render_bindings(context_keys, role, audience, tone, input_text)
     prompts = _catalog.list_published_prompts(context_keys=_normalize_context_keys(context_keys))
     selected = next((prompt for prompt in prompts if str(prompt.get("id")) == template_id), None)
     if selected is None:
@@ -326,10 +369,10 @@ def _get_template_payload(template_id: str, context_keys: list[str] | None = Non
 
     for variant in variants:
         if str(variant.get("id")) == template_id:
-            return {"status": "success", "template": _catalog_prompt_to_template(variant)}
+            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings)}
     for variant in variants:
         if variant.get("slug") == selected["slug"]:
-            return {"status": "success", "template": _catalog_prompt_to_template(variant)}
+            return {"status": "success", "template": _catalog_prompt_to_template(variant, render_bindings)}
     return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
 
@@ -343,22 +386,40 @@ def _list_packages_payload(
     return {"packages": [_catalog_package_to_payload(package) for package in packages]}
 
 
-def _get_package_payload(package_slug: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+def _get_package_payload(
+    package_slug: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
+) -> dict[str, Any]:
+    render_bindings = _render_bindings(context_keys, role, audience, tone, input_text)
     variants = _catalog.get_published_package(
         package_slug, context_keys=_normalize_context_keys(context_keys)
     )
     if not variants:
         return {"status": "error", "message": f"Inget paket hittades med slug {package_slug!r}."}
-    return {"status": "success", "package": _catalog_package_to_payload(variants[0]), "variants": variants}
+    return {
+        "status": "success",
+        "package": _catalog_package_to_payload(variants[0], render_bindings),
+        "variants": [_catalog_package_to_payload(variant, render_bindings) for variant in variants],
+    }
 
 
 def _list_package_prompts_payload(
-    package_slug: str, context_keys: list[str] | None = None
+    package_slug: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
 ) -> dict[str, Any]:
+    render_bindings = _render_bindings(context_keys, role, audience, tone, input_text)
     prompts = _catalog.list_published_package_prompts(
         package_slug, context_keys=_normalize_context_keys(context_keys)
     )
-    return {"prompts": [_catalog_prompt_to_template(prompt) | {
+    return {"prompts": [_catalog_prompt_to_template(prompt, render_bindings) | {
         "sort_order": prompt.get("sort_order"),
         "step_title": prompt.get("step_title"),
         "step_intro": prompt.get("step_intro"),
@@ -613,11 +674,19 @@ def search_templates(
 
 
 @mcp.tool()
-def get_template(template_id: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+def get_template(
+    template_id: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
+) -> dict[str, Any]:
     """Fetch one full template, including prompt_text, by its id (as returned
-    by search_templates or list_templates). context_keys can combine profile variants."""
+    by search_templates or list_templates). context_keys can combine profile
+    variants. role, audience, tone and input_text add rendered_prompt_text."""
     logger.info("tool_call name=get_template")
-    return _get_template_payload(template_id, context_keys)
+    return _get_template_payload(template_id, context_keys, role, audience, tone, input_text)
 
 
 @mcp.tool()
@@ -631,21 +700,35 @@ def list_packages(
 
 
 @mcp.tool()
-def get_package(package_slug: str, context_keys: list[str] | None = None) -> dict[str, Any]:
+def get_package(
+    package_slug: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
+) -> dict[str, Any]:
     """Fetch one published package by slug, including the best matching
-    profile variant for the supplied context_keys."""
+    profile variant for the supplied context_keys. role, audience, tone and
+    input_text add rendered_intro_text."""
     logger.info("tool_call name=get_package")
-    return _get_package_payload(package_slug, context_keys)
+    return _get_package_payload(package_slug, context_keys, role, audience, tone, input_text)
 
 
 @mcp.tool()
 def list_package_prompts(
-    package_slug: str, context_keys: list[str] | None = None
+    package_slug: str,
+    context_keys: list[str] | None = None,
+    role: str | None = None,
+    audience: str | None = None,
+    tone: str | None = None,
+    input_text: str | None = None,
 ) -> dict[str, Any]:
     """List the prompts inside one published package, in sort order, using the
-    best matching profile variant for the supplied context_keys."""
+    best matching profile variant for the supplied context_keys. role,
+    audience, tone and input_text add rendered_prompt_text."""
     logger.info("tool_call name=list_package_prompts")
-    return _list_package_prompts_payload(package_slug, context_keys)
+    return _list_package_prompts_payload(package_slug, context_keys, role, audience, tone, input_text)
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -1626,13 +1709,18 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "description": (
                 "Fetch one full template, including prompt_text, by its id (as "
                 "returned by search_templates or list_templates). context_keys can "
-                "combine profile variants."
+                "combine profile variants. role, audience, tone and input_text add "
+                "rendered_prompt_text."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "template_id": {"type": "string", "format": "uuid"},
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "role": {"type": "string"},
+                    "audience": {"type": "string"},
+                    "tone": {"type": "string"},
+                    "input_text": {"type": "string"},
                 },
                 "required": ["template_id"],
                 "additionalProperties": False,
@@ -1657,13 +1745,18 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "get_package",
             "description": (
                 "Fetch one published package by slug, including the best matching "
-                "profile variant for the supplied context_keys."
+                "profile variant for the supplied context_keys. role, audience, tone "
+                "and input_text add rendered_intro_text."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "package_slug": {"type": "string"},
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "role": {"type": "string"},
+                    "audience": {"type": "string"},
+                    "tone": {"type": "string"},
+                    "input_text": {"type": "string"},
                 },
                 "required": ["package_slug"],
                 "additionalProperties": False,
@@ -1674,13 +1767,18 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "description": (
                 "List the prompts inside one published package, in sort order, "
                 "using the best matching profile variant for the supplied "
-                "context_keys."
+                "context_keys. role, audience, tone and input_text add "
+                "rendered_prompt_text."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "package_slug": {"type": "string"},
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "role": {"type": "string"},
+                    "audience": {"type": "string"},
+                    "tone": {"type": "string"},
+                    "input_text": {"type": "string"},
                 },
                 "required": ["package_slug"],
                 "additionalProperties": False,
@@ -2030,7 +2128,15 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
             if not isinstance(template_id, str) or not template_id or context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid get_template arguments")
             return _json_rpc_result(
-                request_id, _mcp_content_result(_get_template_payload(template_id, context_keys))
+                request_id,
+                _mcp_content_result(_get_template_payload(
+                    template_id,
+                    context_keys,
+                    arguments.get("role"),
+                    arguments.get("audience"),
+                    arguments.get("tone"),
+                    arguments.get("input_text"),
+                )),
             )
         if tool_name == "list_packages":
             context_keys = _optional_context_keys(arguments)
@@ -2048,7 +2154,14 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                 return _json_rpc_error(request_id, -32602, "Invalid get_package arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_get_package_payload(package_slug, context_keys)),
+                _mcp_content_result(_get_package_payload(
+                    package_slug,
+                    context_keys,
+                    arguments.get("role"),
+                    arguments.get("audience"),
+                    arguments.get("tone"),
+                    arguments.get("input_text"),
+                )),
             )
         if tool_name == "list_package_prompts":
             package_slug = arguments.get("package_slug")
@@ -2057,7 +2170,14 @@ def _handle_mcp_message(message: dict[str, Any], mcp_key: str = "") -> dict[str,
                 return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_package_prompts_payload(package_slug, context_keys)),
+                _mcp_content_result(_list_package_prompts_payload(
+                    package_slug,
+                    context_keys,
+                    arguments.get("role"),
+                    arguments.get("audience"),
+                    arguments.get("tone"),
+                    arguments.get("input_text"),
+                )),
             )
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
