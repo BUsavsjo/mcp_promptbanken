@@ -23,3 +23,12 @@ class OpenAIPublicationContractTests(unittest.TestCase):
     def test_public_profile_exposes_exactly_public_read_only_tools(self) -> None:
         tools = _tool_definitions_for_profile("public")
         self.assertEqual({tool["name"] for tool in tools}, PUBLIC_TOOLS)
+
+    def test_public_tools_have_review_ready_annotations(self) -> None:
+        for tool in _tool_definitions_for_profile("public"):
+            with self.subTest(tool=tool["name"]):
+                self.assertTrue(tool["annotations"]["title"])
+                self.assertIs(tool["annotations"]["readOnlyHint"], True)
+                self.assertIs(tool["annotations"]["destructiveHint"], False)
+                self.assertIs(tool["annotations"]["openWorldHint"], False)
+                self.assertFalse(tool["inputSchema"].get("additionalProperties", True))

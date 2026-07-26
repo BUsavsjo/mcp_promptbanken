@@ -1810,6 +1810,15 @@ async def _openapi(_: Request) -> JSONResponse:
     return JSONResponse(_openapi_schema())
 
 
+def _public_tool_annotations(title: str) -> dict[str, Any]:
+    return {
+        "title": title,
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "openWorldHint": False,
+    }
+
+
 def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
     tools = [
         {
@@ -1852,11 +1861,13 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "health_check",
             "description": "Return lightweight service status without loading prompt text.",
+            "annotations": _public_tool_annotations("Kontrollera tjänstens status"),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
             "name": "get_client_routing_instructions",
             "description": "Return instructions for client-side skill routing without sending user text to the MCP server.",
+            "annotations": _public_tool_annotations("Hämta routing- och integritetsregler"),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -1866,6 +1877,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "no plan or key required; full prompt text is always included. "
                 "Pass context_keys to combine profile variants."
             ),
+            "annotations": _public_tool_annotations("Lista publicerade promptmallar"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1885,6 +1897,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "variants. Returns lightweight summaries -- no prompt_text -- so "
                 "use get_template(id) on a chosen result to fetch the full prompt."
             ),
+            "annotations": _public_tool_annotations("Sök publicerade promptmallar"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1918,6 +1931,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "combine profile variants. role, audience, tone and input_text add "
                 "rendered_prompt_text."
             ),
+            "annotations": _public_tool_annotations("Hämta en publicerad promptmall"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1938,6 +1952,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "List published Promptbanken packages/workflows. context_keys can "
                 "combine profile variants; package_type filters when supplied."
             ),
+            "annotations": _public_tool_annotations("Lista publicerade promptpaket"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1954,6 +1969,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "profile variant for the supplied context_keys. role, audience, tone "
                 "and input_text add rendered_intro_text."
             ),
+            "annotations": _public_tool_annotations("Hämta ett publicerat promptpaket"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1976,6 +1992,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "context_keys. role, audience, tone and input_text add "
                 "rendered_prompt_text."
             ),
+            "annotations": _public_tool_annotations("Lista mallar i ett promptpaket"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2221,6 +2238,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "If the role isn't recognized, all packages are returned with "
                 "role_recognized=false rather than an empty result."
             ),
+            "annotations": _public_tool_annotations("Rekommendera promptpaket för en roll"),
             "inputSchema": {
                 "type": "object",
                 "properties": {"role": {"type": "string"}},
