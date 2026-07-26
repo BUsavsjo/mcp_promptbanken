@@ -6,20 +6,26 @@ Hosted-versionen använder client-side skill routing. Det betyder att MCP-server
 
 ## Data och integritet
 
-Servern är read-only och sparar inte användarens text, promptanrop eller svar i databas eller fil.
+Den publika `/mcp`-ytan är read-only och sparar inte användarens text, promptanrop eller svar i databas eller fil. `/mcp/key` kan även exponera autentiserade workspace- och Valvet-tools.
 
 Den läser bara:
 
 - `skills.json`
 - `prompts/*.txt`
 
-I hosted-läge bearbetar servern inte användarens uppgiftstext i minnet. Den exponerar bara:
+På den publika `/mcp`-ytan bearbetar servern inte användarens uppgiftstext i minnet. Den exponerar bara:
 
-- `list_skills`
-- `list_skills_simple`
-- `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
+- `list_templates`
+- `search_templates`
+- `get_template`
+- `list_packages`
+- `get_package`
+- `list_package_prompts`
+- `recommend_packages`
+
+Privata och skrivande tools hör till den key-authenticated `/mcp/key`-ytan och publiceras inte hos OpenAI.
 
 I local-läge kan servern även exponera:
 
@@ -107,6 +113,8 @@ Servern lyssnar som standard på port `8000`.
 ```text
 POST /mcp
 GET  /mcp
+POST /mcp/key
+GET  /mcp/key
 GET  /api/v1/skills
 GET  /api/v1/skills/simple
 GET  /api/v1/skills/{skill_id}
@@ -161,6 +169,16 @@ docker compose up -d --build
 
 I `docker-compose.yml` binds porten bara till `127.0.0.1:8000`, så publik trafik ska gå via reverse proxy.
 
+## Publiceringsgräns
+
+| Yta | Endpoint | Auth | Verktyg | Publiceras hos OpenAI |
+|---|---|---|---|---|
+| Promptbanken Öppen | `/mcp` | Ingen | Publik katalog, read-only | Ja |
+| Valvet kompatibilitet | `/mcp/key` | `X-MCP-Key` eller Bearer MCP-nyckel | Free/Pro Valvet | Nej |
+| Valvet framtida | `/mcp` | OAuth 2.1 | Publik katalog + personligt Valv | Efter separat release |
+
+Paketaktivering ingår för både Free och Pro; planerna skiljs genom kvoter.
+
 ## MCP-konfiguration
 
 Lokal stdio:
@@ -183,7 +201,7 @@ Remote Streamable HTTP:
 {
   "mcpServers": {
     "promptbanken": {
-      "url": "https://mcp.promptbanken.se/mcp",
+      "url": "https://mcp.promptbanken.se/mcp/key",
       "headers": {
         "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
       }
@@ -194,15 +212,21 @@ Remote Streamable HTTP:
 
 ## Tools
 
-Hosted:
+Publik `/mcp` (utan auth):
 
-- `list_skills`
-- `list_skills_simple`
-- `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
-- `check_input_risk`
-- `save_workspace_prompt` (Pro-gated write)
+- `list_templates`
+- `search_templates`
+- `get_template`
+- `list_packages`
+- `get_package`
+- `list_package_prompts`
+- `recommend_packages`
+
+Key-authenticated `/mcp/key`:
+
+Privata och skrivande tools, inklusive Valvet-tools och `activate_package`, kräver `X-MCP-Key` eller Bearer MCP-nyckel.
 
 Local:
 

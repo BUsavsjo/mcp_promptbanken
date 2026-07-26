@@ -69,7 +69,7 @@ Klienten skickar sin MCP-nyckel som HTTP-headern `X-MCP-Key` i varje anrop — n
 {
   "mcpServers": {
     "promptbanken": {
-      "url": "https://mcp.promptbanken.se/mcp",
+      "url": "https://mcp.promptbanken.se/mcp/key",
       "headers": { "X-MCP-Key": "pb_mcp_..." }
     }
   }
@@ -125,9 +125,19 @@ Sex verktyg för nyckelns egna Valvet-insättningar (`mcp-server/server/vault.py
 
 RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte detta repo. Migrationen ligger där under `supabase/migrations/20240629_mcp_rpc_functions.sql`.
 
+## Publiceringsgräns
+
+| Yta | Endpoint | Auth | Verktyg | Publiceras hos OpenAI |
+|---|---|---|---|---|
+| Promptbanken Öppen | `/mcp` | Ingen | Publik katalog, read-only | Ja |
+| Valvet kompatibilitet | `/mcp/key` | `X-MCP-Key` eller Bearer MCP-nyckel | Free/Pro Valvet | Nej |
+| Valvet framtida | `/mcp` | OAuth 2.1 | Publik katalog + personligt Valv | Efter separat release |
+
+Paketaktivering ingår för både Free och Pro; planerna skiljs genom kvoter.
+
 ## Data och integritet
 
-Promptbanken MCP är en read-only prompt- och skill-server.
+Den publika `/mcp`-ytan är en read-only prompt- och skill-server. `/mcp/key` kan även exponera autentiserade workspace- och Valvet-tools.
 
 Servern sparar inte användarens text, promptanrop eller svar i databas eller fil. Den har ingen databas och ingen skrivande lagring för användarinput.
 
@@ -136,26 +146,19 @@ Servern läser bara:
 - `mcp-server/skills.json`
 - `mcp-server/prompts/*.txt`
 
-I `hosted`-läge exponeras bara tools som returnerar metadata, promptmallar, hälsostatus och klientinstruktioner:
+På den publika `/mcp`-ytan exponeras bara tools som returnerar metadata, promptmallar, hälsostatus och klientinstruktioner:
 
-- `list_skills`
-- `list_skills_simple`
-- `get_skill`
 - `health_check`
 - `get_client_routing_instructions`
 - `list_templates`
 - `search_templates`
 - `get_template`
-- `list_my_prompts`
-- `list_my_private_prompts`
-- `list_my_shared_workspaces`
-- `list_shared_workspace_prompts`
-- `list_my_items`
-- `search_my_items`
-- `get_my_item`
-- `save_my_item`
-- `update_my_item`
-- `archive_my_item`
+- `list_packages`
+- `get_package`
+- `list_package_prompts`
+- `recommend_packages`
+
+Privata och skrivande tools hör till den key-authenticated `/mcp/key`-ytan och publiceras inte hos OpenAI.
 
 Klienten ska då göra skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte användarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till hosted-servern.
 
@@ -480,11 +483,13 @@ Authorization: Bearer <nyckel>
 
 ## MCP och REST
 
-Primär remote MCP-yta är Streamable HTTP på en enda endpoint:
+Den publika remote MCP-ytan är Streamable HTTP på `/mcp`. Den key-authenticated kompatibilitetsytan använder `/mcp/key`:
 
 ```text
 POST /mcp
 GET  /mcp
+POST /mcp/key
+GET  /mcp/key
 ```
 
 REST-ytan är read-only:
@@ -540,7 +545,7 @@ Remote Streamable HTTP:
 {
   "mcpServers": {
     "promptbanken": {
-      "url": "https://mcp.promptbanken.se/mcp",
+      "url": "https://mcp.promptbanken.se/mcp/key",
       "headers": {
         "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
       }
@@ -549,7 +554,7 @@ Remote Streamable HTTP:
 }
 ```
 
-Om ingen `PROMPTBANKEN_MCP_API_KEY` är satt på servern kan `headers` utelämnas.
+Använd `/mcp` utan headers för den öppna katalogen. `/mcp/key` kräver `X-MCP-Key` eller Bearer MCP-nyckel.
 
 ## Docker och VPS
 
