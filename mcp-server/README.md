@@ -2,13 +2,15 @@
 
 Minimal MCP-server som exponerar Promptbankens promptar som skills.
 
-Hosted-versionen använder client-side skill routing. Det betyder att MCP-servern bara skickar metadata, promptmallar, hälsostatus och instruktioner till klienten. Användarens uppgift, dokumenttext och annan indata ska inte skickas till hosted-servern.
+Den öppna `/mcp`-ytan använder client-side skill routing. Det betyder att MCP-servern bara skickar metadata, promptmallar, hälsostatus och instruktioner till klienten. Användarens uppgift, dokumenttext och annan indata ska inte skickas till den öppna `/mcp`-ytan.
 
 ## Data och integritet
 
-Den publika `/mcp`-ytan är read-only och sparar inte användarens text, promptanrop eller svar i databas eller fil. `/mcp/key` kan även exponera autentiserade workspace- och Valvet-tools.
+Den publika `/mcp`-ytan är read-only och sparar inte användarens råtext, promptanrop eller svar. `/mcp/key` kan även exponera autentiserade workspace- och Valvet-tools.
 
-Den läser bara:
+För `/mcp/key` lagrar läsverktyg inte råtext, men uttryckliga create/update/copy/activate/deactivate-anrop skriver den data användaren valt till Valvet/Supabase.
+
+Den öppna `/mcp`-ytan läser bara:
 
 - `skills.json`
 - `prompts/*.txt`
@@ -38,7 +40,7 @@ Dessa local-tools tar emot användartext och ska bara användas på användarens
 ## Säkerhet
 
 - Servern kör ingen AI-modell.
-- Hosted-läget tar inte emot rå användartext.
+- Den öppna `/mcp`-ytan tar inte emot rå användartext.
 - Hosted-läget har en metadata-guard på `/messages/` som varnar payload-fritt om klienten skickar oväntade tools eller argument.
 - `skill_id` valideras med `^[a-z0-9_-]{2,50}$`.
 - `get_skill` returnerar strukturerade fel för ogiltigt eller saknat skill-id.
@@ -142,7 +144,7 @@ MCP_HOST=0.0.0.0
 MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
-PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
+PROMPTBANKEN_MCP_API_KEY=
 PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
@@ -153,11 +155,7 @@ Tillåtna lägen:
 - `hosted`: publicerat läge utan tools som tar emot användartext
 - `local`: lokal installation där tools för routing, promptkompilering och riskkontroll aktiveras
 
-Om `PROMPTBANKEN_MCP_API_KEY` är satt krävs:
-
-```text
-Authorization: Bearer <nyckel>
-```
+`PROMPTBANKEN_MCP_API_KEY` är den globala servernyckeln för det SATT-läge som beskrivs i avsnittet **Auth för `/mcp/key`**. Lämna den tom för workspace/user-key-läget. `/mcp` förblir anonym.
 
 ## Docker
 
@@ -178,6 +176,15 @@ I `docker-compose.yml` binds porten bara till `127.0.0.1:8000`, så publik trafi
 | Valvet framtida | `/mcp` | OAuth 2.1 | Publik katalog + personligt Valv | Efter separat release |
 
 Paketaktivering ingår för både Free och Pro; planerna skiljs genom kvoter.
+
+### Auth för `/mcp/key`
+
+`/mcp` är fortsatt anonym; den globala spärren undantar den publika ytan.
+
+Det finns exakt två giltiga lägen för `/mcp/key`:
+
+1. Om `PROMPTBANKEN_MCP_API_KEY` är TOM: använd workspace/user key via `X-MCP-Key: <nyckel>` eller `Authorization: Bearer <workspace-nyckel>`.
+2. Om `PROMPTBANKEN_MCP_API_KEY` är SATT: middleware kräver `Authorization: Bearer <global-nyckel>` och användarens workspace-nyckel måste samtidigt skickas separat via `X-MCP-Key: <workspace-nyckel>`.
 
 ## MCP-konfiguration
 
@@ -203,12 +210,15 @@ Remote Streamable HTTP:
     "promptbanken": {
       "url": "https://mcp.promptbanken.se/mcp/key",
       "headers": {
-        "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
+        "Authorization": "Bearer global-nyckel-...",
+        "X-MCP-Key": "pb_mcp_workspace_..."
       }
     }
   }
 }
 ```
+
+Exemplet använder SATT `PROMPTBANKEN_MCP_API_KEY` och skickar globalnyckeln separat från workspace-nyckeln. Med TOM `PROMPTBANKEN_MCP_API_KEY` räcker `X-MCP-Key` eller `Authorization: Bearer <workspace-nyckel>` på `/mcp/key`.
 
 ## Tools
 

@@ -135,13 +135,22 @@ RPC-funktionerna och tabellerna för detta ägs av `promptbanken`-repot, inte de
 
 Paketaktivering ingår för både Free och Pro; planerna skiljs genom kvoter.
 
+### Auth för `/mcp/key`
+
+`/mcp` är fortsatt anonym; den globala spärren undantar den publika ytan.
+
+Det finns exakt två giltiga lägen för `/mcp/key`:
+
+1. Om `PROMPTBANKEN_MCP_API_KEY` är TOM: använd workspace/user key via `X-MCP-Key: <nyckel>` eller `Authorization: Bearer <workspace-nyckel>`.
+2. Om `PROMPTBANKEN_MCP_API_KEY` är SATT: middleware kräver `Authorization: Bearer <global-nyckel>` och användarens workspace-nyckel måste samtidigt skickas separat via `X-MCP-Key: <workspace-nyckel>`.
+
 ## Data och integritet
 
 Den publika `/mcp`-ytan är en read-only prompt- och skill-server. `/mcp/key` kan även exponera autentiserade workspace- och Valvet-tools.
 
-Servern sparar inte användarens text, promptanrop eller svar i databas eller fil. Den har ingen databas och ingen skrivande lagring för användarinput.
+På den öppna `/mcp`-ytan sparas inte användarens råtext, promptanrop eller svar. För `/mcp/key` lagrar läsverktyg inte råtext, men uttryckliga create/update/copy/activate/deactivate-anrop skriver den data användaren valt till Valvet/Supabase.
 
-Servern läser bara:
+Den öppna `/mcp`-ytan läser bara:
 
 - `mcp-server/skills.json`
 - `mcp-server/prompts/*.txt`
@@ -160,7 +169,7 @@ På den publika `/mcp`-ytan exponeras bara tools som returnerar metadata, prompt
 
 Privata och skrivande tools hör till den key-authenticated `/mcp/key`-ytan och publiceras inte hos OpenAI.
 
-Klienten ska då göra skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte användarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till hosted-servern.
+Klienten ska då göra skill-routing, riskkontroll, anonymisering och promptkompilering lokalt. Skicka inte användarens uppgift, dokumenttext, personuppgifter eller sekretessbelagd information till den öppna `/mcp`-ytan.
 
 I `local`-läge kan servern dessutom exponera tools som tar emot användartext:
 
@@ -177,7 +186,7 @@ Hosted-läget är den rekommenderade ytan för publik drift.
 Viktiga säkerhetsbeslut:
 
 - Servern kör ingen AI-modell och kan därför inte promptinjiceras i klassisk mening.
-- Hosted-läget tar inte emot rå användartext för routing, riskkontroll eller promptkompilering.
+- Den öppna `/mcp`-ytan tar inte emot rå användartext för routing, riskkontroll eller promptkompilering.
 - Hosted-läget har en metadata-guard på `/messages/` som varnar payload-fritt om klienten skickar oväntade tools eller argument.
 - `skill_id` valideras strikt med `^[a-z0-9_-]{2,50}$`.
 - Ogiltiga eller saknade skills returnerar strukturerade felobjekt med säkra felkoder.
@@ -462,7 +471,7 @@ MCP_HOST=0.0.0.0
 MCP_PORT=8000
 MCP_LOG_LEVEL=INFO
 PROMPTBANKEN_MCP_MODE=hosted
-PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
+PROMPTBANKEN_MCP_API_KEY=
 PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
@@ -473,11 +482,7 @@ Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
 - `hosted`: publicerat läge utan tools som tar emot användartext.
 - `local`: lokal installation med routing, promptkompilering och riskkontroll.
 
-Om `PROMPTBANKEN_MCP_API_KEY` är satt krävs:
-
-```text
-Authorization: Bearer <nyckel>
-```
+`PROMPTBANKEN_MCP_API_KEY` är den globala servernyckeln för det SATT-läge som beskrivs i avsnittet **Auth för `/mcp/key`**. Lämna den tom för workspace/user-key-läget. `/mcp` förblir anonym.
 
 `/healthz` är undantagen från API-nyckelkravet.
 
@@ -547,14 +552,15 @@ Remote Streamable HTTP:
     "promptbanken": {
       "url": "https://mcp.promptbanken.se/mcp/key",
       "headers": {
-        "Authorization": "Bearer byt-till-en-lång-slumpad-nyckel"
+        "Authorization": "Bearer global-nyckel-...",
+        "X-MCP-Key": "pb_mcp_workspace_..."
       }
     }
   }
 }
 ```
 
-Använd `/mcp` utan headers för den öppna katalogen. `/mcp/key` kräver `X-MCP-Key` eller Bearer MCP-nyckel.
+Exemplet använder SATT `PROMPTBANKEN_MCP_API_KEY` och skickar globalnyckeln separat från workspace-nyckeln. Använd `/mcp` utan headers för den öppna katalogen. Med TOM `PROMPTBANKEN_MCP_API_KEY` räcker `X-MCP-Key` eller `Authorization: Bearer <workspace-nyckel>` på `/mcp/key`.
 
 ## Docker och VPS
 
