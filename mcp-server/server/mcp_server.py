@@ -673,6 +673,19 @@ def _clean_http_error_message(exc: httpx.HTTPStatusError) -> str:
     return detail
 
 
+def _sanitized_http_error_log_fields(exc: httpx.HTTPStatusError) -> tuple[int, str]:
+    error_code = "unknown"
+    try:
+        payload = exc.response.json()
+    except Exception:
+        payload = None
+    if isinstance(payload, dict):
+        candidate = payload.get("code")
+        if isinstance(candidate, str) and re.fullmatch(r"[A-Za-z0-9_:-]{1,64}", candidate):
+            error_code = candidate
+    return exc.response.status_code, error_code
+
+
 def _save_my_item_payload(
     mcp_key: str,
     idempotency_key: str,
@@ -688,7 +701,12 @@ def _save_my_item_payload(
         return {"status": "success", "item": item}
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
-        logger.info("tool_call name=save_my_item status=error detail=%s", detail)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=save_my_item status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         outcome = _classify_vault_write_error(detail)
         _vault_log_write_attempt(mcp_key, "save_my_item", outcome)
         return {"status": "error", "message": _clean_http_error_message(exc)}
@@ -714,7 +732,12 @@ def _update_my_item_payload(
         return {"status": "success", "item": item}
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
-        logger.info("tool_call name=update_my_item status=error detail=%s", detail)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=update_my_item status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         outcome = _classify_vault_write_error(detail)
         _vault_log_write_attempt(mcp_key, "update_my_item", outcome)
         return {"status": "error", "message": _clean_http_error_message(exc)}
@@ -735,7 +758,12 @@ def _archive_my_item_payload(
         return {"status": "success", "item": item}
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
-        logger.info("tool_call name=archive_my_item status=error detail=%s", detail)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=archive_my_item status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         outcome = _classify_vault_write_error(detail)
         tool = "archive_my_item_restore" if restore else "archive_my_item"
         _vault_log_write_attempt(mcp_key, tool, outcome)
@@ -760,7 +788,12 @@ def _activate_package_payload(mcp_key: str, area: str) -> dict[str, Any]:
         _vault_activate_package(mcp_key, area)
         return {"status": "success", "area": area}
     except httpx.HTTPStatusError as exc:
-        logger.info("tool_call name=activate_package status=error detail=%s", exc.response.text)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=activate_package status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         return {"status": "error", "message": _clean_http_error_message(exc)}
     except RuntimeError as exc:
         return {"status": "error", "message": str(exc)}
@@ -776,7 +809,12 @@ def _deactivate_package_payload(mcp_key: str, area: str) -> dict[str, Any]:
         _vault_deactivate_package(mcp_key, area)
         return {"status": "success", "area": area}
     except httpx.HTTPStatusError as exc:
-        logger.info("tool_call name=deactivate_package status=error detail=%s", exc.response.text)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=deactivate_package status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         return {"status": "error", "message": _clean_http_error_message(exc)}
     except RuntimeError as exc:
         return {"status": "error", "message": str(exc)}
@@ -793,7 +831,12 @@ def _copy_template_to_valvet_payload(mcp_key: str, template_id: str, confirm: bo
         return {"status": "success", "item": item}
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
-        logger.info("tool_call name=copy_template_to_valvet status=error detail=%s", detail)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=copy_template_to_valvet status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         outcome = _classify_vault_write_error(detail)
         _vault_log_write_attempt(mcp_key, "copy_template_to_valvet", outcome)
         return {"status": "error", "message": _clean_http_error_message(exc)}
@@ -825,13 +868,14 @@ def _save_workspace_prompt_payload(
         return {"status": "success", "prompt": row}
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
-        logger.info("tool_call name=save_workspace_prompt status=error detail=%s", detail)
+        http_status, error_code = _sanitized_http_error_log_fields(exc)
+        logger.info(
+            "tool_call name=save_workspace_prompt status=error http_status=%s error_code=%s",
+            http_status,
+            error_code,
+        )
         _log_write_attempt(mcp_key, _classify_write_error(detail), risk_check_passed)
-        try:
-            clean_message = exc.response.json().get("message", detail)
-        except Exception:
-            clean_message = detail
-        return {"status": "error", "message": clean_message}
+        return {"status": "error", "message": _clean_http_error_message(exc)}
     except RuntimeError as exc:
         return {"status": "error", "message": str(exc)}
     except Exception as exc:
@@ -2302,6 +2346,10 @@ def _handle_mcp_message(
     tool_profile: str = "public",
 ) -> dict[str, Any] | None:
     request_id = message.get("id")
+    if tool_profile not in {"public", "key_authenticated"}:
+        return _json_rpc_error(request_id, -32602, "Invalid MCP tool profile")
+    if tool_profile == "public":
+        mcp_key = ""
     method = message.get("method")
     params = message.get("params") if isinstance(message.get("params"), dict) else {}
 
@@ -2634,8 +2682,8 @@ class OriginValidationMiddleware:
 
 class BearerAuthMiddleware:
     # Global på/av-spärr för hela servern via PROMPTBANKEN_MCP_API_KEY. När den är
-    # satt krävs exakt "Bearer <global_nyckel>" på alla paths utom /healthz, vilket
-    # gör servern helt privat. OBS: detta är ömsesidigt uteslutande med per-användares
+    # satt krävs exakt "Bearer <global_nyckel>" på alla paths utom /healthz och den
+    # publicerade /mcp-ytan. OBS: detta är ömsesidigt uteslutande med per-användares
     # workspace-nycklar som skickas via Authorization (se _mcp_key_from_request) —
     # sätt inte den globala nyckeln om workspace-nycklar via Authorization ska funka.
     def __init__(self, app: Any) -> None:
@@ -2643,7 +2691,7 @@ class BearerAuthMiddleware:
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         token = _api_key()
-        if scope.get("type") == "http" and token and scope.get("path") != "/healthz":
+        if scope.get("type") == "http" and token and scope.get("path") not in {"/healthz", "/mcp"}:
             headers = dict(scope.get("headers") or [])
             authorization = headers.get(b"authorization", b"").decode("utf-8")
             if not hmac.compare_digest(authorization, f"Bearer {token}"):

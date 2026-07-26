@@ -1,10 +1,20 @@
+import asyncio
+import json
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
+from starlette.responses import Response
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from server.mcp_server import _handle_mcp_message, _tool_definitions_for_profile
+from server.mcp_server import (
+    BearerAuthMiddleware,
+    _handle_mcp_message,
+    _save_my_item_payload,
+    _tool_definitions_for_profile,
+)
 
 
 PUBLIC_TOOLS = {
@@ -18,6 +28,45 @@ PUBLIC_TOOLS = {
     "list_package_prompts",
     "recommend_packages",
 }
+
+
+async def _accept_asgi_request(scope, receive, send) -> None:
+    await Response(status_code=204)(scope, receive, send)
+
+
+def _asgi_status(app, path: str, authorization: str = "") -> int:
+    messages = []
+    headers = [(b"authorization", authorization.encode("utf-8"))] if authorization else []
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict[str, object]) -> None:
+        messages.append(message)
+
+    asyncio.run(
+        app(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": path,
+                "headers": headers,
+            },
+            receive,
+            send,
+        )
+    )
+    return next(message["status"] for message in messages if message["type"] == "http.response.start")
+
+
+def _http_status_error(status_code: int, code: str, secret: str) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "https://example.test/vault/items")
+    response = httpx.Response(
+        status_code,
+        json={"code": code, "message": secret},
+        request=request,
+    )
+    return httpx.HTTPStatusError("write failed", request=request, response=response)
 
 
 class OpenAIPublicationContractTests(unittest.TestCase):
@@ -97,3 +146,74 @@ class OpenAIPublicationContractTests(unittest.TestCase):
         )
 
         self.assertEqual(response["error"]["code"], -32001)
+
+    @patch("server.mcp_server._api_key", return_value="global-key")
+    def test_global_bearer_auth_keeps_public_mcp_anonymous(self, _) -> None:
+        app = BearerAuthMiddleware(_accept_asgi_request)
+
+        self.assertEqual(_asgi_status(app, "/mcp"), 204)
+        self.assertEqual(_asgi_status(app, "/mcp/key"), 401)
+        self.assertEqual(_asgi_status(app, "/mcp/key", "Bearer global-key"), 204)
+
+    def test_public_profile_ignores_key_for_health_check(self) -> None:
+        with patch(
+            "server.mcp_server._health_check_payload",
+            side_effect=lambda mcp_key: {"plan": "pro" if mcp_key else "free"},
+        ):
+            response = _handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "health_check", "arguments": {}},
+                },
+                "pro-key",
+                tool_profile="public",
+            )
+
+        payload = json.loads(response["result"]["content"][0]["text"])
+        self.assertEqual(payload["plan"], "free")
+
+    def test_unknown_profile_rejects_tools_list(self) -> None:
+        response = _handle_mcp_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            tool_profile="unknown",
+        )
+
+        self.assertEqual(response["error"]["code"], -32602)
+
+    def test_unknown_profile_rejects_tools_call(self) -> None:
+        response = _handle_mcp_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "health_check", "arguments": {}},
+            },
+            tool_profile="unknown",
+        )
+
+        self.assertEqual(response["error"]["code"], -32602)
+
+    def test_private_write_error_log_omits_response_body(self) -> None:
+        secret = "RA_PROMPT_OCH_RADDATA"
+        error = _http_status_error(422, "invalid_input", secret)
+        with (
+            patch("server.mcp_server._vault_save_item", side_effect=error),
+            patch("server.mcp_server._vault_log_write_attempt"),
+            self.assertLogs("promptbanken_mcp", level="INFO") as logs,
+        ):
+            payload = _save_my_item_payload(
+                "valid-key",
+                "idempotency-key",
+                "prompt",
+                "Titel",
+                "Innehall",
+                None,
+            )
+
+        log_output = "\n".join(logs.output)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("http_status=422", log_output)
+        self.assertIn("error_code=invalid_input", log_output)
+        self.assertNotIn(secret, log_output)
