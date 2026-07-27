@@ -170,20 +170,22 @@ def _mcp_key_from_request(request: Request) -> str:
     return ""
 
 
-@mcp.tool()
-def list_skills() -> list[dict[str, Any]]:
-    """List all Promptbanken skills with metadata, excluding full prompt text."""
-    logger.info("tool_call name=list_skills")
-    return [skill.to_dict() for skill in _all_skills()]
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_skills() -> list[dict[str, Any]]:
+        """List all Promptbanken skills with metadata, excluding full prompt text."""
+        logger.info("tool_call name=list_skills")
+        return [skill.to_dict() for skill in _all_skills()]
 
 
-@mcp.tool()
-def check_input_risk(text: str) -> dict[str, object]:
-    """Check text for common personal-data patterns (personnummer, e-post,
-    telefonnummer, arendenummer) before saving it as a template. Never blocks,
-    only warns -- the calling model/user decides whether to edit or proceed."""
-    logger.info("tool_call name=check_input_risk")
-    return risk_checker.check(text).to_dict()
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def check_input_risk(text: str) -> dict[str, object]:
+        """Check text for common personal-data patterns (personnummer, e-post,
+        telefonnummer, arendenummer) before saving it as a template. Never blocks,
+        only warns -- the calling model/user decides whether to edit or proceed."""
+        logger.info("tool_call name=check_input_risk")
+        return risk_checker.check(text).to_dict()
 
 
 def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -1004,11 +1006,12 @@ def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
     return _add_workspace_status(payload, workspace_status)
 
 
-@mcp.tool()
-def list_skills_simple() -> dict[str, Any]:
-    """List Promptbanken skills grouped for a user-facing catalog view."""
-    logger.info("tool_call name=list_skills_simple")
-    return _list_skills_simple_payload()
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_skills_simple() -> dict[str, Any]:
+        """List Promptbanken skills grouped for a user-facing catalog view."""
+        logger.info("tool_call name=list_skills_simple")
+        return _list_skills_simple_payload()
 
 
 _MY_PROMPTS_NO_KEY_MESSAGE = (
@@ -1045,14 +1048,15 @@ def _my_prompts_payload(mcp_key: str = "") -> dict[str, Any]:
     return _add_workspace_status(payload, workspace_status)
 
 
-@mcp.tool()
-def list_my_prompts() -> dict[str, Any]:
-    """List only the caller's own saved prompts from their Promptbanken workspace
-    (not the public standard templates or Pro premium templates). Requires a valid
-    MCP key; without one, or with an invalid/revoked key, returns an empty list and
-    an explanatory workspace_status/workspace_message."""
-    logger.info("tool_call name=list_my_prompts")
-    return _my_prompts_payload()
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_my_prompts() -> dict[str, Any]:
+        """List only the caller's own saved prompts from their Promptbanken workspace
+        (not the public standard templates or Pro premium templates). Requires a valid
+        MCP key; without one, or with an invalid/revoked key, returns an empty list and
+        an explanatory workspace_status/workspace_message."""
+        logger.info("tool_call name=list_my_prompts")
+        return _my_prompts_payload()
 
 
 _CONTEXT_MCP_NO_KEY_MESSAGE = (
@@ -1124,54 +1128,60 @@ def _get_my_item_payload(mcp_key: str = "", item_id: str = "") -> dict[str, Any]
     return {"item": item}
 
 
-@mcp.tool()
-def list_my_private_prompts() -> dict[str, Any]:
-    """List the caller's own private Pro prompts (personal workspace). Requires
-    a valid MCP key; never returns other members' private prompts or
-    organization prompts."""
-    logger.info("tool_call name=list_my_private_prompts")
-    return _my_private_prompts_payload()
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_my_private_prompts() -> dict[str, Any]:
+        """List the caller's own private Pro prompts (personal workspace). Requires
+        a valid MCP key; never returns other members' private prompts or
+        organization prompts."""
+        logger.info("tool_call name=list_my_private_prompts")
+        return _my_private_prompts_payload()
 
 
-@mcp.tool()
-def list_my_shared_workspaces() -> dict[str, Any]:
-    """List the shared workspaces the caller's MCP key can access (id + name).
-    Use a returned workspace_id with list_shared_workspace_prompts."""
-    logger.info("tool_call name=list_my_shared_workspaces")
-    return _my_shared_workspaces_payload()
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_my_shared_workspaces() -> dict[str, Any]:
+        """List the shared workspaces the caller's MCP key can access (id + name).
+        Use a returned workspace_id with list_shared_workspace_prompts."""
+        logger.info("tool_call name=list_my_shared_workspaces")
+        return _my_shared_workspaces_payload()
 
 
-@mcp.tool()
-def list_shared_workspace_prompts(workspace_id: str) -> dict[str, Any]:
-    """List shared prompts from ONE shared workspace the caller is a member of.
-    Requires an explicit workspace_id (from list_my_shared_workspaces)."""
-    logger.info("tool_call name=list_shared_workspace_prompts")
-    return _shared_workspace_prompts_payload("", workspace_id)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_shared_workspace_prompts(workspace_id: str) -> dict[str, Any]:
+        """List shared prompts from ONE shared workspace the caller is a member of.
+        Requires an explicit workspace_id (from list_my_shared_workspaces)."""
+        logger.info("tool_call name=list_shared_workspace_prompts")
+        return _shared_workspace_prompts_payload("", workspace_id)
 
 
-@mcp.tool()
-def list_my_items(type: str | None = None, category: str | None = None, status: str | None = None) -> dict[str, Any]:
-    """List the caller's own Valvet items (personal prompt/assistant vault).
-    All items are private to the owning key regardless of status. Excludes
-    archived items unless status='archived' is passed explicitly."""
-    logger.info("tool_call name=list_my_items")
-    return _list_my_items_payload(type_=type, category=category, status=status)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_my_items(type: str | None = None, category: str | None = None, status: str | None = None) -> dict[str, Any]:
+        """List the caller's own Valvet items (personal prompt/assistant vault).
+        All items are private to the owning key regardless of status. Excludes
+        archived items unless status='archived' is passed explicitly."""
+        logger.info("tool_call name=list_my_items")
+        return _list_my_items_payload(type_=type, category=category, status=status)
 
 
-@mcp.tool()
-def search_my_items(query: str, type: str | None = None, category: str | None = None) -> dict[str, Any]:
-    """Search the caller's own Valvet items by title/content/category. Never
-    returns archived items."""
-    logger.info("tool_call name=search_my_items")
-    return _search_my_items_payload(query=query, type_=type, category=category)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def search_my_items(query: str, type: str | None = None, category: str | None = None) -> dict[str, Any]:
+        """Search the caller's own Valvet items by title/content/category. Never
+        returns archived items."""
+        logger.info("tool_call name=search_my_items")
+        return _search_my_items_payload(query=query, type_=type, category=category)
 
 
-@mcp.tool()
-def get_my_item(id: str) -> dict[str, Any]:
-    """Fetch one Valvet item in full, including its updated_at timestamp
-    (needed as expected_updated_at for a later update_my_item call)."""
-    logger.info("tool_call name=get_my_item")
-    return _get_my_item_payload(item_id=id)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def get_my_item(id: str) -> dict[str, Any]:
+        """Fetch one Valvet item in full, including its updated_at timestamp
+        (needed as expected_updated_at for a later update_my_item call)."""
+        logger.info("tool_call name=get_my_item")
+        return _get_my_item_payload(item_id=id)
 
 
 def _error(code: str, message: str, safe_to_show_user: bool = True) -> dict[str, Any]:
@@ -1195,20 +1205,21 @@ def _json_rpc_error(request_id: Any, code: int, message: str, data: dict[str, An
     }
 
 
-@mcp.tool()
-def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
-    """Get one skill by id, optionally including the full prompt text."""
-    if not repository.is_valid_skill_id(skill_id):
-        logger.info("tool_call name=get_skill result=invalid_skill_id include_prompt=%s", include_prompt)
-        return _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def get_skill(skill_id: str, include_prompt: bool = True) -> dict[str, Any]:
+        """Get one skill by id, optionally including the full prompt text."""
+        if not repository.is_valid_skill_id(skill_id):
+            logger.info("tool_call name=get_skill result=invalid_skill_id include_prompt=%s", include_prompt)
+            return _error("INVALID_SKILL_ID", "Skill id contains invalid characters")
 
-    logger.info("tool_call name=get_skill skill_id=%s include_prompt=%s", skill_id, include_prompt)
-    try:
-        skill, prompt = _get_skill_and_prompt(skill_id, include_prompt)
-    except KeyError:
-        logger.info("tool_call name=get_skill skill_id=%s result=not_found", skill_id)
-        return _error("SKILL_NOT_FOUND", "Skill not found")
-    return skill.to_dict(include_prompt=include_prompt, prompt=prompt)
+        logger.info("tool_call name=get_skill skill_id=%s include_prompt=%s", skill_id, include_prompt)
+        try:
+            skill, prompt = _get_skill_and_prompt(skill_id, include_prompt)
+        except KeyError:
+            logger.info("tool_call name=get_skill skill_id=%s result=not_found", skill_id)
+            return _error("SKILL_NOT_FOUND", "Skill not found")
+        return skill.to_dict(include_prompt=include_prompt, prompt=prompt)
 
 
 _HEALTH_CHECK_STATES = {
@@ -2852,103 +2863,111 @@ def run_sse() -> None:
     anyio.run(run_sse_async)
 
 
-@mcp.tool()
-def save_workspace_prompt(
-    title: str,
-    content: str,
-    category: str,
-    source: str = "manual",
-    risk_check_passed: bool = False,
-    idempotency_key: str | None = None,
-) -> dict[str, Any]:
-    """Save a generalised, already GDPR-checked template into the caller's
-    personal Pro workspace. IMPORTANT for the calling model: generalise the
-    content (remove names/personal numbers/org-specific details) and run
-    check_input_risk on the generated template BEFORE calling this tool. Show
-    the proposal to the user and wait for explicit approval before calling.
-    Set risk_check_passed=true only after the approved check -- calls with
-    risk_check_passed=false are rejected. Generate your own idempotency_key
-    (UUID) per approval so a retry after a timeout never creates a duplicate.
-    Suggested categories (optional, not enforced): kommunikation,
-    forandringsledning, processer, beslutsberedning, visuellt, ledarskap,
-    arbetsbank. Requires a Pro key (X-MCP-Key/Authorization); free keys are
-    rejected."""
-    logger.info("tool_call name=save_workspace_prompt")
-    return _save_workspace_prompt_payload(
-        "", title, content, category, source, risk_check_passed, idempotency_key
-    )
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def save_workspace_prompt(
+        title: str,
+        content: str,
+        category: str,
+        source: str = "manual",
+        risk_check_passed: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Save a generalised, already GDPR-checked template into the caller's
+        personal Pro workspace. IMPORTANT for the calling model: generalise the
+        content (remove names/personal numbers/org-specific details) and run
+        check_input_risk on the generated template BEFORE calling this tool. Show
+        the proposal to the user and wait for explicit approval before calling.
+        Set risk_check_passed=true only after the approved check -- calls with
+        risk_check_passed=false are rejected. Generate your own idempotency_key
+        (UUID) per approval so a retry after a timeout never creates a duplicate.
+        Suggested categories (optional, not enforced): kommunikation,
+        forandringsledning, processer, beslutsberedning, visuellt, ledarskap,
+        arbetsbank. Requires a Pro key (X-MCP-Key/Authorization); free keys are
+        rejected."""
+        logger.info("tool_call name=save_workspace_prompt")
+        return _save_workspace_prompt_payload(
+            "", title, content, category, source, risk_check_passed, idempotency_key
+        )
 
 
-@mcp.tool()
-def save_my_item(
-    idempotency_key: str,
-    type: str,
-    title: str,
-    content: str,
-    category: str | None = None,
-) -> dict[str, Any]:
-    """Save a new item to the caller's Valvet (personal prompt/assistant
-    vault). Requires an idempotency_key (client-generated UUID) so a retried
-    call never creates a duplicate. Free keys are limited to 5 saves per
-    calendar month; Pro keys have no monthly cap. The item is fully saved
-    and private to the caller immediately -- status='draft' only describes
-    editing state, not save state or visibility."""
-    logger.info("tool_call name=save_my_item")
-    return _save_my_item_payload("", idempotency_key, type, title, content, category)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def save_my_item(
+        idempotency_key: str,
+        type: str,
+        title: str,
+        content: str,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        """Save a new item to the caller's Valvet (personal prompt/assistant
+        vault). Requires an idempotency_key (client-generated UUID) so a retried
+        call never creates a duplicate. Free keys are limited to 5 saves per
+        calendar month; Pro keys have no monthly cap. The item is fully saved
+        and private to the caller immediately -- status='draft' only describes
+        editing state, not save state or visibility."""
+        logger.info("tool_call name=save_my_item")
+        return _save_my_item_payload("", idempotency_key, type, title, content, category)
 
 
-@mcp.tool()
-def update_my_item(
-    id: str,
-    expected_updated_at: str,
-    title: str | None = None,
-    content: str | None = None,
-    category: str | None = None,
-) -> dict[str, Any]:
-    """Update an existing Valvet item. Available on all plans. expected_updated_at
-    must be the updated_at value from a prior get_my_item/list_my_items call
-    (optimistic locking) -- on mismatch, re-fetch and retry."""
-    logger.info("tool_call name=update_my_item")
-    return _update_my_item_payload("", id, expected_updated_at, title, content, category)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def update_my_item(
+        id: str,
+        expected_updated_at: str,
+        title: str | None = None,
+        content: str | None = None,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing Valvet item. Available on all plans. expected_updated_at
+        must be the updated_at value from a prior get_my_item/list_my_items call
+        (optimistic locking) -- on mismatch, re-fetch and retry."""
+        logger.info("tool_call name=update_my_item")
+        return _update_my_item_payload("", id, expected_updated_at, title, content, category)
 
 
-@mcp.tool()
-def archive_my_item(id: str, confirm: bool, restore: bool = False) -> dict[str, Any]:
-    """Archive (or, with restore=true, un-archive) a Valvet item. Available on
-    all plans. confirm must be explicitly true -- the call is rejected otherwise,
-    to guard against an ambiguous or injected instruction archiving the wrong
-    item. Archiving an already-archived item (or restoring an already-active
-    one) is a safe no-op."""
-    logger.info("tool_call name=archive_my_item")
-    return _archive_my_item_payload("", id, confirm, restore)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def archive_my_item(id: str, confirm: bool, restore: bool = False) -> dict[str, Any]:
+        """Archive (or, with restore=true, un-archive) a Valvet item. Available on
+        all plans. confirm must be explicitly true -- the call is rejected otherwise,
+        to guard against an ambiguous or injected instruction archiving the wrong
+        item. Archiving an already-archived item (or restoring an already-active
+        one) is a safe no-op."""
+        logger.info("tool_call name=archive_my_item")
+        return _archive_my_item_payload("", id, confirm, restore)
 
 
-@mcp.tool()
-def list_active_packages() -> dict[str, Any]:
-    """List activated prompt packages (see tools/call description above)."""
-    logger.info("tool_call name=list_active_packages")
-    return _list_active_packages_payload("")
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def list_active_packages() -> dict[str, Any]:
+        """List activated prompt packages (see tools/call description above)."""
+        logger.info("tool_call name=list_active_packages")
+        return _list_active_packages_payload("")
 
 
-@mcp.tool()
-def activate_package(area: str) -> dict[str, Any]:
-    """Activate a prompt package (see tools/call description above)."""
-    logger.info("tool_call name=activate_package")
-    return _activate_package_payload("", area)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def activate_package(area: str) -> dict[str, Any]:
+        """Activate a prompt package (see tools/call description above)."""
+        logger.info("tool_call name=activate_package")
+        return _activate_package_payload("", area)
 
 
-@mcp.tool()
-def deactivate_package(area: str) -> dict[str, Any]:
-    """Deactivate a prompt package (see tools/call description above)."""
-    logger.info("tool_call name=deactivate_package")
-    return _deactivate_package_payload("", area)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def deactivate_package(area: str) -> dict[str, Any]:
+        """Deactivate a prompt package (see tools/call description above)."""
+        logger.info("tool_call name=deactivate_package")
+        return _deactivate_package_payload("", area)
 
 
-@mcp.tool()
-def copy_template_to_valvet(template_id: str, confirm: bool) -> dict[str, Any]:
-    """Copy a prompt template to Valvet (see tools/call description above)."""
-    logger.info("tool_call name=copy_template_to_valvet")
-    return _copy_template_to_valvet_payload("", template_id, confirm)
+if SERVER_MODE != "hosted":
+    @mcp.tool()
+    def copy_template_to_valvet(template_id: str, confirm: bool) -> dict[str, Any]:
+        """Copy a prompt template to Valvet (see tools/call description above)."""
+        logger.info("tool_call name=copy_template_to_valvet")
+        return _copy_template_to_valvet_payload("", template_id, confirm)
 
 
 @mcp.tool()
