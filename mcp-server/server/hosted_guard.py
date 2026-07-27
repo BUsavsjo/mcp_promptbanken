@@ -53,10 +53,10 @@ class HostedMetadataGuard:
             "get_client_routing_instructions": set(),
             "list_templates": {"context_keys"},
             "search_templates": {"query", "role", "area", "risk_level", "limit", "context_keys"},
-            "get_template": {"template_id", "context_keys", "role", "audience", "tone", "input_text"},
+            "get_template": {"template_id", "context_keys", "role", "audience", "tone"},
             "list_packages": {"context_keys", "package_type"},
-            "get_package": {"package_slug", "context_keys", "role", "audience", "tone", "input_text"},
-            "list_package_prompts": {"package_slug", "context_keys", "role", "audience", "tone", "input_text"},
+            "get_package": {"package_slug", "context_keys", "role", "audience", "tone"},
+            "list_package_prompts": {"package_slug", "context_keys", "role", "audience", "tone"},
             "list_my_prompts": set(),
             "list_my_private_prompts": set(),
             "list_my_shared_workspaces": set(),
@@ -243,7 +243,7 @@ class HostedMetadataGuard:
             template_id = arguments.get("template_id")
             if not isinstance(template_id, str) or not template_id:
                 return {"reason": "invalid_template_id", "method": method, "tool": tool_name, "id": request_id}
-            for key in ("role", "audience", "tone", "input_text"):
+            for key in ("role", "audience", "tone"):
                 value = arguments.get(key)
                 if value is not None and not isinstance(value, str):
                     return {"reason": "invalid_template_render_arguments", "method": method, "tool": tool_name, "id": request_id}
@@ -274,7 +274,7 @@ class HostedMetadataGuard:
             package_slug = arguments.get("package_slug")
             if not isinstance(package_slug, str) or not package_slug:
                 return {"reason": "invalid_package_slug", "method": method, "tool": tool_name, "id": request_id}
-            for key in ("role", "audience", "tone", "input_text"):
+            for key in ("role", "audience", "tone"):
                 value = arguments.get(key)
                 if value is not None and not isinstance(value, str):
                     return {"reason": "invalid_package_render_arguments", "method": method, "tool": tool_name, "id": request_id}

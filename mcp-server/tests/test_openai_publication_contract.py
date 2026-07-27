@@ -10,11 +10,13 @@ from starlette.responses import Response
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.mcp_server import (
+    SERVER_MODE,
     BearerAuthMiddleware,
     _handle_mcp_message,
     _save_my_item_payload,
     _tool_definitions_for_profile,
 )
+from server.mcp_server import mcp as _fastmcp_instance
 
 
 PUBLIC_TOOLS = {
@@ -217,3 +219,50 @@ class OpenAIPublicationContractTests(unittest.TestCase):
         self.assertIn("http_status=422", log_output)
         self.assertIn("error_code=invalid_input", log_output)
         self.assertNotIn(secret, log_output)
+
+    def test_fastmcp_tool_registry_stays_within_public_tools_in_hosted_mode(self) -> None:
+        """Regression test 3 (spec 2026-07-27-render-contract-parametric-
+        templates-design.md v2, "Regressionstester som behövs" item 3 --
+        "den viktigaste nya kontrollen"). FastMCP's own @mcp.tool() registry
+        drives the /sse and /messages/ routes via a completely separate
+        registration path from the hand-rolled _tool_definitions_for_profile
+        JSON-RPC path tested above. FastMCP has no per-request auth
+        filtering -- every @mcp.tool()-decorated function is registered
+        unconditionally. Live verification against production (2026-07-27)
+        found /sse exposing 28 tools, including write/vault/private tools
+        such as save_workspace_prompt, list_my_items, activate_package,
+        deactivate_package, copy_template_to_valvet -- with zero auth
+        filtering at the registry level (calls without a key are still
+        correctly rejected at the application layer, but the tool
+        names/schemas themselves are visible to any client).
+
+        This test is the regression lock spec Beslut 3 requires: in hosted
+        mode, FastMCP's registered tool set must be a subset of the same
+        9-tool PUBLIC_TOOLS list used by /mcp.
+
+        EXPECTED TO FAIL today: this repo's mcp_server.py registers far more
+        than 9 tools via @mcp.tool() with no SERVER_MODE-based gating (only
+        route_skill/compile_skill_prompt are gated to local mode -- see
+        mcp_server.py around line 1378). Would have caught the /sse exposure
+        bug described in the spec.
+        """
+        self.assertEqual(
+            SERVER_MODE,
+            "hosted",
+            "This test asserts the hosted-mode contract; expected default "
+            "SERVER_MODE for the test environment is 'hosted' (no "
+            "PROMPTBANKEN_MCP_MODE env var set).",
+        )
+
+        tools = asyncio.run(_fastmcp_instance.list_tools())
+        tool_names = {tool.name for tool in tools}
+
+        self.assertLessEqual(
+            tool_names,
+            PUBLIC_TOOLS,
+            f"FastMCP registry exposes {len(tool_names)} tools in hosted mode, "
+            f"including {sorted(tool_names - PUBLIC_TOOLS)} which are not in "
+            "the public 9-tool set. This is the /sse over-exposure bug spec "
+            "Beslut 3 must fix by gating the FastMCP registry to PUBLIC_TOOLS "
+            "in hosted mode.",
+        )
