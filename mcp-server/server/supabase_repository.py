@@ -43,7 +43,7 @@ def _verify_mcp_key(raw_key: str) -> dict[str, str] | None:
         return None
 
     key_hash = _hash_key(raw_key)
-    url = f"{_SUPABASE_URL}/rest/v1/rpc/verify_mcp_key"
+    url = f"{_SUPABASE_URL}/rest/v1/rpc/get_mcp_key_context"
     try:
         response = httpx.post(
             url,
@@ -70,14 +70,18 @@ def _verify_mcp_key(raw_key: str) -> dict[str, str] | None:
     }
 
 
-def _get_workspace_prompts(workspace_id: str) -> list[dict[str, Any]]:
+def _get_workspace_prompts(raw_key: str) -> list[dict[str, Any]]:
     """Hämtar aktiva prompts för ett workspace via RPC."""
-    url = f"{_SUPABASE_URL}/rest/v1/rpc/get_workspace_prompts"
+    url = f"{_SUPABASE_URL}/rest/v1/rpc/get_workspace_prompts_for_key"
     try:
         response = httpx.post(
             url,
             headers=_supabase_headers(),
-            json={"p_workspace_id": workspace_id},
+            json={
+                "p_key_hash": _hash_key(raw_key),
+                "p_scope": "private",
+                "p_workspace_id": None,
+            },
             timeout=5,
         )
         response.raise_for_status()
@@ -176,7 +180,7 @@ class SupabaseRepository:
     def list_skills(self) -> list[Skill]:
         if not self._resolve_workspace():
             return []
-        items = _get_workspace_prompts(self._workspace_id)
+        items = _get_workspace_prompts(self._mcp_api_key)
         logger.info("supabase_list_skills workspace_id=%s count=%s", self._workspace_id, len(items))
         return _items_to_skills(items)
 
@@ -184,7 +188,7 @@ class SupabaseRepository:
         """Returnerar prompttexten (body) för en workspace-skill, eller None."""
         if not self._resolve_workspace():
             return None
-        items = _get_workspace_prompts(self._workspace_id)
+        items = _get_workspace_prompts(self._mcp_api_key)
         for item in items:
             if _skill_id_for_item(item) == skill_id:
                 return item.get("content", "")
