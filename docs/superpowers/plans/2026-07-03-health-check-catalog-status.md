@@ -29,13 +29,13 @@
 - Consumes: existing `_verify_mcp_key(raw_key: str) -> dict[str, str] | None` (already returns `{"workspace_id": ..., "plan": ..., "workspace_type": ...}`, defined earlier in the same file).
 - Produces: `SupabaseRepository.plan` property, type `str | None`. Returns `None` if the key never resolved (no key, invalid key, or network failure); returns the raw `plan` string (`"free"`, `"pro"`, or whatever Supabase returns) if resolved.
 
-- [ ] **Step 1: Read current state to confirm line numbers**
+- [x] **Step 1: Read current state to confirm line numbers**
 
 Run: `grep -n "_resolve_workspace\|def __init__\|self._resolved\|self._workspace_id" mcp-server/server/supabase_repository.py`
 
 Expected: shows `__init__` around line 141 and `_resolve_workspace` around line 146, matching the snippet below (line numbers may drift slightly — use the printed output, not the hardcoded numbers, to locate the exact block).
 
-- [ ] **Step 2: Update `__init__` to add plan/workspace_type storage**
+- [x] **Step 2: Update `__init__` to add plan/workspace_type storage**
 
 Replace:
 
@@ -57,7 +57,7 @@ With:
         self._workspace_type: str | None = None
 ```
 
-- [ ] **Step 3: Update `_resolve_workspace` to store plan/workspace_type**
+- [x] **Step 3: Update `_resolve_workspace` to store plan/workspace_type**
 
 Replace:
 
@@ -91,7 +91,7 @@ With:
         return True
 ```
 
-- [ ] **Step 4: Add the `plan` property**
+- [x] **Step 4: Add the `plan` property**
 
 Directly below `key_is_valid()` (which already exists in this file, added in a previous session), add:
 
@@ -103,13 +103,13 @@ Directly below `key_is_valid()` (which already exists in this file, added in a p
         return self._plan
 ```
 
-- [ ] **Step 5: Syntax-check the file**
+- [x] **Step 5: Syntax-check the file**
 
 Run: `python -c "import ast; ast.parse(open('mcp-server/server/supabase_repository.py', encoding='utf-8').read()); print('OK')"`
 
 Expected: `OK`
 
-- [ ] **Step 6: Manual behavior check (no live Supabase needed)**
+- [x] **Step 6: Manual behavior check (no live Supabase needed)**
 
 Run:
 
@@ -126,7 +126,7 @@ print('key_is_valid:', repo.key_is_valid())
 
 Expected: `plan for invalid key: None` (since `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_MCP_ROLE_JWT` are unset in this shell, `_verify_mcp_key` logs `supabase_not_configured` and returns `None`, so `_resolved` becomes `False` and `_plan` stays `None`). `key_is_valid: False`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp-server/server/supabase_repository.py
@@ -144,13 +144,13 @@ git commit -m "Exponera plan-fält från verify_mcp_key i SupabaseRepository"
 - Consumes: `SupabaseRepository.plan` (Task 1), `SupabaseRepository.key_is_valid()` (existing), `_supabase_repo_for_key(mcp_key: str) -> SupabaseRepository | None` (existing, defined near the top of `mcp_server.py`), `_WORKSPACE_STATUS_MESSAGES` dict (existing, defined near `_add_workspace_status`).
 - Produces: `_health_check_payload(mcp_key: str = "") -> dict[str, Any]`, used by both the REST endpoint and the JSON-RPC dispatch.
 
-- [ ] **Step 1: Locate the existing `health_check` tool and `_healthz` REST handler**
+- [x] **Step 1: Locate the existing `health_check` tool and `_healthz` REST handler**
 
 Run: `grep -n "def health_check\|async def _healthz\|tool_name == \"health_check\"" mcp-server/server/mcp_server.py`
 
 Expected output shows three matches: the `@mcp.tool() def health_check()` definition, the `async def _healthz(_: Request)` definition, and the `if tool_name == "health_check":` branch inside `_handle_mcp_message`.
 
-- [ ] **Step 2: Add the message lookup table and `_health_check_payload` helper**
+- [x] **Step 2: Add the message lookup table and `_health_check_payload` helper**
 
 Find the existing `@mcp.tool() def health_check()` block:
 
@@ -234,7 +234,7 @@ def health_check() -> dict[str, Any]:
     return _health_check_payload()
 ```
 
-- [ ] **Step 3: Update the REST `_healthz` handler to read the key**
+- [x] **Step 3: Update the REST `_healthz` handler to read the key**
 
 Find:
 
@@ -261,7 +261,7 @@ async def _healthz(request: Request) -> JSONResponse:
     return JSONResponse(_health_check_payload(mcp_key))
 ```
 
-- [ ] **Step 4: Update the JSON-RPC dispatch branch**
+- [x] **Step 4: Update the JSON-RPC dispatch branch**
 
 Find, inside `_handle_mcp_message`:
 
@@ -277,13 +277,13 @@ Replace with:
             return _json_rpc_result(request_id, _mcp_content_result(_health_check_payload(mcp_key)))
 ```
 
-- [ ] **Step 5: Syntax-check the file**
+- [x] **Step 5: Syntax-check the file**
 
 Run: `python -c "import ast; ast.parse(open('mcp-server/server/mcp_server.py', encoding='utf-8').read()); print('OK')"`
 
 Expected: `OK`
 
-- [ ] **Step 6: Manual behavior check — no key**
+- [x] **Step 6: Manual behavior check — no key**
 
 Run:
 
@@ -299,7 +299,7 @@ print(json.dumps(mcp_server._health_check_payload(''), ensure_ascii=False))
 
 Expected: JSON containing `"catalog": "open"`, `"plan": "public"`, and a `"message"` starting with `"Detta är den öppna katalogen."`.
 
-- [ ] **Step 7: Manual behavior check — invalid key**
+- [x] **Step 7: Manual behavior check — invalid key**
 
 Run:
 
@@ -315,7 +315,7 @@ print(json.dumps(mcp_server._health_check_payload('not-a-real-key'), ensure_asci
 
 Expected: `"catalog": "open"`, `"plan": "public"`, `"message"` identical to the string in `mcp_server._WORKSPACE_STATUS_MESSAGES["invalid_key"]` — verify with a second print statement in the same script: `print(mcp_server._WORKSPACE_STATUS_MESSAGES["invalid_key"] == mcp_server._health_check_payload('not-a-real-key')['message'])` should print `True`.
 
-- [ ] **Step 8: Verify `no_key` vs `invalid_key` both map to the same catalog/plan but different message text**
+- [x] **Step 8: Verify `no_key` vs `invalid_key` both map to the same catalog/plan but different message text**
 
 Run:
 
@@ -335,7 +335,7 @@ print('OK')
 
 Expected: `OK`
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add mcp-server/server/mcp_server.py
@@ -355,7 +355,7 @@ git commit -m "Lagg till catalog/plan/message i health_check baserat pa X-MCP-Ke
 - Consumes: nothing from Task 1/2 code — pure documentation, but must accurately describe the four states and field names implemented there (`catalog`, `plan`, `message`, values `public`/`free`/`pro` and `open`/`workspace`/`pro`).
 - Produces: nothing consumed by other tasks — this is the last task.
 
-- [ ] **Step 1: Update the `/healthz` example response in README.md**
+- [x] **Step 1: Update the `/healthz` example response in README.md**
 
 Find:
 
@@ -384,7 +384,7 @@ Replace with:
 }
 ```
 
-- [ ] **Step 2: Add a documentation paragraph in README.md near the existing `workspace_status` text**
+- [x] **Step 2: Add a documentation paragraph in README.md near the existing `workspace_status` text**
 
 Locate the paragraph that starts with `- \`list_skills_simple\` och REST-endpointen \`GET /api/v1/skills\` inkluderar då fälten` (added in a previous session) and add directly after it:
 
@@ -392,7 +392,7 @@ Locate the paragraph that starts with `- \`list_skills_simple\` och REST-endpoin
 - `GET /healthz` (och MCP-verktyget/JSON-RPC-metoden `health_check`) returnerar alltid `catalog`/`plan`/`message` baserat på samma nyckel: `plan` är `public`/`free`/`pro`, `catalog` är `open`/`workspace`/`pro`. Utan nyckel eller med en ogiltig/återkallad nyckel visas `public`/`open`. Till skillnad från `workspace_status` på `/api/v1/skills` utelämnas dessa fält aldrig — `health_check` ska alltid ge en fullständig bild av katalogläget.
 ```
 
-- [ ] **Step 3: Update CLAUDE.md**
+- [x] **Step 3: Update CLAUDE.md**
 
 Locate the line in the "Nyckelhantering per anrop" section:
 
@@ -406,7 +406,7 @@ Add directly after it:
 `health_check` (REST `/healthz` och MCP-verktyget) läser samma nyckel och svarar alltid med `catalog`/`plan`/`message` (`public`/`free`/`pro`, se README). Ingen extra Supabase-anrop görs om ingen nyckel skickas — `/healthz` utan nyckel (t.ex. Dockers healthcheck) är lika snabb som innan.
 ```
 
-- [ ] **Step 4: Update TODO.md**
+- [x] **Step 4: Update TODO.md**
 
 Find the `## Klart` section header and add a new first bullet directly below it:
 
@@ -414,7 +414,7 @@ Find the `## Klart` section header and add a new first bullet directly below it:
 - [x] Lade till `catalog`/`plan`/`message`-fält i `health_check` (REST `/healthz` och MCP-verktyget) — visar `public`/`free`/`pro` baserat på `X-MCP-Key`/`Authorization`-nyckelns plan, alltid närvarande (inte utelämnat som `workspace_status`). Se `docs/superpowers/specs/2026-07-03-health-check-catalog-status-design.md` för designen.
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md CLAUDE.md TODO.md
@@ -431,13 +431,13 @@ git commit -m "Dokumentera catalog/plan/message-falt i health_check"
 - Consumes: the deployed VPS environment (`docker-compose`, Caddy) — no new environment variables required, reuses existing `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_MCP_ROLE_JWT`.
 - Produces: nothing — this is the final verification step confirming Tasks 1-3 work in production.
 
-- [ ] **Step 1: Push commits from Tasks 1-3**
+- [x] **Step 1: Push commits from Tasks 1-3**
 
 ```bash
 git push origin main
 ```
 
-- [ ] **Step 2: Deploy on the VPS**
+- [x] **Step 2: Deploy on the VPS**
 
 Run on the VPS (see `TODO.md`/`CLAUDE.md` for the known `docker-compose` 1.29.2 `'ContainerConfig'` recreate bug — if it recurs, remove the stale hash-prefixed container with `docker rm -f <name>` before retrying `up -d --build`):
 
@@ -448,7 +448,7 @@ docker-compose up -d --build
 docker-compose ps
 ```
 
-- [ ] **Step 3: Verify no-key state**
+- [x] **Step 3: Verify no-key state**
 
 ```bash
 curl -s http://127.0.0.1:8000/healthz
@@ -456,7 +456,7 @@ curl -s http://127.0.0.1:8000/healthz
 
 Expected: JSON with `"catalog":"open"`, `"plan":"public"`.
 
-- [ ] **Step 4: Verify invalid-key state**
+- [x] **Step 4: Verify invalid-key state**
 
 ```bash
 curl -s https://mcp.promptbanken.se/healthz -H "X-MCP-Key: definitely-not-a-real-key"
@@ -464,7 +464,7 @@ curl -s https://mcp.promptbanken.se/healthz -H "X-MCP-Key: definitely-not-a-real
 
 Expected: `"catalog":"open"`, `"plan":"public"`, message text matching the `invalid_key` string.
 
-- [ ] **Step 5: Verify free/pro state with a real key (ask the user for a live test key, as done for the Pro-templates feature in this same session)**
+- [x] **Step 5: Verify free/pro state with a real key (ask the user for a live test key, as done for the Pro-templates feature in this same session)**
 
 ```bash
 curl -s https://mcp.promptbanken.se/healthz -H "X-MCP-Key: <riktig nyckel>"
@@ -472,6 +472,6 @@ curl -s https://mcp.promptbanken.se/healthz -H "X-MCP-Key: <riktig nyckel>"
 
 Expected: `"catalog":"free"` or `"catalog":"pro"` matching the workspace's actual plan, and `"plan"` matching.
 
-- [ ] **Step 6: Mark the TODO.md item's deploy status and commit if any wording changed**
+- [x] **Step 6: Mark the TODO.md item's deploy status and commit if any wording changed**
 
 If the manual verification above required no doc changes, this step is a no-op. If it did (e.g. correcting a state that behaved differently in production than expected), update `TODO.md`/README accordingly and commit with message `"Justera health_check-dokumentation efter produktionsverifiering"`.

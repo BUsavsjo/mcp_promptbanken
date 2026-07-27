@@ -30,7 +30,7 @@ services:
       - ALL
 
   autoheal:
-    image: willfarrell/autoheal
+    image: willfarrell/autoheal@sha256:201d007d40e3dc395b1176052ea8fe1cf5c4cf69c6d5aeeda6fcdeb256f2400d
     restart: unless-stopped
     environment:
       AUTOHEAL_CONTAINER_LABEL: all

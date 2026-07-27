@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-07-25 (Externt regressionstest: fix av publik verktygsyta och search_templates-krasch)
+
+### Gjort
+- Läste den externa testrapporten för den öppna MCP-katalogen och avgränsade arbetet till de två blockerande P0-fynd som gick att verifiera direkt i koden: `search_templates` som kraschar på meningsfull fritext, och publik `tools/list` som exponerar privata/skrivande verktyg utan nyckel.
+- Lade till två nya regressionstester i `mcp-server/tests/test_catalog_context_tools.py`: ett som reproducerar kraschen när katalogmetadata innehåller `null` i textfält, och ett som låser att `tools/list` utan MCP-nyckel bara returnerar den publika read-only-katalogytan.
+- Fixade `_search_templates_payload()` i `mcp-server/server/mcp_server.py` så att `title`, `syfte`, `output_format`, `area_label`, `tone_hint` och `tags` normaliseras defensivt till sträng/lista innan fritextmatchning byggs. Därmed dör inte sökningen längre på `TypeError` när katalog-RPC:n returnerar `null`.
+- Gjorde `tools/list` kapabilitetsstyrd i samma fil: `_tool_definitions(mcp_key)` filtrerar nu bort användarspecifika, Valvet- och skrivverktyg när anropet saknar MCP-nyckel. Den öppna connectorn visar därmed bara publik katalog, skill-metadata, status och routing.
+
+### Verifierat
+- `.venv\\Scripts\\python.exe -m unittest tests.test_catalog_context_tools -v` -> 5 tester gröna.
+- `.venv\\Scripts\\python.exe -m compileall server tests` -> grönt.
+- `npm run check:python` -> grönt.
+
+### Kvarstår
+- Ingen deploy till VPS/produktionen i detta pass.
+- Testrapportens P1/P2-fynd kvarstår, främst `context_key: null`, ofullständig `area`-metadata i katalogadaptern och föråldrade routinginstruktioner.
+
 ## 2026-07-25 (Kontextprofiler i öppen katalog för hostade MCP:n)
 
 ### Gjort

@@ -1,5 +1,51 @@
 # Beslut
 
+## 2026-07-25 - publik `tools/list` utan nyckel ska bara visa den öppna katalogytan
+
+### Beslut
+`tools/list` i hostat läge ska inte längre alltid exponera hela interna
+verktygsuppsättningen. När anropet saknar MCP-nyckel ska servern bara
+annonsera den publika read-only-katalogen: `health_check`,
+`list_templates`, `search_templates`, `get_template`, `list_packages`,
+`get_package`, `list_package_prompts`, `recommend_packages`,
+`list_skills`, `list_skills_simple`, `get_skill` och
+`get_client_routing_instructions`.
+
+### Skäl
+Den externa testrapporten 2026-07-25 visade att den öppna connectorns
+`tools/list` fortfarande exponerade Valvet-, användar- och skrivverktyg
+trots att den publika produkten ska vara en öppen katalog. Att verktygen
+senare nekar i `tools/call` är inte tillräckligt — själva verktygsytan är
+en del av produktgränsen och påverkar både användarförtroende och
+modellens verktygsval.
+
+### Konsekvens
+`_tool_definitions()` är nu kapabilitetsstyrd av om en MCP-nyckel finns.
+Det här är en verktygsytfix för den öppna connectorn, inte en full
+omnamning eller omsegmentering av alla autentiserade flöden. Live-deploy
+och extern verifiering återstår.
+
+## 2026-07-25 - `search_templates` ska tåla `null` i katalogmetadata
+
+### Beslut
+`search_templates` ska normalisera katalogfält som kan vara `null`
+(`title`, `syfte`, `output_format`, `area_label`, `tone_hint`, `tags`)
+innan fritextmatchningen byggs, i stället för att anta att alla fält är
+strängar eller stränglistor.
+
+### Skäl
+Det blockerande P0-felet i den externa testrapporten återgavs lokalt som
+en `TypeError` i `_search_templates_payload()` när `weak` byggdes via
+`" ".join([...])` och något av katalogfälten var `None`. Katalog-RPC:n
+äger datat och kan legitimt returnera `null`; servern måste därför vara
+defensiv i adapter-/söklagret.
+
+### Konsekvens
+Meningsfull fritextsökning kraschar inte längre på saknade metadatafält.
+Fixen ändrar inte rankinglogiken i övrigt och löser inte de separata
+P1-frågorna om att `area` fortfarande är `null` i katalogadaptern eller att
+kontextinnehållet ännu inte skiljer sig mellan profiler.
+
 ## 2026-07-25 - hostad katalog läser nu publika katalog-RPC:er med context_keys
 
 ### Beslut
