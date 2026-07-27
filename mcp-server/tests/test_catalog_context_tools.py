@@ -42,22 +42,26 @@ class CatalogContextToolsTests(unittest.TestCase):
         mocked_payload.assert_called_once_with(["kommun", "skola"])
 
     def test_tool_definitions_expose_context_keys_and_package_tools(self) -> None:
+        # spec 2026-07-27 v2, Beslut 1/1b: role/audience/tone/input_text are
+        # removed from the get_template/get_package/list_package_prompts input
+        # schemas -- rendering happens client-side, context_keys is the only
+        # sanctioned server-side selection mechanism.
         definitions = {tool["name"]: tool for tool in _tool_definitions()}
 
         self.assertIn("context_keys", definitions["list_templates"]["inputSchema"]["properties"])
         self.assertIn("context_keys", definitions["search_templates"]["inputSchema"]["properties"])
         self.assertIn("context_keys", definitions["get_template"]["inputSchema"]["properties"])
-        self.assertIn("role", definitions["get_template"]["inputSchema"]["properties"])
-        self.assertIn("audience", definitions["get_template"]["inputSchema"]["properties"])
-        self.assertIn("tone", definitions["get_template"]["inputSchema"]["properties"])
-        self.assertIn("input_text", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertNotIn("role", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertNotIn("audience", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertNotIn("tone", definitions["get_template"]["inputSchema"]["properties"])
+        self.assertNotIn("input_text", definitions["get_template"]["inputSchema"]["properties"])
         self.assertIn("list_packages", definitions)
         self.assertIn("get_package", definitions)
         self.assertIn("list_package_prompts", definitions)
-        self.assertIn("role", definitions["list_package_prompts"]["inputSchema"]["properties"])
-        self.assertIn("audience", definitions["list_package_prompts"]["inputSchema"]["properties"])
-        self.assertIn("tone", definitions["list_package_prompts"]["inputSchema"]["properties"])
-        self.assertIn("input_text", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertNotIn("role", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertNotIn("audience", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertNotIn("tone", definitions["list_package_prompts"]["inputSchema"]["properties"])
+        self.assertNotIn("input_text", definitions["list_package_prompts"]["inputSchema"]["properties"])
 
     def test_open_tool_definitions_hide_private_and_write_tools(self) -> None:
         public_names = {tool["name"] for tool in _tool_definitions()}
@@ -119,40 +123,13 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertIsNone(warning)
 
-    # TODO(spec 2026-07-27 v2, Beslut 1b): this test encodes behavior being
-    # reversed -- input_text will be BLOCKED, not allowed, once hosted_guard.py
-    # is updated. Invert this assertion when that lands. See
-    # test_open_catalog_read_only_contract.py::HostedGuardBlocksInputTextForCatalogToolsTests
-    # for the red test that already asserts the desired (blocked) behavior.
-    def test_hosted_guard_allows_render_arguments_for_catalog_tools(self) -> None:
-        guard = HostedMetadataGuard(repository)
-
-        for tool_name, id_key in (
-            ("get_template", "template_id"),
-            ("get_package", "package_slug"),
-            ("list_package_prompts", "package_slug"),
-        ):
-            with self.subTest(tool_name=tool_name):
-                warning = guard.inspect_json_rpc_message(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": "tools/call",
-                        "params": {
-                            "name": tool_name,
-                            "arguments": {
-                                id_key: "abc",
-                                "context_keys": ["företag"],
-                                "role": "handläggare",
-                                "audience": "företagare",
-                                "tone": "formellt",
-                                "input_text": "Ansökan saknar bilaga.",
-                            },
-                        },
-                    }
-                )
-
-                self.assertIsNone(warning)
+    # NOTE(spec 2026-07-27 v2, Beslut 1b): the old
+    # test_hosted_guard_allows_render_arguments_for_catalog_tools test was
+    # removed here rather than inverted -- it is now fully redundant with
+    # test_open_catalog_read_only_contract.py::HostedGuardBlocksInputTextForCatalogToolsTests,
+    # which asserts the same input_text-is-blocked behavior with a clearer,
+    # more specific name and docstring. Keeping both would just assert the
+    # same fact twice under different names.
 
     def test_search_templates_tolerates_nullable_catalog_fields(self) -> None:
         with patch("server.mcp_server._list_templates_payload") as mocked_payload:
@@ -213,13 +190,11 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(payload["templates"][0]["area"], "kommunikation")
         self.assertEqual(payload["templates"][0]["area_label"], "Kommunikation och publicering")
 
-    # TODO(spec 2026-07-27 v2, Beslut 1): this test asserts rendered_prompt_text
-    # presence, which is the old server-side-rendering behavior being removed.
-    # Invert/remove once _catalog_prompt_to_template stops calling
-    # render_template_variant. See
-    # test_open_catalog_read_only_contract.py::ReadOnlyCatalogPayloadContractTests
-    # for the red test that already asserts rendered_prompt_text is ABSENT.
     def test_list_templates_renders_catalog_metadata_and_reports_selected_context(self) -> None:
+        # spec 2026-07-27 v2, Beslut 1: server-side rendering is removed, so
+        # rendered_prompt_text must be ABSENT; the context-match reporting
+        # this test also covers (requested/matched context keys, variant
+        # source) is unrelated, still-valid behavior and stays asserted.
         with (
             patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
             patch("server.mcp_server._catalog_area_index", return_value={}),
@@ -244,21 +219,17 @@ class CatalogContextToolsTests(unittest.TestCase):
 
             payload = _list_templates_payload(["kommun", "skola"])
 
-        self.assertEqual(
-            payload["templates"][0]["rendered_prompt_text"],
-            "Gör instruktioner tydliga för medarbetare i kommun.",
-        )
+        self.assertNotIn("rendered_prompt_text", payload["templates"][0])
+        self.assertEqual(payload["templates"][0]["prompt_text"], "Gör instruktioner tydliga för {{malgrupp}} i {{kontext}}.")
         self.assertEqual(payload["requested_context_keys"], ["kommun", "skola"])
         self.assertEqual(payload["matched_context_keys"], ["kommun"])
         self.assertEqual(payload["variant_source"], "profile_variant")
 
-    # TODO(spec 2026-07-27 v2, Beslut 1): this test asserts rendered_prompt_text
-    # presence, which is the old server-side-rendering behavior being removed.
-    # Invert/remove once _catalog_prompt_to_template stops calling
-    # render_template_variant. See
-    # test_open_catalog_read_only_contract.py::ReadOnlyCatalogPayloadContractTests
-    # for the red test that already asserts rendered_prompt_text is ABSENT.
     def test_list_templates_uses_audience_and_tone_metadata_when_bindings_are_missing(self) -> None:
+        # spec 2026-07-27 v2, Beslut 1: rendered_prompt_text is gone (no more
+        # server-side rendering), but audience_label/tone_hint are still
+        # exposed as raw metadata for the client to use when it renders
+        # locally -- that part of this test's coverage remains valid.
         with (
             patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
             patch("server.mcp_server._catalog_area_index", return_value={}),
@@ -276,10 +247,10 @@ class CatalogContextToolsTests(unittest.TestCase):
 
             payload = _list_templates_payload(["kommun"])
 
-        self.assertEqual(
-            payload["templates"][0]["rendered_prompt_text"],
-            "Skapa en tydlig och vänlig stil för medarbetare.",
-        )
+        template = payload["templates"][0]
+        self.assertNotIn("rendered_prompt_text", template)
+        self.assertEqual(template["audience_label"], "medarbetare")
+        self.assertEqual(template["tone_hint"], "tydlig och vänlig")
 
     def test_list_package_prompts_fills_stable_identity_fields(self) -> None:
         with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts:
