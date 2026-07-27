@@ -119,6 +119,11 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertIsNone(warning)
 
+    # TODO(spec 2026-07-27 v2, Beslut 1b): this test encodes behavior being
+    # reversed -- input_text will be BLOCKED, not allowed, once hosted_guard.py
+    # is updated. Invert this assertion when that lands. See
+    # test_open_catalog_read_only_contract.py::HostedGuardBlocksInputTextForCatalogToolsTests
+    # for the red test that already asserts the desired (blocked) behavior.
     def test_hosted_guard_allows_render_arguments_for_catalog_tools(self) -> None:
         guard = HostedMetadataGuard(repository)
 
@@ -208,6 +213,12 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(payload["templates"][0]["area"], "kommunikation")
         self.assertEqual(payload["templates"][0]["area_label"], "Kommunikation och publicering")
 
+    # TODO(spec 2026-07-27 v2, Beslut 1): this test asserts rendered_prompt_text
+    # presence, which is the old server-side-rendering behavior being removed.
+    # Invert/remove once _catalog_prompt_to_template stops calling
+    # render_template_variant. See
+    # test_open_catalog_read_only_contract.py::ReadOnlyCatalogPayloadContractTests
+    # for the red test that already asserts rendered_prompt_text is ABSENT.
     def test_list_templates_renders_catalog_metadata_and_reports_selected_context(self) -> None:
         with (
             patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
@@ -241,6 +252,12 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(payload["matched_context_keys"], ["kommun"])
         self.assertEqual(payload["variant_source"], "profile_variant")
 
+    # TODO(spec 2026-07-27 v2, Beslut 1): this test asserts rendered_prompt_text
+    # presence, which is the old server-side-rendering behavior being removed.
+    # Invert/remove once _catalog_prompt_to_template stops calling
+    # render_template_variant. See
+    # test_open_catalog_read_only_contract.py::ReadOnlyCatalogPayloadContractTests
+    # for the red test that already asserts rendered_prompt_text is ABSENT.
     def test_list_templates_uses_audience_and_tone_metadata_when_bindings_are_missing(self) -> None:
         with (
             patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
