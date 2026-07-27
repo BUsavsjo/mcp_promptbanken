@@ -40,6 +40,8 @@ def _call_rpc(function_name: str, payload: dict[str, Any]) -> Any:
     url = f"{_SUPABASE_URL}/rest/v1/rpc/{function_name}"
     response = httpx.post(url, headers=_headers(), json=payload, timeout=5)
     response.raise_for_status()
+    if response.status_code == 204:
+        return None
     return response.json()
 
 
