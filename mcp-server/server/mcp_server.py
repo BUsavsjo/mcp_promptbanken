@@ -2204,11 +2204,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "activate_package",
             "description": (
-                "Activate a prompt package (identified by its 'area' field from "
-                "list_templates) so its templates appear expanded on the user's "
-                "Valvet page. Idempotent. Only call this when the user has explicitly "
-                "asked to activate a package -- do not call it proactively just "
-                "because it seems helpful."
+                "Mark a prompt package/category (identified by its 'area' field "
+                "from list_templates, e.g. 'kommunikation') as active for the "
+                "user's Valvet. This does NOT copy or create any content -- it "
+                "only flags the category as active so its templates appear "
+                "expanded/available. Use copy_template_to_valvet to actually get "
+                "an editable copy of a specific prompt. Idempotent. Only call "
+                "this when the user has explicitly asked to activate a package "
+                "-- do not call it proactively just because it seems helpful."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2886,7 +2889,7 @@ if SERVER_MODE != "hosted":
 if SERVER_MODE != "hosted":
     @mcp.tool()
     def activate_package(area: str) -> dict[str, Any]:
-        """Activate a prompt package (see tools/call description above)."""
+        """Mark a package/category active -- no content is copied (see tools/call description above)."""
         logger.info("tool_call name=activate_package")
         return _activate_package_payload("", area)
 
