@@ -113,6 +113,32 @@
         "X-MCP-Key"
       ]
     },
+    "sse": {
+      "endpoint": "/sse",
+      "transport": "sse",
+      "groups": [
+        "public"
+      ],
+      "auth": {
+        "type": "none"
+      },
+      "blockedCalls": [
+        {
+          "tool": "list_my_items",
+          "arguments": {},
+          "expectIsError": true,
+          "expectTextContains": "Unknown tool"
+        }
+      ],
+      "healthCall": {
+        "tool": "health_check",
+        "arguments": {},
+        "expectJson": {
+          "plan": "public",
+          "catalog": "open"
+        }
+      }
+    },
     "pro": {
       "endpoint": "/mcp/key",
       "groups": [
