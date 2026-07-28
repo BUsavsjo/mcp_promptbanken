@@ -1,5 +1,18 @@
 # Logg
 
+## 2026-07-28 - Admin-MCP katalogförfattande (spec + plan + implementation)
+
+Brainstormade, specade, planerade och implementerade en ny `/admin`-MCP-route
+för AI-klient-driven katalogförfattande. Nyckelfynd: två separata
+malldatabaser existerar (`pro_prompt_templates` vs `catalog_prompts`-familjen)
+-- admin-MCP:t riktar sig mot den senare, den MCP:n faktiskt serverar. Auth
+löstes via en riktig Supabase-JWT-brygga (refresh token), inte en ny
+nyckeltyp. Migration applicerad och verifierad i produktion
+(`promptbanken`-repot, commit `18cbaf4`). `/admin`-route, `admin_auth.py`,
+`admin_catalog.py`, kontraktstest-admin-profil implementerade och granskade
+via subagent-driven-development (6 uppgifter, samtliga review clean).
+Se spec/plan-filerna för fullständig detalj.
+
 ## 2026-07-25 (Externt regressionstest: fix av publik verktygsyta och search_templates-krasch)
 
 ### Gjort

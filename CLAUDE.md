@@ -22,6 +22,9 @@ mcp-server/
     supabase_repository.py # Workspace-skills från Supabase (httpx, mcp_server-roll via RPC)
     pro_templates.py        # Pro-mallar + kontextstyrda privata/delade prompts via anon-beviljade RPC:er (httpx)
     risk_checker.py        # Personuppgiftsmönster-kontroll
+    vault.py               # Valvet CRUD-tools (list/search/get/save/update/archive för användarens privata prompts)
+    admin_auth.py           # Supabase refresh-token-brygga för /admin (JWT-utbyte, cachning)
+    admin_catalog.py         # RPC-lager för admin-katalogförfattande (rate-limit, audit-loggning)
     hosted_guard.py        # Metadata-only-guard för hosted-läge
   scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
   skills.json              # Skill-katalog (21 skills, se README.md för aktuell lista av skill-id)
@@ -190,6 +193,7 @@ GET      /api/v1/vault/items/search
 GET/PATCH /api/v1/vault/items/{item_id}                     # PATCH: uppdatera (Pro-gated, optimistic locking)
 POST     /api/v1/vault/items/{item_id}/archive              # arkivera/aterstall (Pro-gated, confirm:true)
 GET      /openapi.json
+POST     /admin                                             # admin-katalogförfattande, fail-closed bakom PROMPTBANKEN_ADMIN_KEY
 ```
 Alla `/api/v1/*` stöder `X-MCP-Key` (fallback: `Authorization: Bearer`). Guard-allowlist för hosted-läge (`hosted_guard.py`) måste hållas i synk med tool-listan i `mcp_server.py` när nya tools läggs till.
 

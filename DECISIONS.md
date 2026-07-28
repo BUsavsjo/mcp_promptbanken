@@ -1,5 +1,14 @@
 # Beslut
 
+## Admin-MCP: JWT-brygga istället för ny nyckeltyp (2026-07-28)
+
+Katalogens write-RPC:er (`create_catalog_prompt` m.fl., 2026-07-21) är redan
+`auth.uid()`-gated för `platform_owner`. Istället för att bygga en parallell
+MCP-nyckelmodell för admin, håller `/admin`-routen Peters riktiga Supabase
+refresh_token som hemlighet och växlar in access-tokens per anrop --
+RLS/RPC:er förblir helt oförändrade. Se spec/plan-filerna för fullständig
+motivering.
+
 ## 2026-07-25 - publik `tools/list` utan nyckel ska bara visa den öppna katalogytan
 
 ### Beslut
