@@ -12,6 +12,9 @@ services:
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SUPABASE_MCP_ROLE_JWT: ${SUPABASE_MCP_ROLE_JWT:-}
+      PROMPTBANKEN_ADMIN_KEY: ${PROMPTBANKEN_ADMIN_KEY:-}
+      SUPABASE_ADMIN_REFRESH_TOKEN: ${SUPABASE_ADMIN_REFRESH_TOKEN:-}
+      ADMIN_REFRESH_TOKEN_STATE_PATH: /var/lib/promptbanken-mcp/admin_refresh_token_state.json
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
@@ -24,6 +27,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - admin-refresh-token-state:/var/lib/promptbanken-mcp
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -36,3 +41,6 @@ services:
       AUTOHEAL_CONTAINER_LABEL: all
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  admin-refresh-token-state:

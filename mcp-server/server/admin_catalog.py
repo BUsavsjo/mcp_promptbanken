@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from collections import deque
 from typing import Any
@@ -24,6 +25,7 @@ _ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 _RATE_LIMIT_MAX_CALLS = 30
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _recent_calls: deque[float] = deque()
+_rate_limit_lock = threading.Lock()
 
 
 class AdminRateLimitExceeded(Exception):
@@ -31,14 +33,15 @@ class AdminRateLimitExceeded(Exception):
 
 
 def _check_rate_limit() -> None:
-    now = time.monotonic()
-    while _recent_calls and now - _recent_calls[0] > _RATE_LIMIT_WINDOW_SECONDS:
-        _recent_calls.popleft()
-    if len(_recent_calls) >= _RATE_LIMIT_MAX_CALLS:
-        raise AdminRateLimitExceeded(
-            f"Fler än {_RATE_LIMIT_MAX_CALLS} admin-skrivningar på {_RATE_LIMIT_WINDOW_SECONDS}s -- vänta och försök igen."
-        )
-    _recent_calls.append(now)
+    with _rate_limit_lock:
+        now = time.monotonic()
+        while _recent_calls and now - _recent_calls[0] > _RATE_LIMIT_WINDOW_SECONDS:
+            _recent_calls.popleft()
+        if len(_recent_calls) >= _RATE_LIMIT_MAX_CALLS:
+            raise AdminRateLimitExceeded(
+                f"Fler än {_RATE_LIMIT_MAX_CALLS} admin-skrivningar på {_RATE_LIMIT_WINDOW_SECONDS}s -- vänta och försök igen."
+            )
+        _recent_calls.append(now)
 
 
 def _call_rpc(function_name: str, payload: dict[str, Any]) -> Any:
@@ -53,7 +56,12 @@ def _call_rpc(function_name: str, payload: dict[str, Any]) -> Any:
         json=payload,
         timeout=15,
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise httpx.HTTPStatusError(
+            f"{exc}: {response.text}", request=exc.request, response=exc.response
+        ) from exc
     if response.status_code == 204:
         return None
     return response.json()

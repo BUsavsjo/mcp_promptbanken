@@ -15,6 +15,7 @@ import uvicorn
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
@@ -2817,9 +2818,11 @@ async def _admin_streamable_http(request: Request) -> Response:
     if not all(isinstance(message, dict) for message in messages):
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
-    responses = [
-        response for message in messages if (response := _handle_admin_message(message)) is not None
-    ]
+    responses = []
+    for message in messages:
+        response = await run_in_threadpool(_handle_admin_message, message)
+        if response is not None:
+            responses.append(response)
     logger.info("admin_request status=%s batch=%s", 200 if responses else 202, is_batch)
     if not responses:
         return Response(status_code=202)
