@@ -76,7 +76,11 @@
         "admin_add_prompt_to_package",
         "admin_publish_package",
         "admin_unpublish_package",
-        "admin_delete_draft_package"
+        "admin_delete_draft_package",
+        "admin_list_prompt_history",
+        "admin_restore_prompt_version",
+        "admin_list_package_history",
+        "admin_restore_package_version"
       ]
     }
   },

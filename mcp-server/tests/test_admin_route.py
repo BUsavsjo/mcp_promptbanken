@@ -15,7 +15,7 @@ from server.mcp_server import (
 
 
 class AdminRouteTests(unittest.TestCase):
-    def test_admin_tool_definitions_are_exactly_the_twelve_admin_tools(self):
+    def test_admin_tool_definitions_are_exactly_the_sixteen_admin_tools(self):
         names = {tool["name"] for tool in _admin_tool_definitions()}
         self.assertEqual(
             names,
@@ -27,11 +27,15 @@ class AdminRouteTests(unittest.TestCase):
                 "admin_publish_prompt",
                 "admin_unpublish_prompt",
                 "admin_delete_draft_prompt",
+                "admin_list_prompt_history",
+                "admin_restore_prompt_version",
                 "admin_create_package",
                 "admin_add_prompt_to_package",
                 "admin_publish_package",
                 "admin_unpublish_package",
                 "admin_delete_draft_package",
+                "admin_list_package_history",
+                "admin_restore_package_version",
             },
         )
 
@@ -85,6 +89,98 @@ class AdminRouteTests(unittest.TestCase):
             }
         )
         self.assertEqual(response["error"]["code"], -32602)
+
+    @patch("server.mcp_server.admin_catalog.list_prompt_history")
+    def test_admin_list_prompt_history_dispatches_to_admin_catalog(self, list_prompt_history):
+        list_prompt_history.return_value = [{"history_id": 1, "table_name": "catalog_prompts"}]
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "admin_list_prompt_history", "arguments": {"prompt_id": "prompt-1"}},
+            }
+        )
+
+        list_prompt_history.assert_called_once_with("prompt-1")
+        self.assertNotIn("error", response)
+
+    def test_admin_restore_prompt_version_requires_confirm_argument(self):
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "admin_restore_prompt_version", "arguments": {"history_id": 1}},
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
+
+    @patch("server.mcp_server.admin_catalog.restore_prompt_version")
+    def test_admin_restore_prompt_version_dispatches_to_admin_catalog(self, restore_prompt_version):
+        restore_prompt_version.return_value = {"id": "prompt-1"}
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_restore_prompt_version",
+                    "arguments": {"history_id": 1, "confirm": True},
+                },
+            }
+        )
+
+        restore_prompt_version.assert_called_once_with(1, True)
+        self.assertNotIn("error", response)
+
+    @patch("server.mcp_server.admin_catalog.list_package_history")
+    def test_admin_list_package_history_dispatches_to_admin_catalog(self, list_package_history):
+        list_package_history.return_value = [{"history_id": 2, "table_name": "catalog_packages"}]
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "admin_list_package_history", "arguments": {"package_id": "package-1"}},
+            }
+        )
+
+        list_package_history.assert_called_once_with("package-1")
+        self.assertNotIn("error", response)
+
+    def test_admin_restore_package_version_requires_confirm_argument(self):
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "admin_restore_package_version", "arguments": {"history_id": 2}},
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
+
+    @patch("server.mcp_server.admin_catalog.restore_package_version")
+    def test_admin_restore_package_version_dispatches_to_admin_catalog(self, restore_package_version):
+        restore_package_version.return_value = {"id": "package-1"}
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_restore_package_version",
+                    "arguments": {"history_id": 2, "confirm": True},
+                },
+            }
+        )
+
+        restore_package_version.assert_called_once_with(2, True)
+        self.assertNotIn("error", response)
 
     def test_admin_tools_are_absent_from_public_and_key_authenticated_profiles(self):
         admin_names = {tool["name"] for tool in _admin_tool_definitions()}
