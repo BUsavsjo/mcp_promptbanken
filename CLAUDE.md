@@ -22,7 +22,6 @@ mcp-server/
     supabase_repository.py # Workspace-skills från Supabase (httpx, mcp_server-roll via RPC)
     pro_templates.py        # Pro-mallar + kontextstyrda privata/delade prompts via anon-beviljade RPC:er (httpx)
     risk_checker.py        # Personuppgiftsmönster-kontroll
-    vault.py               # Valvet CRUD-tools (list/search/get/save/update/archive för användarens privata prompts)
     admin_auth.py           # Supabase refresh-token-brygga för /admin (JWT-utbyte, cachning)
     admin_catalog.py         # RPC-lager för admin-katalogförfattande (rate-limit, audit-loggning)
     hosted_guard.py        # Metadata-only-guard för hosted-läge
