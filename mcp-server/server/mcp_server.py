@@ -2832,6 +2832,10 @@ async def _admin_streamable_http(request: Request) -> Response:
 async def _mcp_http_response(request: Request, tool_profile: str) -> Response:
     path = request.url.path
     if request.method == "GET":
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept and "text/event-stream" not in accept:
+            logger.info("http_request path=%s status=200 browser_navigation=true", path)
+            return HTMLResponse(_ROOT_INFO_HTML)
         logger.info("http_request path=%s method=GET status=405", path)
         return Response(status_code=405, headers={"Allow": "POST"})
     if request.method == "DELETE":
