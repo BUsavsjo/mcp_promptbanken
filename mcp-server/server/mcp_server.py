@@ -21,6 +21,8 @@ from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
+from . import admin_auth
+from . import admin_catalog
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -2567,6 +2569,263 @@ def _handle_mcp_message(
     return _json_rpc_error(request_id, -32601, "Method not found")
 
 
+def _admin_tool_definitions() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "admin_create_prompt",
+            "description": "Create a new draft catalog prompt (status='draft') with its 'generell' variant in one call. Returns the new prompt's id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "prompt_text": {"type": "string"},
+                },
+                "required": ["slug", "title", "summary", "prompt_text"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_upsert_prompt_variant",
+            "description": "Add or edit one context variant (generell/skola/kommun/foretag/forening/privat) of an existing prompt. Editing an already-published prompt goes through this same tool.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "prompt_id": {"type": "string"},
+                    "context_key": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "prompt_text": {"type": "string"},
+                    "risk_level": {"type": "string"},
+                    "area": {"type": "string"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "output_format": {"type": "string"},
+                    "parameter_schema": {"type": "object"},
+                    "default_bindings": {"type": "object"},
+                    "binding_overrides": {"type": "array"},
+                },
+                "required": ["prompt_id", "context_key", "title", "summary", "prompt_text"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_list_draft_prompts",
+            "description": "List all draft (unpublished) catalog prompts for review.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+        {
+            "name": "admin_get_prompt",
+            "description": "Fetch one catalog prompt (any status) with all its context variants, by id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"prompt_id": {"type": "string"}},
+                "required": ["prompt_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_publish_prompt",
+            "description": "Publish a draft prompt. Requires confirm=true. Rejected unless the generell variant exists and risk_level/area/tags/output_format are all set.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"prompt_id": {"type": "string"}, "confirm": {"type": "boolean"}},
+                "required": ["prompt_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_create_package",
+            "description": "Create a new draft catalog package.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "package_type": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "intro_text": {"type": "string"},
+                },
+                "required": ["slug", "package_type", "title", "summary"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_add_prompt_to_package",
+            "description": "Add an existing prompt to a draft package at a given sort position.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_id": {"type": "string"},
+                    "prompt_id": {"type": "string"},
+                    "sort_order": {"type": "integer"},
+                },
+                "required": ["package_id", "prompt_id", "sort_order"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_publish_package",
+            "description": "Publish a draft package. Requires confirm=true. Rejected unless the generell variant exists, it has at least one prompt, and every prompt in it is already published.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"package_id": {"type": "string"}, "confirm": {"type": "boolean"}},
+                "required": ["package_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+    ]
+
+
+def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
+    """Dispatch for the /admin route ONLY. Deliberately does not share any
+    code path with _handle_mcp_message (public/key_authenticated) or the
+    @mcp.tool()/FastMCP registry backing /sse -- see the 2026-07-27
+    render-contract spec for why a shared path is exactly the mistake being
+    avoided here."""
+    request_id = message.get("id")
+    method = message.get("method")
+    if method is None:
+        return None
+    if method == "initialize":
+        return _json_rpc_result(
+            request_id,
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "promptbanken-admin", "version": SERVICE_VERSION},
+            },
+        )
+    if method in {"notifications/initialized", "notifications/cancelled"}:
+        return None
+    if method == "ping":
+        return _json_rpc_result(request_id, {})
+    if method == "tools/list":
+        return _json_rpc_result(request_id, {"tools": _admin_tool_definitions()})
+    if method != "tools/call":
+        return _json_rpc_error(request_id, -32601, "Method not found")
+
+    params = message.get("params") if isinstance(message.get("params"), dict) else {}
+    tool_name = params.get("name")
+    arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+
+    try:
+        if tool_name == "admin_create_prompt":
+            for key in ("slug", "title", "summary", "prompt_text"):
+                if not isinstance(arguments.get(key), str) or not arguments.get(key):
+                    return _json_rpc_error(request_id, -32602, f"Invalid or missing '{key}'")
+            result = admin_catalog.create_prompt(
+                arguments["slug"], arguments["title"], arguments["summary"], arguments["prompt_text"]
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_upsert_prompt_variant":
+            for key in ("prompt_id", "context_key", "title", "summary", "prompt_text"):
+                if not isinstance(arguments.get(key), str) or not arguments.get(key):
+                    return _json_rpc_error(request_id, -32602, f"Invalid or missing '{key}'")
+            result = admin_catalog.upsert_prompt_variant(
+                arguments["prompt_id"],
+                arguments["context_key"],
+                arguments["title"],
+                arguments["summary"],
+                arguments["prompt_text"],
+                risk_level=arguments.get("risk_level"),
+                area=arguments.get("area"),
+                tags=arguments.get("tags"),
+                output_format=arguments.get("output_format"),
+                parameter_schema=arguments.get("parameter_schema"),
+                default_bindings=arguments.get("default_bindings"),
+                binding_overrides=arguments.get("binding_overrides"),
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_list_draft_prompts":
+            return _json_rpc_result(request_id, _mcp_content_result(admin_catalog.list_draft_prompts()))
+
+        if tool_name == "admin_get_prompt":
+            prompt_id = arguments.get("prompt_id")
+            if not isinstance(prompt_id, str) or not prompt_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'prompt_id'")
+            return _json_rpc_result(request_id, _mcp_content_result(admin_catalog.get_prompt(prompt_id)))
+
+        if tool_name == "admin_publish_prompt":
+            prompt_id = arguments.get("prompt_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(prompt_id, str) or not prompt_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'prompt_id'/'confirm'")
+            result = admin_catalog.publish_prompt(prompt_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_create_package":
+            for key in ("slug", "package_type", "title", "summary"):
+                if not isinstance(arguments.get(key), str) or not arguments.get(key):
+                    return _json_rpc_error(request_id, -32602, f"Invalid or missing '{key}'")
+            result = admin_catalog.create_package(
+                arguments["slug"],
+                arguments["package_type"],
+                arguments["title"],
+                arguments["summary"],
+                arguments.get("intro_text"),
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_add_prompt_to_package":
+            package_id = arguments.get("package_id")
+            prompt_id = arguments.get("prompt_id")
+            sort_order = arguments.get("sort_order")
+            if (
+                not isinstance(package_id, str) or not package_id
+                or not isinstance(prompt_id, str) or not prompt_id
+                or not isinstance(sort_order, int)
+            ):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing package_id/prompt_id/sort_order")
+            result = admin_catalog.add_prompt_to_package(package_id, prompt_id, sort_order)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_publish_package":
+            package_id = arguments.get("package_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(package_id, str) or not package_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'/'confirm'")
+            result = admin_catalog.publish_package(package_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        return _json_rpc_error(request_id, -32601, "Tool not found")
+    except ValueError as exc:
+        return _json_rpc_error(request_id, -32602, str(exc))
+    except admin_auth.AdminAuthNotConfigured as exc:
+        return _json_rpc_error(request_id, -32000, str(exc))
+    except admin_catalog.AdminRateLimitExceeded as exc:
+        return _json_rpc_error(request_id, -32000, str(exc))
+    except Exception as exc:
+        logger.error("admin_tool_call_failed tool=%s error=%s", tool_name, exc)
+        return _json_rpc_error(request_id, -32000, str(exc))
+
+
+async def _admin_streamable_http(request: Request) -> Response:
+    if request.method == "GET":
+        return Response(status_code=405, headers={"Allow": "POST"})
+    if request.method == "DELETE":
+        return Response(status_code=405, headers={"Allow": "POST"})
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_json_rpc_error(None, -32700, "Parse error"), status_code=400)
+
+    is_batch = isinstance(payload, list)
+    messages = payload if is_batch else [payload]
+    if not all(isinstance(message, dict) for message in messages):
+        return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
+
+    responses = [
+        response for message in messages if (response := _handle_admin_message(message)) is not None
+    ]
+    logger.info("admin_request status=%s batch=%s", 200 if responses else 202, is_batch)
+    if not responses:
+        return Response(status_code=202)
+    return JSONResponse(responses if is_batch else responses[0])
+
+
 async def _mcp_http_response(request: Request, tool_profile: str) -> Response:
     path = request.url.path
     if request.method == "GET":
@@ -2650,6 +2909,39 @@ class BearerAuthMiddleware:
                 response = JSONResponse({"detail": "Unauthorized"}, status_code=401)
                 await response(scope, receive, send)
                 return
+
+        await self.app(scope, receive, send)
+
+
+def _admin_api_key() -> str:
+    return os.getenv("PROMPTBANKEN_ADMIN_KEY", "")
+
+
+class AdminBearerAuthMiddleware:
+    """Fail-closed gate for /admin only. Unlike BearerAuthMiddleware (which
+    is optional and guards the WHOLE server), this one is mandatory: if
+    PROMPTBANKEN_ADMIN_KEY is unset, every request to /admin is rejected --
+    the server never falls back to an open admin surface. This is the only
+    thing standing between an arbitrary caller and platform-wide catalog
+    writes, since the route always authorizes internally as platform_owner
+    regardless of who's calling (see admin_auth)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") != "http" or scope.get("path") != "/admin":
+            await self.app(scope, receive, send)
+            return
+
+        token = _admin_api_key()
+        headers = dict(scope.get("headers") or [])
+        authorization = headers.get(b"authorization", b"").decode("utf-8")
+        if not token or not hmac.compare_digest(authorization, f"Bearer {token}"):
+            logger.warning("admin_auth_denied configured=%s", bool(token))
+            response = JSONResponse({"detail": "Unauthorized"}, status_code=401)
+            await response(scope, receive, send)
+            return
 
         await self.app(scope, receive, send)
 
@@ -2772,9 +3064,12 @@ async def run_sse_async() -> None:
             Route("/mcp/key", endpoint=_mcp_key_streamable_http, methods=["GET", "POST", "DELETE"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
+            Route("/admin", endpoint=_admin_streamable_http, methods=["GET", "POST", "DELETE"]),
         ],
     )
-    app = OriginValidationMiddleware(BearerAuthMiddleware(HostedMetadataGuardMiddleware(app)))
+    app = OriginValidationMiddleware(
+        AdminBearerAuthMiddleware(BearerAuthMiddleware(HostedMetadataGuardMiddleware(app)))
+    )
     logger.info(
         "http_server_start host=%s port=%s mode=%s hosted_guard=%s",
         mcp.settings.host,
