@@ -128,8 +128,8 @@ def upsert_prompt_variant(
             "p_tags": tags,
             "p_output_format": output_format,
             "p_parameter_schema": parameter_schema,
-            "p_default_bindings": default_bindings if default_bindings is not None else {},
-            "p_binding_overrides": binding_overrides if binding_overrides is not None else [],
+            "p_default_bindings": default_bindings,
+            "p_binding_overrides": binding_overrides,
         },
         target_id=prompt_id,
     )
