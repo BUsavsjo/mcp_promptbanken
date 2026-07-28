@@ -62,6 +62,18 @@
         "list_shared_workspace_prompts",
         "save_workspace_prompt"
       ]
+    },
+    "admin": {
+      "tools": [
+        "admin_create_prompt",
+        "admin_upsert_prompt_variant",
+        "admin_list_draft_prompts",
+        "admin_get_prompt",
+        "admin_publish_prompt",
+        "admin_create_package",
+        "admin_add_prompt_to_package",
+        "admin_publish_package"
+      ]
     }
   },
   "profiles": {
@@ -77,6 +89,11 @@
         {
           "tool": "list_my_items",
           "arguments": {},
+          "expectErrorCode": -32601
+        },
+        {
+          "tool": "admin_create_prompt",
+          "arguments": { "slug": "x", "title": "x", "summary": "x", "prompt_text": "x" },
           "expectErrorCode": -32601
         }
       ],
@@ -128,6 +145,12 @@
           "arguments": {},
           "expectIsError": true,
           "expectTextContains": "Unknown tool"
+        },
+        {
+          "tool": "admin_create_prompt",
+          "arguments": { "slug": "x", "title": "x", "summary": "x", "prompt_text": "x" },
+          "expectIsError": true,
+          "expectTextContains": "Unknown tool"
         }
       ],
       "healthCall": {
@@ -157,6 +180,18 @@
         "Authorization",
         "X-MCP-Key"
       ]
+    },
+    "admin": {
+      "endpoint": "/admin",
+      "groups": [
+        "admin"
+      ],
+      "auth": {
+        "type": "admin_bearer",
+        "keyEnv": "PROMPTBANKEN_ADMIN_TEST_KEY"
+      },
+      "skipIfMissingAuth": true,
+      "expectUnauthorizedWithoutAuth": true
     }
   }
 }
