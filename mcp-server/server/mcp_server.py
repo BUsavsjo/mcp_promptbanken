@@ -2901,6 +2901,36 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
             admin_catalog.delete_draft_package(package_id, confirm)
             return _json_rpc_result(request_id, _mcp_content_result({"status": "deleted", "package_id": package_id}))
 
+        if tool_name == "admin_list_prompt_history":
+            prompt_id = arguments.get("prompt_id")
+            if not isinstance(prompt_id, str) or not prompt_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'prompt_id'")
+            result = admin_catalog.list_prompt_history(prompt_id)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_restore_prompt_version":
+            history_id = arguments.get("history_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(history_id, int) or isinstance(history_id, bool) or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'history_id'/'confirm'")
+            result = admin_catalog.restore_prompt_version(history_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_list_package_history":
+            package_id = arguments.get("package_id")
+            if not isinstance(package_id, str) or not package_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'")
+            result = admin_catalog.list_package_history(package_id)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_restore_package_version":
+            history_id = arguments.get("history_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(history_id, int) or isinstance(history_id, bool) or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'history_id'/'confirm'")
+            result = admin_catalog.restore_package_version(history_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
         return _json_rpc_error(request_id, -32601, "Tool not found")
     except ValueError as exc:
         return _json_rpc_error(request_id, -32602, str(exc))
