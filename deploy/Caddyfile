@@ -48,6 +48,13 @@ mcp.promptbanken.se {
         reverse_proxy 127.0.0.1:8000
     }
 
+    handle /admin {
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8000
+    }
+
     handle /api/v1/* {
         reverse_proxy 127.0.0.1:8000
     }
