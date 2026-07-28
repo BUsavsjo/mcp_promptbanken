@@ -2715,6 +2715,46 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "admin_list_prompt_history",
+            "description": "List every recorded edit/delete for a prompt (its own row plus every context variant), newest first. Each entry's history_id is what admin_restore_prompt_version takes.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"prompt_id": {"type": "string"}},
+                "required": ["prompt_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_restore_prompt_version",
+            "description": "Restore one history entry (from admin_list_prompt_history) back into the live prompt or variant row. Requires confirm=true. If restoring a variant whose parent prompt was deleted, restore the prompt's own history entry first.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"history_id": {"type": "integer"}, "confirm": {"type": "boolean"}},
+                "required": ["history_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_list_package_history",
+            "description": "List every recorded edit/delete for a package (its own row plus every package-item link), newest first. Each entry's history_id is what admin_restore_package_version takes.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"package_id": {"type": "string"}},
+                "required": ["package_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_restore_package_version",
+            "description": "Restore one history entry (from admin_list_package_history) back into the live package or package-item row. Requires confirm=true. If restoring an item whose parent package was deleted, restore the package's own history entry first.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"history_id": {"type": "integer"}, "confirm": {"type": "boolean"}},
+                "required": ["history_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
