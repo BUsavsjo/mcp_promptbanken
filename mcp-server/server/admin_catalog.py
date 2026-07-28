@@ -157,6 +157,21 @@ def delete_draft_prompt(prompt_id: str, confirm: bool) -> None:
     )
 
 
+def list_prompt_history(prompt_id: str) -> list[dict[str, Any]]:
+    return _call_rpc("admin_list_prompt_history", {"p_prompt_id": prompt_id}) or []
+
+
+def restore_prompt_version(history_id: int, confirm: bool) -> dict[str, Any]:
+    if confirm is not True:
+        raise ValueError("confirm måste vara true för att återställa en version.")
+    return _write(
+        "admin_restore_prompt_version",
+        "admin_restore_prompt_version",
+        {"p_history_id": history_id, "p_confirm": confirm},
+        target_id=str(history_id),
+    )
+
+
 def list_draft_prompts() -> list[dict[str, Any]]:
     return _call_rpc("list_draft_catalog_prompts", {}) or []
 
@@ -212,4 +227,19 @@ def delete_draft_package(package_id: str, confirm: bool) -> None:
         "delete_draft_catalog_package",
         {"p_package_id": package_id},
         target_id=package_id,
+    )
+
+
+def list_package_history(package_id: str) -> list[dict[str, Any]]:
+    return _call_rpc("admin_list_package_history", {"p_package_id": package_id}) or []
+
+
+def restore_package_version(history_id: int, confirm: bool) -> dict[str, Any]:
+    if confirm is not True:
+        raise ValueError("confirm måste vara true för att återställa en version.")
+    return _write(
+        "admin_restore_package_version",
+        "admin_restore_package_version",
+        {"p_history_id": history_id, "p_confirm": confirm},
+        target_id=str(history_id),
     )
