@@ -15,7 +15,7 @@ from server.mcp_server import (
 
 
 class AdminRouteTests(unittest.TestCase):
-    def test_admin_tool_definitions_are_exactly_the_eight_admin_tools(self):
+    def test_admin_tool_definitions_are_exactly_the_twelve_admin_tools(self):
         names = {tool["name"] for tool in _admin_tool_definitions()}
         self.assertEqual(
             names,
@@ -25,9 +25,13 @@ class AdminRouteTests(unittest.TestCase):
                 "admin_list_draft_prompts",
                 "admin_get_prompt",
                 "admin_publish_prompt",
+                "admin_unpublish_prompt",
+                "admin_delete_draft_prompt",
                 "admin_create_package",
                 "admin_add_prompt_to_package",
                 "admin_publish_package",
+                "admin_unpublish_package",
+                "admin_delete_draft_package",
             },
         )
 

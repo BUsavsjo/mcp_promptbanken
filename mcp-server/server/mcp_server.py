@@ -2636,6 +2636,26 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "admin_unpublish_prompt",
+            "description": "Move a published prompt back to draft. Does not delete it.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"prompt_id": {"type": "string"}},
+                "required": ["prompt_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_delete_draft_prompt",
+            "description": "Permanently delete a draft prompt. Requires confirm=true. Rejected if the prompt is published (unpublish first) or still referenced by a package (remove it from the package first).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"prompt_id": {"type": "string"}, "confirm": {"type": "boolean"}},
+                "required": ["prompt_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "admin_create_package",
             "description": "Create a new draft catalog package.",
             "inputSchema": {
@@ -2668,6 +2688,26 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "admin_publish_package",
             "description": "Publish a draft package. Requires confirm=true. Rejected unless the generell variant exists, it has at least one prompt, and every prompt in it is already published.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"package_id": {"type": "string"}, "confirm": {"type": "boolean"}},
+                "required": ["package_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_unpublish_package",
+            "description": "Move a published package back to draft. Does not delete it or its member prompts.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"package_id": {"type": "string"}},
+                "required": ["package_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_delete_draft_package",
+            "description": "Permanently delete a draft package. Requires confirm=true. Rejected if the package is published (unpublish first). Member prompts are not deleted, only the package and its item links.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"package_id": {"type": "string"}, "confirm": {"type": "boolean"}},
@@ -2757,6 +2797,21 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
             result = admin_catalog.publish_prompt(prompt_id, confirm)
             return _json_rpc_result(request_id, _mcp_content_result(result))
 
+        if tool_name == "admin_unpublish_prompt":
+            prompt_id = arguments.get("prompt_id")
+            if not isinstance(prompt_id, str) or not prompt_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'prompt_id'")
+            result = admin_catalog.unpublish_prompt(prompt_id)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_delete_draft_prompt":
+            prompt_id = arguments.get("prompt_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(prompt_id, str) or not prompt_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'prompt_id'/'confirm'")
+            admin_catalog.delete_draft_prompt(prompt_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result({"status": "deleted", "prompt_id": prompt_id}))
+
         if tool_name == "admin_create_package":
             for key in ("slug", "package_type", "title", "summary"):
                 if not isinstance(arguments.get(key), str) or not arguments.get(key):
@@ -2790,6 +2845,21 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
                 return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'/'confirm'")
             result = admin_catalog.publish_package(package_id, confirm)
             return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_unpublish_package":
+            package_id = arguments.get("package_id")
+            if not isinstance(package_id, str) or not package_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'")
+            result = admin_catalog.unpublish_package(package_id)
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_delete_draft_package":
+            package_id = arguments.get("package_id")
+            confirm = arguments.get("confirm")
+            if not isinstance(package_id, str) or not package_id or not isinstance(confirm, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'/'confirm'")
+            admin_catalog.delete_draft_package(package_id, confirm)
+            return _json_rpc_result(request_id, _mcp_content_result({"status": "deleted", "package_id": package_id}))
 
         return _json_rpc_error(request_id, -32601, "Tool not found")
     except ValueError as exc:

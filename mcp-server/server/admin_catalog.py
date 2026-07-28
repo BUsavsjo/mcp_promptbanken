@@ -143,6 +143,20 @@ def publish_prompt(prompt_id: str, confirm: bool) -> dict[str, Any]:
     )
 
 
+def unpublish_prompt(prompt_id: str) -> dict[str, Any]:
+    return _write(
+        "admin_unpublish_prompt", "unpublish_catalog_prompt", {"p_prompt_id": prompt_id}, target_id=prompt_id
+    )
+
+
+def delete_draft_prompt(prompt_id: str, confirm: bool) -> None:
+    if confirm is not True:
+        raise ValueError("confirm måste vara true för att ta bort en prompt permanent.")
+    return _write(
+        "admin_delete_draft_prompt", "delete_draft_catalog_prompt", {"p_prompt_id": prompt_id}, target_id=prompt_id
+    )
+
+
 def list_draft_prompts() -> list[dict[str, Any]]:
     return _call_rpc("list_draft_catalog_prompts", {}) or []
 
@@ -181,4 +195,21 @@ def publish_package(package_id: str, confirm: bool) -> dict[str, Any]:
         raise ValueError("confirm måste vara true för att publicera ett paket.")
     return _write(
         "admin_publish_package", "publish_catalog_package", {"p_package_id": package_id}, target_id=package_id
+    )
+
+
+def unpublish_package(package_id: str) -> dict[str, Any]:
+    return _write(
+        "admin_unpublish_package", "unpublish_catalog_package", {"p_package_id": package_id}, target_id=package_id
+    )
+
+
+def delete_draft_package(package_id: str, confirm: bool) -> None:
+    if confirm is not True:
+        raise ValueError("confirm måste vara true för att ta bort ett paket permanent.")
+    return _write(
+        "admin_delete_draft_package",
+        "delete_draft_catalog_package",
+        {"p_package_id": package_id},
+        target_id=package_id,
     )

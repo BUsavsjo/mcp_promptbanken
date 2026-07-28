@@ -70,9 +70,13 @@
         "admin_list_draft_prompts",
         "admin_get_prompt",
         "admin_publish_prompt",
+        "admin_unpublish_prompt",
+        "admin_delete_draft_prompt",
         "admin_create_package",
         "admin_add_prompt_to_package",
-        "admin_publish_package"
+        "admin_publish_package",
+        "admin_unpublish_package",
+        "admin_delete_draft_package"
       ]
     }
   },
