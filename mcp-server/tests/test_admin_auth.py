@@ -1,4 +1,6 @@
 import sys
+import json
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -73,6 +75,37 @@ class AdminAuthTests(unittest.TestCase):
     def test_get_access_token_raises_when_not_configured(self):
         with self.assertRaises(admin_auth.AdminAuthNotConfigured):
             admin_auth.get_access_token()
+
+    @patch("server.admin_auth._REFRESH_TOKEN", "seed-from-env")
+    def test_load_refresh_token_prefers_disk_over_env(self):
+        # Create a temporary state file with a different token.
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".json"
+        ) as tmp:
+            json.dump({"refresh_token": "disk-token"}, tmp)
+            tmp_path = tmp.name
+
+        try:
+            with patch("server.admin_auth._STATE_PATH", Path(tmp_path)):
+                token = admin_auth._load_refresh_token()
+                self.assertEqual(token, "disk-token")
+        finally:
+            Path(tmp_path).unlink()
+
+    @patch("server.admin_auth._ANON_KEY", "test-anon-key")
+    @patch("server.admin_auth._SUPABASE_URL", "https://example.supabase.co")
+    @patch("server.admin_auth._REFRESH_TOKEN", "seed-refresh-token")
+    @patch("server.admin_auth._persist_refresh_token")
+    @patch("server.admin_auth.httpx.post")
+    def test_get_access_token_propagates_httpx_error(self, post, persist):
+        # Simulate httpx.post raising an error (e.g. connection failure).
+        post.side_effect = OSError("Connection failed")
+
+        with self.assertRaises(OSError) as ctx:
+            admin_auth.get_access_token()
+
+        self.assertEqual(str(ctx.exception), "Connection failed")
+        persist.assert_not_called()
 
 
 if __name__ == "__main__":

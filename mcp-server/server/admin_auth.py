@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,7 @@ _STATE_PATH = Path(
 _cached_access_token: str | None = None
 _cached_expires_at: float = 0.0
 _cached_refresh_token: str | None = None
+_lock = threading.Lock()
 
 
 class AdminAuthNotConfigured(Exception):
@@ -58,7 +61,12 @@ def _load_refresh_token() -> str:
 
 def _persist_refresh_token(refresh_token: str) -> None:
     try:
-        _STATE_PATH.write_text(json.dumps({"refresh_token": refresh_token}))
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=_STATE_PATH.parent, delete=False, suffix=".tmp"
+        ) as tmp:
+            tmp.write(json.dumps({"refresh_token": refresh_token}))
+            tmp_path = tmp.name
+        os.replace(tmp_path, _STATE_PATH)
     except OSError as exc:
         logger.error("admin_refresh_token_persist_failed error=%s", exc)
 
@@ -87,6 +95,7 @@ def get_access_token() -> str:
             "SUPABASE_ADMIN_REFRESH_TOKEN/SUPABASE_URL/SUPABASE_ANON_KEY måste vara satta."
         )
 
+    # First check outside the lock to avoid unnecessary lock contention.
     if _cached_refresh_token is None:
         _cached_refresh_token = _load_refresh_token()
 
@@ -94,11 +103,20 @@ def get_access_token() -> str:
     if _cached_access_token and now < _cached_expires_at - _EXPIRY_BUFFER_SECONDS:
         return _cached_access_token
 
-    payload = _exchange_refresh_token(_cached_refresh_token)
-    _cached_access_token = payload["access_token"]
-    _cached_expires_at = now + int(payload["expires_in"])
-    new_refresh_token = payload.get("refresh_token")
-    if new_refresh_token:
-        _cached_refresh_token = new_refresh_token
-        _persist_refresh_token(new_refresh_token)
-    return _cached_access_token
+    # Lock before checking again and doing the exchange to prevent concurrent
+    # exchanges with the same refresh token (Supabase rotates on every exchange).
+    with _lock:
+        # Re-check cache validity after acquiring lock; another thread may have
+        # refreshed while we were waiting.
+        now = time.monotonic()
+        if _cached_access_token and now < _cached_expires_at - _EXPIRY_BUFFER_SECONDS:
+            return _cached_access_token
+
+        payload = _exchange_refresh_token(_cached_refresh_token)
+        _cached_access_token = payload["access_token"]
+        _cached_expires_at = now + int(payload["expires_in"])
+        new_refresh_token = payload.get("refresh_token")
+        if new_refresh_token:
+            _cached_refresh_token = new_refresh_token
+            _persist_refresh_token(new_refresh_token)
+        return _cached_access_token
