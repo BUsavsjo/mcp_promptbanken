@@ -2776,7 +2776,7 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
             if (
                 not isinstance(package_id, str) or not package_id
                 or not isinstance(prompt_id, str) or not prompt_id
-                or not isinstance(sort_order, int)
+                or not isinstance(sort_order, int) or isinstance(sort_order, bool)
             ):
                 return _json_rpc_error(request_id, -32602, "Invalid or missing package_id/prompt_id/sort_order")
             result = admin_catalog.add_prompt_to_package(package_id, prompt_id, sort_order)
@@ -2924,7 +2924,17 @@ class AdminBearerAuthMiddleware:
     the server never falls back to an open admin surface. This is the only
     thing standing between an arbitrary caller and platform-wide catalog
     writes, since the route always authorizes internally as platform_owner
-    regardless of who's calling (see admin_auth)."""
+    regardless of who's calling (see admin_auth).
+
+    Deploy footgun: BearerAuthMiddleware only exempts {"/healthz", "/mcp"}
+    from the global PROMPTBANKEN_MCP_API_KEY check, so /admin still passes
+    through it. When that global key is set, a request to /admin must
+    satisfy BOTH BearerAuthMiddleware and this middleware against the SAME
+    Authorization header -- which only works if PROMPTBANKEN_ADMIN_KEY ==
+    PROMPTBANKEN_MCP_API_KEY. If they differ, /admin becomes unreachable
+    (401 from BearerAuthMiddleware before this middleware even runs, or vice
+    versa). Keep the two env vars in sync, or expect /admin to break, when
+    the global bearer key is configured."""
 
     def __init__(self, app: Any) -> None:
         self.app = app

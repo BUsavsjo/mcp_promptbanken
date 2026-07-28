@@ -6,7 +6,12 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from server.mcp_server import _handle_admin_message, _admin_tool_definitions
+from server.mcp_server import (
+    AdminBearerAuthMiddleware,
+    _admin_tool_definitions,
+    _handle_admin_message,
+    _tool_definitions_for_profile,
+)
 
 
 class AdminRouteTests(unittest.TestCase):
@@ -76,6 +81,46 @@ class AdminRouteTests(unittest.TestCase):
             }
         )
         self.assertEqual(response["error"]["code"], -32602)
+
+    def test_admin_tools_are_absent_from_public_and_key_authenticated_profiles(self):
+        admin_names = {tool["name"] for tool in _admin_tool_definitions()}
+        for profile in ("public", "key_authenticated"):
+            names = {tool["name"] for tool in _tool_definitions_for_profile(profile)}
+            self.assertTrue(
+                names.isdisjoint(admin_names),
+                f"admin tools leaked into profile={profile!r}: {names & admin_names}",
+            )
+
+
+class AdminBearerAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
+    @patch("server.mcp_server._admin_api_key", return_value="")
+    async def test_returns_401_when_admin_key_unset_regardless_of_authorization_header(self, _mock_key):
+        app_called = []
+
+        async def inner_app(scope, receive, send):
+            app_called.append(True)
+
+        scope = {
+            "type": "http",
+            "path": "/admin",
+            "headers": [(b"authorization", b"Bearer whatever")],
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        middleware = AdminBearerAuthMiddleware(inner_app)
+        await middleware(scope, receive, send)
+
+        self.assertEqual(app_called, [])
+        start_messages = [m for m in sent if m.get("type") == "http.response.start"]
+        self.assertEqual(len(start_messages), 1)
+        self.assertEqual(start_messages[0]["status"], 401)
 
 
 if __name__ == "__main__":
