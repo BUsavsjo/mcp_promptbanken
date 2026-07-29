@@ -168,7 +168,7 @@ def restore_prompt_version(history_id: int, confirm: bool) -> dict[str, Any]:
         "admin_restore_prompt_version",
         "admin_restore_prompt_version",
         {"p_history_id": history_id, "p_confirm": confirm},
-        target_id=str(history_id),
+        target_id=None,
     )
 
 
@@ -241,5 +241,5 @@ def restore_package_version(history_id: int, confirm: bool) -> dict[str, Any]:
         "admin_restore_package_version",
         "admin_restore_package_version",
         {"p_history_id": history_id, "p_confirm": confirm},
-        target_id=str(history_id),
+        target_id=None,
     )
