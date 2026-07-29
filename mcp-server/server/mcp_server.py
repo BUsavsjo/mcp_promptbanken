@@ -424,6 +424,7 @@ def _list_templates_payload(
                 event_type="prompt_list",
                 outcome="error",
                 context_keys=normalized_contexts,
+                metadata={"tool": "list_prompts"},
             )
         return {"status": "error", "message": str(exc), "templates": []}
 
@@ -441,6 +442,7 @@ def _list_templates_payload(
             outcome="empty" if not prompts else "success",
             context_keys=normalized_contexts,
             result_count=len(prompts),
+            metadata={"tool": "list_prompts"},
         )
     return payload
 
@@ -453,7 +455,10 @@ def _search_templates_payload(
     limit: int = 10,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    templates = _list_templates_payload(context_keys)["templates"]
+    catalog_payload = _list_templates_payload(context_keys)
+    if catalog_payload.get("status") == "error":
+        return catalog_payload
+    templates = catalog_payload["templates"]
 
     def _search_text(value: Any) -> str:
         if isinstance(value, list):
@@ -746,6 +751,7 @@ def _list_templates_with_usage(context_keys: list[str] | None = None) -> dict[st
             event_type="prompt_list",
             outcome="error",
             context_keys=normalized_contexts,
+            metadata={"tool": "list_prompts"},
         )
         return payload
 
@@ -755,6 +761,7 @@ def _list_templates_with_usage(context_keys: list[str] | None = None) -> dict[st
         outcome="empty" if not templates else "success",
         context_keys=normalized_contexts,
         result_count=len(templates),
+        metadata={"tool": "list_prompts"},
     )
     return payload
 

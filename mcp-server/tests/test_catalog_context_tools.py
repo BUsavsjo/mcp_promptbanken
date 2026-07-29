@@ -7,6 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.hosted_guard import HostedMetadataGuard
+from server.usage_events import _safe_metadata
 from server.mcp_server import (
     _handle_mcp_message,
     _catalog_prompt_to_template_summary,
@@ -151,6 +152,21 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(payload["total_matches"], 1)
         self.assertEqual(payload["templates"][0]["id"], "123")
+
+    def test_search_templates_propagates_catalog_error_payload(self) -> None:
+        catalog_error = {
+            "status": "error",
+            "message": "Katalogen ar inte konfigurerad.",
+            "templates": [],
+        }
+        with patch("server.mcp_server._list_templates_payload", return_value=catalog_error):
+            payload = _search_templates_payload(query="medborgarmejl")
+
+        self.assertEqual(payload, catalog_error)
+
+    def test_usage_metadata_accepts_closed_prompt_list_alias(self) -> None:
+        self.assertEqual(_safe_metadata({"tool": "list_prompts"}), {"tool": "list_prompts"})
+        self.assertEqual(_safe_metadata({"tool": "list_templates"}), {})
 
     def test_catalog_summary_uses_static_risk_and_output_metadata(self) -> None:
         with patch("server.mcp_server._static_skill_metadata") as mocked_metadata:
