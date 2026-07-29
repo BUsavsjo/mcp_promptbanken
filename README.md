@@ -44,7 +44,7 @@ Exempel på svar:
   "skills_count": 21,
   "catalog": "open",
   "plan": "public",
-  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på kommun.promptbanken.se."
+  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på app.promptbanken.se."
 }
 ```
 
