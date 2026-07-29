@@ -24,6 +24,7 @@ from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
 from . import admin_auth
 from . import admin_catalog
+from .usage_events import track_usage_event
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -410,11 +411,23 @@ def _catalog_package_to_payload(package: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _list_templates_payload(context_keys: list[str] | None = None) -> dict[str, Any]:
+def _list_templates_payload(
+    context_keys: list[str] | None = None, *, track_usage: bool = False
+) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
-    prompts = _catalog.list_published_prompts(context_keys=normalized_contexts)
-    area_index = _catalog_area_index(normalized_contexts)
-    return {
+    try:
+        prompts = _catalog.list_published_prompts(context_keys=normalized_contexts)
+        area_index = _catalog_area_index(normalized_contexts)
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="prompt_list",
+                outcome="error",
+                context_keys=normalized_contexts,
+            )
+        return {"status": "error", "message": str(exc), "templates": []}
+
+    payload = {
         "unlocked": True,
         **_variant_diagnostics(normalized_contexts, prompts),
         "templates": [
@@ -422,6 +435,14 @@ def _list_templates_payload(context_keys: list[str] | None = None) -> dict[str, 
             for prompt in prompts
         ],
     }
+    if track_usage:
+        track_usage_event(
+            event_type="prompt_list",
+            outcome="empty" if not prompts else "success",
+            context_keys=normalized_contexts,
+            result_count=len(prompts),
+        )
+    return payload
 
 
 def _search_templates_payload(
@@ -496,56 +517,170 @@ def _search_templates_payload(
 def _get_template_payload(
     template_id: str,
     context_keys: list[str] | None = None,
+    *,
+    track_usage: bool = False,
 ) -> dict[str, Any]:
-    prompts = _catalog.list_published_prompts(context_keys=_normalize_context_keys(context_keys))
+    normalized_contexts = _normalize_context_keys(context_keys)
+    try:
+        prompts = _catalog.list_published_prompts(context_keys=normalized_contexts)
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="prompt_get",
+                outcome="error",
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_prompt"},
+            )
+        return {"status": "error", "message": str(exc)}
     selected = next((prompt for prompt in prompts if str(prompt.get("id")) == template_id), None)
     if selected is None:
+        if track_usage:
+            track_usage_event(
+                event_type="prompt_get",
+                outcome="not_found",
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_prompt"},
+            )
         return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
-    variants = _catalog.get_published_prompt(
-        selected["slug"], context_keys=_normalize_context_keys(context_keys)
-    )
+    try:
+        variants = _catalog.get_published_prompt(selected["slug"], context_keys=normalized_contexts)
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="prompt_get",
+                outcome="error",
+                prompt_slug=selected.get("slug"),
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_prompt"},
+            )
+        return {"status": "error", "message": str(exc)}
     if not variants:
+        if track_usage:
+            track_usage_event(
+                event_type="prompt_get",
+                outcome="not_found",
+                prompt_slug=selected.get("slug"),
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_prompt"},
+            )
         return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
     for variant in variants:
         if str(variant.get("id")) == template_id:
             area_index = _catalog_area_index(context_keys)
-            return {
+            payload = {
                 "status": "success",
                 **_variant_diagnostics(context_keys, [variant]),
                 "template": _catalog_prompt_to_template(variant, area_index),
             }
+            if track_usage:
+                track_usage_event(
+                    event_type="prompt_get",
+                    prompt_slug=selected.get("slug"),
+                    context_keys=normalized_contexts,
+                    result_count=len(variants),
+                    metadata={"tool": "get_prompt"},
+                )
+            return payload
     for variant in variants:
         if variant.get("slug") == selected["slug"]:
             area_index = _catalog_area_index(context_keys)
-            return {
+            payload = {
                 "status": "success",
                 **_variant_diagnostics(context_keys, [variant]),
                 "template": _catalog_prompt_to_template(variant, area_index),
             }
+            if track_usage:
+                track_usage_event(
+                    event_type="prompt_get",
+                    prompt_slug=selected.get("slug"),
+                    context_keys=normalized_contexts,
+                    result_count=len(variants),
+                    metadata={"tool": "get_prompt"},
+                )
+            return payload
+    if track_usage:
+        track_usage_event(
+            event_type="prompt_get",
+            outcome="not_found",
+            prompt_slug=selected.get("slug"),
+            context_keys=normalized_contexts,
+            metadata={"tool": "get_prompt"},
+        )
     return {"status": "error", "message": f"Ingen mall hittades med id {template_id!r}."}
 
 
 def _list_packages_payload(
-    context_keys: list[str] | None = None, package_type: str | None = None
+    context_keys: list[str] | None = None,
+    package_type: str | None = None,
+    *,
+    track_usage: bool = False,
 ) -> dict[str, Any]:
-    packages = _catalog.list_published_packages(
-        context_keys=_normalize_context_keys(context_keys),
-        package_type=package_type,
-    )
+    normalized_contexts = _normalize_context_keys(context_keys)
+    try:
+        packages = _catalog.list_published_packages(
+            context_keys=normalized_contexts,
+            package_type=package_type,
+        )
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="package_list",
+                outcome="error",
+                context_keys=normalized_contexts,
+                metadata={"tool": "list_packages", "package_type": package_type},
+            )
+        return {"status": "error", "message": str(exc), "packages": []}
+
+    if track_usage:
+        track_usage_event(
+            event_type="package_list",
+            outcome="empty" if not packages else "success",
+            context_keys=normalized_contexts,
+            result_count=len(packages),
+            metadata={"tool": "list_packages", "package_type": package_type},
+        )
     return {"packages": [_catalog_package_to_payload(package) for package in packages]}
 
 
 def _get_package_payload(
     package_slug: str,
     context_keys: list[str] | None = None,
+    *,
+    track_usage: bool = False,
 ) -> dict[str, Any]:
-    variants = _catalog.get_published_package(
-        package_slug, context_keys=_normalize_context_keys(context_keys)
-    )
+    normalized_contexts = _normalize_context_keys(context_keys)
+    try:
+        variants = _catalog.get_published_package(package_slug, context_keys=normalized_contexts)
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="package_get",
+                outcome="error",
+                package_slug=package_slug,
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_package"},
+            )
+        return {"status": "error", "message": str(exc)}
     if not variants:
+        if track_usage:
+            track_usage_event(
+                event_type="package_get",
+                outcome="not_found",
+                package_slug=package_slug,
+                context_keys=normalized_contexts,
+                metadata={"tool": "get_package"},
+            )
         return {"status": "error", "message": f"Inget paket hittades med slug {package_slug!r}."}
+    if track_usage:
+        track_usage_event(
+            event_type="package_get",
+            package_slug=package_slug,
+            context_keys=normalized_contexts,
+            result_count=len(variants),
+            metadata={"tool": "get_package"},
+        )
     return {
         "status": "success",
         **_variant_diagnostics(context_keys, [variants[0]]),
@@ -557,18 +692,31 @@ def _get_package_payload(
 def _list_package_prompts_payload(
     package_slug: str,
     context_keys: list[str] | None = None,
+    *,
+    track_usage: bool = False,
 ) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
     selected_context = normalized_contexts[0] if normalized_contexts and normalized_contexts[0] != "generell" else None
-    prompts = _catalog.list_published_package_prompts(
-        package_slug, context_keys=normalized_contexts
-    )
+    try:
+        prompts = _catalog.list_published_package_prompts(
+            package_slug, context_keys=normalized_contexts
+        )
+    except _catalog.CatalogNotConfigured as exc:
+        if track_usage:
+            track_usage_event(
+                event_type="package_prompts_list",
+                outcome="error",
+                package_slug=package_slug,
+                context_keys=normalized_contexts,
+                metadata={"tool": "list_package_prompts"},
+            )
+        return {"status": "error", "message": str(exc), "prompts": []}
     area_index = {
         key: {"area": package_slug, "area_label": package_slug, "context_key": prompt.get("context_key") or selected_context}
         for prompt in prompts
         for key in filter(None, (_catalog_prompt_identifier(prompt), _catalog_prompt_slug(prompt)))
     }
-    return {
+    payload = {
         **_variant_diagnostics(normalized_contexts, prompts),
         "prompts": [_catalog_prompt_to_template(prompt, area_index) | {
             "sort_order": prompt.get("sort_order"),
@@ -578,6 +726,61 @@ def _list_package_prompts_payload(
             "prompt_slug": prompt.get("prompt_slug"),
         } for prompt in prompts],
     }
+    if track_usage:
+        track_usage_event(
+            event_type="package_prompts_list",
+            outcome="empty" if not prompts else "success",
+            package_slug=package_slug,
+            context_keys=normalized_contexts,
+            result_count=len(prompts),
+            metadata={"tool": "list_package_prompts"},
+        )
+    return payload
+
+
+def _list_templates_with_usage(context_keys: list[str] | None = None) -> dict[str, Any]:
+    normalized_contexts = _normalize_context_keys(context_keys)
+    payload = _list_templates_payload(context_keys)
+    if payload.get("status") == "error":
+        track_usage_event(
+            event_type="prompt_list",
+            outcome="error",
+            context_keys=normalized_contexts,
+        )
+        return payload
+
+    templates = payload.get("templates", [])
+    track_usage_event(
+        event_type="prompt_list",
+        outcome="empty" if not templates else "success",
+        context_keys=normalized_contexts,
+        result_count=len(templates),
+    )
+    return payload
+
+
+def _get_template_with_usage(
+    template_id: str, context_keys: list[str] | None = None
+) -> dict[str, Any]:
+    return _get_template_payload(template_id, context_keys, track_usage=True)
+
+
+def _list_packages_with_usage(
+    context_keys: list[str] | None = None, package_type: str | None = None
+) -> dict[str, Any]:
+    return _list_packages_payload(context_keys, package_type, track_usage=True)
+
+
+def _get_package_with_usage(
+    package_slug: str, context_keys: list[str] | None = None
+) -> dict[str, Any]:
+    return _get_package_payload(package_slug, context_keys, track_usage=True)
+
+
+def _list_package_prompts_with_usage(
+    package_slug: str, context_keys: list[str] | None = None
+) -> dict[str, Any]:
+    return _list_package_prompts_payload(package_slug, context_keys, track_usage=True)
 
 
 _WRITE_OUTCOME_PATTERNS = [
@@ -851,7 +1054,7 @@ def list_templates(context_keys: list[str] | None = None) -> dict[str, Any]:
     binding_overrides; the calling client fills these in and renders the
     final text itself."""
     logger.info("tool_call name=list_templates")
-    return _list_templates_payload(context_keys)
+    return _list_templates_with_usage(context_keys)
 
 
 @mcp.tool()
@@ -885,7 +1088,7 @@ def get_template(
     parameter_schema, default_bindings and binding_overrides; the client does
     all filling-in and rendering locally."""
     logger.info("tool_call name=get_template")
-    return _get_template_payload(template_id, context_keys)
+    return _get_template_with_usage(template_id, context_keys)
 
 
 @mcp.tool()
@@ -897,7 +1100,7 @@ def list_packages(
     raw intro_text plus parameter_schema, default_bindings and
     binding_overrides for the client to render itself."""
     logger.info("tool_call name=list_packages")
-    return _list_packages_payload(context_keys, package_type)
+    return _list_packages_with_usage(context_keys, package_type)
 
 
 @mcp.tool()
@@ -911,7 +1114,7 @@ def get_package(
     parameter_schema, default_bindings and binding_overrides; the client
     fills these in and renders the final text itself."""
     logger.info("tool_call name=get_package")
-    return _get_package_payload(package_slug, context_keys)
+    return _get_package_with_usage(package_slug, context_keys)
 
 
 @mcp.tool()
@@ -925,7 +1128,7 @@ def list_package_prompts(
     prompt_text, parameter_schema, default_bindings and binding_overrides;
     the client fills these in and renders the final text itself."""
     logger.info("tool_call name=list_package_prompts")
-    return _list_package_prompts_payload(package_slug, context_keys)
+    return _list_package_prompts_with_usage(package_slug, context_keys)
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -2399,7 +2602,7 @@ def _handle_mcp_message(
             context_keys = _optional_context_keys(arguments)
             if context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
-            return _json_rpc_result(request_id, _mcp_content_result(_list_templates_payload(context_keys)))
+            return _json_rpc_result(request_id, _mcp_content_result(_list_templates_with_usage(context_keys)))
         if tool_name == "search_templates":
             limit = arguments.get("limit", 10)
             context_keys = _optional_context_keys(arguments)
@@ -2416,7 +2619,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid get_template arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_get_template_payload(template_id, context_keys)),
+                _mcp_content_result(_get_template_with_usage(template_id, context_keys)),
             )
         if tool_name == "list_packages":
             context_keys = _optional_context_keys(arguments)
@@ -2425,7 +2628,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid list_packages arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_packages_payload(context_keys, package_type)),
+                _mcp_content_result(_list_packages_with_usage(context_keys, package_type)),
             )
         if tool_name == "get_package":
             package_slug = arguments.get("package_slug")
@@ -2434,7 +2637,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid get_package arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_get_package_payload(package_slug, context_keys)),
+                _mcp_content_result(_get_package_with_usage(package_slug, context_keys)),
             )
         if tool_name == "list_package_prompts":
             package_slug = arguments.get("package_slug")
@@ -2443,7 +2646,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_package_prompts_payload(package_slug, context_keys)),
+                _mcp_content_result(_list_package_prompts_with_usage(package_slug, context_keys)),
             )
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
