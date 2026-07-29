@@ -16,7 +16,7 @@ SUPABASE_KEY = (
 
 _ALLOWED_CONTEXT_KEYS = frozenset({"generell", "kommun", "skola", "företag", "förening", "privat"})
 _ALLOWED_TOOL_METADATA = frozenset(
-    {"list_prompts", "get_prompt", "list_packages", "get_package", "list_package_prompts"}
+    {"list_prompts", "search_prompts", "get_prompt", "list_packages", "get_package", "list_package_prompts"}
 )
 _ALLOWED_PACKAGE_TYPES = frozenset({"collection", "workflow"})
 _SAFE_SLUG = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")

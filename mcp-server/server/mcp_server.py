@@ -519,6 +519,36 @@ def _search_templates_payload(
     return payload
 
 
+def _search_templates_with_usage(
+    query: str = "",
+    role: str = "",
+    area: str = "",
+    risk_level: str = "",
+    limit: int = 10,
+    context_keys: list[str] | None = None,
+) -> dict[str, Any]:
+    normalized_contexts = _normalize_context_keys(context_keys)
+    payload = _search_templates_payload(query, role, area, risk_level, limit, context_keys)
+    if payload.get("status") == "error":
+        track_usage_event(
+            event_type="search",
+            outcome="error",
+            context_keys=normalized_contexts,
+            metadata={"tool": "search_prompts"},
+        )
+        return payload
+
+    result_count = payload.get("total_matches")
+    track_usage_event(
+        event_type="search",
+        outcome="empty" if result_count == 0 else "success",
+        context_keys=normalized_contexts,
+        result_count=result_count if isinstance(result_count, int) else None,
+        metadata={"tool": "search_prompts"},
+    )
+    return payload
+
+
 def _get_template_payload(
     template_id: str,
     context_keys: list[str] | None = None,
@@ -543,6 +573,7 @@ def _get_template_payload(
             track_usage_event(
                 event_type="prompt_get",
                 outcome="not_found",
+                prompt_slug=template_id,
                 context_keys=normalized_contexts,
                 metadata={"tool": "get_prompt"},
             )
@@ -1080,7 +1111,7 @@ def search_templates(
     areas. context_keys can combine profile variants. Returns lightweight summaries -- no prompt_text -- so use
     get_template(id) on a chosen result to fetch the full prompt."""
     logger.info("tool_call name=search_templates")
-    return _search_templates_payload(query, role, area, risk_level, limit, context_keys)
+    return _search_templates_with_usage(query, role, area, risk_level, limit, context_keys)
 
 
 @mcp.tool()
@@ -2615,7 +2646,7 @@ def _handle_mcp_message(
             context_keys = _optional_context_keys(arguments)
             if not isinstance(limit, int) or context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid search_templates arguments")
-            return _json_rpc_result(request_id, _mcp_content_result(_search_templates_payload(
+            return _json_rpc_result(request_id, _mcp_content_result(_search_templates_with_usage(
                 arguments.get("query", ""), arguments.get("role", ""),
                 arguments.get("area", ""), arguments.get("risk_level", ""), limit, context_keys,
             )))

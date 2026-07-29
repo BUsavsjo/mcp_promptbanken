@@ -16,6 +16,7 @@ from server.mcp_server import (
     _list_package_prompts_payload,
     _list_templates_payload,
     _search_templates_payload,
+    _search_templates_with_usage,
     _tool_definitions,
     repository,
 )
@@ -166,7 +167,79 @@ class CatalogContextToolsTests(unittest.TestCase):
 
     def test_usage_metadata_accepts_closed_prompt_list_alias(self) -> None:
         self.assertEqual(_safe_metadata({"tool": "list_prompts"}), {"tool": "list_prompts"})
+        self.assertEqual(_safe_metadata({"tool": "search_prompts"}), {"tool": "search_prompts"})
         self.assertEqual(_safe_metadata({"tool": "list_templates"}), {})
+
+    def test_json_rpc_search_templates_tracks_anonymous_usage(self) -> None:
+        with (
+            patch("server.mcp_server._search_templates_payload") as mocked_payload,
+            patch("server.mcp_server.track_usage_event") as mocked_usage,
+        ):
+            mocked_payload.return_value = {
+                "total_matches": 0,
+                "returned": 0,
+                "templates": [],
+            }
+
+            response = _handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search_templates",
+                        "arguments": {"query": "okand", "context_keys": ["kommun"]},
+                    },
+                },
+                "",
+            )
+
+        self.assertIn("result", response)
+        mocked_payload.assert_called_once_with("okand", "", "", "", 10, ["kommun"])
+        mocked_usage.assert_called_once_with(
+            event_type="search",
+            outcome="empty",
+            context_keys=["kommun"],
+            result_count=0,
+            metadata={"tool": "search_prompts"},
+        )
+
+    def test_search_templates_with_usage_tracks_catalog_errors(self) -> None:
+        with (
+            patch("server.mcp_server._search_templates_payload") as mocked_payload,
+            patch("server.mcp_server.track_usage_event") as mocked_usage,
+        ):
+            mocked_payload.return_value = {
+                "status": "error",
+                "message": "Katalogen ar inte konfigurerad.",
+                "templates": [],
+            }
+
+            payload = _search_templates_with_usage(query="mejl", context_keys=["skola"])
+
+        self.assertEqual(payload["status"], "error")
+        mocked_usage.assert_called_once_with(
+            event_type="search",
+            outcome="error",
+            context_keys=["skola"],
+            metadata={"tool": "search_prompts"},
+        )
+
+    def test_get_template_not_found_usage_keeps_attempted_slug(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts", return_value=[]),
+            patch("server.mcp_server.track_usage_event") as mocked_usage,
+        ):
+            payload = _get_template_payload("okand-slug", ["kommun"], track_usage=True)
+
+        self.assertEqual(payload["status"], "error")
+        mocked_usage.assert_called_once_with(
+            event_type="prompt_get",
+            outcome="not_found",
+            prompt_slug="okand-slug",
+            context_keys=["kommun"],
+            metadata={"tool": "get_prompt"},
+        )
 
     def test_catalog_summary_uses_static_risk_and_output_metadata(self) -> None:
         with patch("server.mcp_server._static_skill_metadata") as mocked_metadata:
