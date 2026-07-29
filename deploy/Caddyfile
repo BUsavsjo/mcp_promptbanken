@@ -82,3 +82,10 @@ mcp.promptbanken.se {
         }
     }
 }
+
+# kommun.promptbanken.se is being retired in favor of app.promptbanken.se
+# (GitHub Pages). DNS for kommun now points here (A record) instead of
+# GitHub Pages so this permanent redirect can cover every path/legacy link.
+kommun.promptbanken.se {
+    redir https://app.promptbanken.se{uri} permanent
+}
