@@ -76,7 +76,6 @@ Om prompten har ett nytt svarformat, lägg till en ny schema-nyckel där. Schema
 
 Uppdatera `README.md` när en prompt läggs till:
 
-- ändra `skills_count` i exempel om antalet skills ändras
 - lägg till nytt `skill-id` under `Nuvarande skill-id`
 
 ## Validering
@@ -130,7 +129,6 @@ Om `skills.json` pekar på en ny promptfil men filen inte committas kan `get_ski
 
 - `skills.json` pekar på en promptfil som inte finns eller inte är committad
 - ny `output_type` saknar schema
-- README visar fel `skills_count`
 - prompten saknar säker hantering av inklistrat underlag
 - prompten skriver om text fast uppdraget är granskning, analys eller strukturering
 - risknivå, anonymisering eller riskmeddelande är för svagt för användningsområdet

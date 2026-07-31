@@ -39,14 +39,20 @@ Exempel på svar:
 {
   "status": "ok",
   "service": "promptbanken-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "mode": "hosted",
-  "skills_count": 21,
   "catalog": "open",
   "plan": "public",
-  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på app.promptbanken.se."
+  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på app.promptbanken.se.",
+  "catalog_prompt_count": 66
 }
 ```
+
+`catalog_prompt_count` är antalet publicerade mallar i den öppna katalogen
+(samma data som `list_templates` returnerar), cachat 5 minuter server-side —
+inte antalet legacy-`skills.json`-poster (de ligger i `legacyAuthenticated`
+och är onåbara för ett publikt `/mcp`-anrop). Fältet utelämnas helt om
+katalogen inte går att nå och ingen cachad siffra finns.
 
 ## Workspace-skills från Supabase
 

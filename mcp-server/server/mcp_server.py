@@ -219,6 +219,32 @@ _CATALOG_AREA_CACHE_TTL_SECONDS = 60
 _catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
 _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 
+_CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
+_catalog_prompt_count_cache: tuple[float, int] | None = None
+
+
+def _open_catalog_prompt_count() -> int | None:
+    """Antal publicerade mallar i den öppna katalogen (list_templates), cachat 5 min.
+
+    Detta är storleken en anonym /mcp-anropare faktiskt kan nå — inte
+    legacy-skills-antalet, som ligger i legacyAuthenticated och är onåbart
+    för publika anrop. Returnerar None (fältet utelämnas) om katalogen inte
+    kan nås och ingen cachad siffra finns, hellre än att krascha health_check.
+    """
+    global _catalog_prompt_count_cache
+    now = time.monotonic()
+    if _catalog_prompt_count_cache and now - _catalog_prompt_count_cache[0] < _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS:
+        return _catalog_prompt_count_cache[1]
+
+    try:
+        count = len(_catalog.list_published_prompts())
+    except Exception:  # noqa: BLE001 - health_check får aldrig krascha på detta
+        logger.warning("open_catalog_prompt_count_failed", exc_info=True)
+        return _catalog_prompt_count_cache[1] if _catalog_prompt_count_cache else None
+
+    _catalog_prompt_count_cache = (now, count)
+    return count
+
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
     if not context_keys:
@@ -1464,16 +1490,19 @@ def _health_check_state(mcp_key: str) -> str:
 
 def _health_check_payload(mcp_key: str = "") -> dict[str, Any]:
     state = _HEALTH_CHECK_STATES[_health_check_state(mcp_key)]
-    return {
+    payload = {
         "status": "ok",
         "service": "promptbanken-mcp",
         "version": SERVICE_VERSION,
         "mode": SERVER_MODE,
-        "skills_count": len(repository.list_skills()),
         "catalog": state["catalog"],
         "plan": state["plan"],
         "message": state["message"],
     }
+    catalog_count = _open_catalog_prompt_count()
+    if catalog_count is not None:
+        payload["catalog_prompt_count"] = catalog_count
+    return payload
 
 
 @mcp.tool()
