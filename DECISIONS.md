@@ -1,5 +1,55 @@
 # Beslut
 
+## 2026-07-31 - Endpoint-strategi inför ChatGPT-publicering: /mcp fryses, Valvet växer via valfri OAuth på samma endpoint
+
+### Beslut
+`/mcp` publiceras som den öppna ChatGPT-connectorn och behandlas därefter som
+ett fruset publikt kontrakt. När Valvet senare ska nå ChatGPT-användare sker
+det genom att lägga *valfri* OAuth på samma `/mcp`-endpoint (anonyma anrop
+fortsätter få exakt de nio katalogverktygen, inloggade får Valvet-verktygen
+därtill) — inte genom en ny endpoint som `/mcp/vault`. `/mcp/key`
+(header-nyckel) förblir spåret för API-klienter (Claude Code, egna
+integrationer); OAuth blir ChatGPT-spåret. Endpoints delas per auth-modell
+(anonym / nyckel / admin), aldrig per feature.
+
+Tre hårda regler följer av detta:
+1. `/mcp` får aldrig göras auth-krävande — den dagen anonyma anrop 401:as
+   dör varje publicerad ChatGPT-installation samtidigt.
+2. De nio publika verktygens namn och inputscheman är frysta efter
+   publicering. Nya verktyg får läggas till (append-only); befintliga får
+   aldrig döpas om eller ändras breaking. (`list_pro_templates` →
+   `list_templates` hann göras före publicering; efter publicering hade
+   samma byte varit en incident.)
+3. `/mcp/key` eller `/sse` publiceras aldrig som ChatGPT-URL — `/sse` är
+   legacy, `/mcp/key` är fel auth-modell för den öppna katalogen.
+
+### Skäl
+Peters mål är att publicera den öppna katalogen i ChatGPT nu och lansera
+Valvet mot samma användarbas senare, utan att någonsin klippa av befintliga
+kunder. MCP-specen är byggd för valfri auth per anrop, och servern gör redan
+mönstret "olika verktygslistor per auth-kontext" (`/mcp` vs `/mcp/key`), så
+tillväxtvägen är att lägga OAuth-flödet bredvid — inte att bygga om.
+Publicerade ChatGPT-appar kräver dessutom OAuth för användarinloggning
+(anpassade headers som `X-MCP-Key` stöds inte i publicerade connectors),
+vilket gör OAuth-på-`/mcp` till den enda framkomliga ChatGPT-vägen för
+Valvet oavsett.
+
+Feature-uppdelade endpoints förkastades aktivt: två connector-configs per
+betalande användare är sämre UX utan säkerhetsvinst — auktoriseringen sitter
+redan i RPC-lagret (nyckelhash → plan → kvot), inte i endpoint-pathen.
+`tools/list` är UX, inte auktorisering; det är därför kontraktstestet har
+`blockedCalls`.
+
+### Konsekvens
+`mcp-contract.json`:s public-grupp blir append-only-listan och
+kontraktstestet är vakten: larmar om ett publikt verktyg försvinner, byter
+namn eller ändrar metadata. Framtida granularitet (t.ex. en
+Förvaltnings-nyckel med läsrätt på katalogen men utan Valvet-skrivrätt)
+löses med finare scopes i `api_keys.scopes` (`['mcp:read']`,
+`['mcp:vault']`) på befintliga endpoints — schemafältet finns redan,
+servern kollar bara inte scopes per verktyg än. När MCP-specens
+OAuth-stöd tas i bruk byts nyckelmodellen, inte endpoint-strukturen.
+
 ## Admin-MCP: JWT-brygga istället för ny nyckeltyp (2026-07-28)
 
 Katalogens write-RPC:er (`create_catalog_prompt` m.fl., 2026-07-21) är redan
