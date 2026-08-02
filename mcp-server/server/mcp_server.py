@@ -415,6 +415,7 @@ def _catalog_prompt_to_template(
         "parameter_schema": prompt.get("parameter_schema"),
         "default_bindings": prompt.get("default_bindings"),
         "binding_overrides": prompt.get("binding_overrides"),
+        "security_examples": prompt.get("security_examples") or [],
     }
 
 
