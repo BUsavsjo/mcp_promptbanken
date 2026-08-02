@@ -113,6 +113,7 @@ def upsert_prompt_variant(
     parameter_schema: dict[str, Any] | None = None,
     default_bindings: dict[str, Any] | None = None,
     binding_overrides: list[Any] | None = None,
+    security_examples: list[str] | None = None,
 ) -> dict[str, Any]:
     return _write(
         "admin_upsert_prompt_variant",
@@ -130,6 +131,7 @@ def upsert_prompt_variant(
             "p_parameter_schema": parameter_schema,
             "p_default_bindings": default_bindings,
             "p_binding_overrides": binding_overrides,
+            "p_security_examples": security_examples,
         },
         target_id=prompt_id,
     )
