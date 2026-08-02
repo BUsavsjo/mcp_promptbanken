@@ -2884,6 +2884,8 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
                         "items": {"type": "string"},
                         "description": "GDPR-anonymiseringsexempel/varningar specifika för denna prompt.",
                     },
+                    "audience_label": {"type": "string"},
+                    "tone_hint": {"type": "string"},
                 },
                 "required": ["prompt_id", "context_key", "title", "summary", "prompt_text"],
                 "additionalProperties": False,
@@ -3097,6 +3099,8 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
                 default_bindings=arguments.get("default_bindings"),
                 binding_overrides=arguments.get("binding_overrides"),
                 security_examples=arguments.get("security_examples"),
+                audience_label=arguments.get("audience_label"),
+                tone_hint=arguments.get("tone_hint"),
             )
             return _json_rpc_result(request_id, _mcp_content_result(result))
 

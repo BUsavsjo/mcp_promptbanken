@@ -114,6 +114,8 @@ def upsert_prompt_variant(
     default_bindings: dict[str, Any] | None = None,
     binding_overrides: list[Any] | None = None,
     security_examples: list[str] | None = None,
+    audience_label: str | None = None,
+    tone_hint: str | None = None,
 ) -> dict[str, Any]:
     return _write(
         "admin_upsert_prompt_variant",
@@ -132,6 +134,8 @@ def upsert_prompt_variant(
             "p_default_bindings": default_bindings,
             "p_binding_overrides": binding_overrides,
             "p_security_examples": security_examples,
+            "p_audience_label": audience_label,
+            "p_tone_hint": tone_hint,
         },
         target_id=prompt_id,
     )
