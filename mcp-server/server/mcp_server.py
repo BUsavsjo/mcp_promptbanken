@@ -1073,7 +1073,10 @@ def _copy_template_to_valvet_payload(mcp_key: str, template_id: str, confirm: bo
 
 
 def _recommend_packages_payload(role: str) -> dict[str, Any]:
-    templates = _fetch_pro_templates("")
+    context_keys = _normalize_context_keys(None)
+    prompts = _catalog.list_published_prompts(context_keys=context_keys)
+    area_index = _catalog_area_index(context_keys)
+    templates = [_catalog_prompt_to_template_summary(p, area_index=area_index) for p in prompts]
     return _recommend_packages(role, templates)
 
 
