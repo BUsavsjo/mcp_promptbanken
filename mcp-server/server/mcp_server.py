@@ -1282,7 +1282,9 @@ if SERVER_MODE != "hosted":
         """List only the caller's own saved prompts from their Promptbanken workspace
         (not the public standard templates or Pro premium templates). Requires a valid
         MCP key; without one, or with an invalid/revoked key, returns an empty list and
-        an explanatory workspace_status/workspace_message."""
+        an explanatory workspace_status/workspace_message. This is where items saved via
+        save_workspace_prompt show up -- NOT list_my_items (Valvet, a separate store) and
+        NOT list_my_private_prompts (a separate Pro private-prompt library)."""
         logger.info("tool_call name=list_my_prompts")
         return _my_prompts_payload()
 
@@ -1361,7 +1363,9 @@ if SERVER_MODE != "hosted":
     def list_my_private_prompts() -> dict[str, Any]:
         """List the caller's own private Pro prompts (personal workspace). Requires
         a valid MCP key; never returns other members' private prompts or
-        organization prompts."""
+        organization prompts. Separate store from list_my_prompts
+        (save_workspace_prompt) and list_my_items/Valvet -- items saved via those
+        tools do not appear here."""
         logger.info("tool_call name=list_my_private_prompts")
         return _my_private_prompts_payload()
 
@@ -1387,8 +1391,10 @@ if SERVER_MODE != "hosted":
 if SERVER_MODE != "hosted":
     @mcp.tool()
     def list_my_items(type: str | None = None, category: str | None = None, status: str | None = None) -> dict[str, Any]:
-        """List the caller's own Valvet items (personal prompt/assistant vault).
-        All items are private to the owning key regardless of status. Excludes
+        """List the caller's own Valvet items (personal prompt/assistant vault) --
+        items saved via save_my_item. Separate store from save_workspace_prompt
+        (see list_my_prompts) and list_my_private_prompts; those items never appear
+        here. All items are private to the owning key regardless of status. Excludes
         archived items unless status='archived' is passed explicitly."""
         logger.info("tool_call name=list_my_items")
         return _list_my_items_payload(type_=type, category=category, status=status)
@@ -1397,8 +1403,9 @@ if SERVER_MODE != "hosted":
 if SERVER_MODE != "hosted":
     @mcp.tool()
     def search_my_items(query: str, type: str | None = None, category: str | None = None) -> dict[str, Any]:
-        """Search the caller's own Valvet items by title/content/category. Never
-        returns archived items."""
+        """Search the caller's own Valvet items by title/content/category (items
+        saved via save_my_item only -- never searches list_my_prompts/
+        list_my_private_prompts). Never returns archived items."""
         logger.info("tool_call name=search_my_items")
         return _search_my_items_payload(query=query, type_=type, category=category)
 
@@ -2308,7 +2315,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "name": "list_my_prompts",
             "description": (
                 "List only the caller's own saved prompts from their Promptbanken workspace "
-                "(not the public standard templates or Pro premium templates). Requires a valid MCP key."
+                "(not the public standard templates or Pro premium templates). Requires a valid MCP key. "
+                "This is where items saved via save_workspace_prompt show up -- NOT list_my_items "
+                "(that's Valvet, a separate store) and NOT list_my_private_prompts (a separate Pro "
+                "private-prompt library)."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
@@ -2316,7 +2326,9 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "name": "list_my_private_prompts",
             "description": (
                 "List the caller's own private Pro prompts (personal workspace). Requires a valid "
-                "MCP key; never returns other members' private prompts or organization prompts."
+                "MCP key; never returns other members' private prompts or organization prompts. "
+                "This is a separate store from both list_my_prompts (save_workspace_prompt) and "
+                "list_my_items/Valvet -- items saved via those tools do not appear here."
             ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
@@ -2344,8 +2356,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "list_my_items",
             "description": (
-                "List the caller's own Valvet items (personal prompt/assistant vault). "
-                "All items are private to the owning key regardless of status. "
+                "List the caller's own Valvet items (personal prompt/assistant vault) -- items "
+                "saved via save_my_item. This is a separate store from save_workspace_prompt "
+                "(see list_my_prompts) and from list_my_private_prompts; those items never "
+                "appear here. All items are private to the owning key regardless of status. "
                 "Excludes archived items unless status='archived' is passed explicitly."
             ),
             "inputSchema": {
@@ -2368,7 +2382,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         },
         {
             "name": "search_my_items",
-            "description": "Search the caller's own Valvet items by title/content/category.",
+            "description": (
+                "Search the caller's own Valvet items by title/content/category (items saved "
+                "via save_my_item only -- never searches list_my_prompts/list_my_private_prompts)."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2394,8 +2411,16 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "name": "save_workspace_prompt",
             "description": (
                 "Save a generalised, already GDPR-checked template into the caller's "
-                "personal Pro workspace. Requires a Pro key. See the tool description "
-                "for the required approval + risk-check flow."
+                "personal Pro workspace -- retrieve it afterwards with list_my_prompts "
+                "(NOT list_my_items/get_my_item, which are Valvet, a separate store; and "
+                "NOT list_my_private_prompts, a separate Pro private-prompt library). "
+                "Requires a Pro key. Generalise the content (remove names/personal "
+                "numbers/org-specific details) and run check_input_risk on it BEFORE "
+                "calling this tool; show the proposal to the user and wait for explicit "
+                "approval; only then set risk_check_passed=true -- calls with "
+                "risk_check_passed=false are rejected. idempotency_key must be a "
+                "client-generated UUID (per approval) so a retry after a timeout never "
+                "creates a duplicate."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2414,10 +2439,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "save_my_item",
             "description": (
-                "Save a new item to the caller's Valvet (personal prompt/assistant vault). "
-                "Requires idempotency_key. Free keys: max 5 saves/calendar month. "
-                "The item is fully saved and private to the caller immediately -- "
-                "status='draft' only describes editing state, not save state or visibility."
+                "Save a new item to the caller's Valvet (personal prompt/assistant vault) -- "
+                "retrieve it afterwards with list_my_items/get_my_item (NOT list_my_prompts "
+                "or list_my_private_prompts, which are separate Promptbanken workspace stores). "
+                "Requires idempotency_key, which must be a client-generated UUID (not any "
+                "string) so a retried call never creates a duplicate. Free keys: max 5 "
+                "saves/calendar month. The item is fully saved and private to the caller "
+                "immediately -- status='draft' only describes editing state, not save state "
+                "or visibility."
             ),
             "inputSchema": {
                 "type": "object",
@@ -3550,13 +3579,16 @@ if SERVER_MODE != "hosted":
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Save a generalised, already GDPR-checked template into the caller's
-        personal Pro workspace. IMPORTANT for the calling model: generalise the
-        content (remove names/personal numbers/org-specific details) and run
-        check_input_risk on the generated template BEFORE calling this tool. Show
-        the proposal to the user and wait for explicit approval before calling.
-        Set risk_check_passed=true only after the approved check -- calls with
-        risk_check_passed=false are rejected. Generate your own idempotency_key
-        (UUID) per approval so a retry after a timeout never creates a duplicate.
+        personal Pro workspace -- retrieve it afterwards with list_my_prompts (NOT
+        list_my_items/get_my_item, which are Valvet, a separate store; and NOT
+        list_my_private_prompts, a separate Pro private-prompt library). IMPORTANT
+        for the calling model: generalise the content (remove names/personal
+        numbers/org-specific details) and run check_input_risk on the generated
+        template BEFORE calling this tool. Show the proposal to the user and wait
+        for explicit approval before calling. Set risk_check_passed=true only after
+        the approved check -- calls with risk_check_passed=false are rejected.
+        Generate your own idempotency_key (a UUID string, not any arbitrary string)
+        per approval so a retry after a timeout never creates a duplicate.
         Suggested categories (optional, not enforced): kommunikation,
         forandringsledning, processer, beslutsberedning, visuellt, ledarskap,
         arbetsbank. Requires a Pro key (X-MCP-Key/Authorization); free keys are
@@ -3577,11 +3609,14 @@ if SERVER_MODE != "hosted":
         category: str | None = None,
     ) -> dict[str, Any]:
         """Save a new item to the caller's Valvet (personal prompt/assistant
-        vault). Requires an idempotency_key (client-generated UUID) so a retried
-        call never creates a duplicate. Free keys are limited to 5 saves per
-        calendar month; Pro keys have no monthly cap. The item is fully saved
-        and private to the caller immediately -- status='draft' only describes
-        editing state, not save state or visibility."""
+        vault) -- retrieve it afterwards with list_my_items/get_my_item (NOT
+        list_my_prompts or list_my_private_prompts, which are separate
+        Promptbanken workspace stores). Requires an idempotency_key (a client-
+        generated UUID string, not any arbitrary string) so a retried call never
+        creates a duplicate. Free keys are limited to 5 saves per calendar month;
+        Pro keys have no monthly cap. The item is fully saved and private to the
+        caller immediately -- status='draft' only describes editing state, not
+        save state or visibility."""
         logger.info("tool_call name=save_my_item")
         return _save_my_item_payload("", idempotency_key, type, title, content, category)
 
