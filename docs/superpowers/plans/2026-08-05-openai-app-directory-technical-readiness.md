@@ -162,7 +162,7 @@ yet).
 
 - [ ] **Step 6: Run the tests**
 
-Run: `cd mcp-server && python -m pytest tests/test_openai_publication_contract.py -v`
+Run (from repo root, using the project's `.venv`, not `pytest` — this repo has no `pytest` dependency, only stdlib `unittest`): `cd mcp-server && .venv/Scripts/python.exe -m unittest tests.test_openai_publication_contract -v` (on Windows; `.venv/bin/python` on POSIX).
 
 Expected: all tests pass, including the 3 new ones and the pre-existing suite (unaffected).
 
