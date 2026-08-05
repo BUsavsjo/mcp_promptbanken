@@ -17,7 +17,7 @@ from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
@@ -1716,6 +1716,15 @@ async def _healthz(request: Request) -> JSONResponse:
     return JSONResponse(_health_check_payload(mcp_key))
 
 
+async def _openai_apps_challenge(request: Request) -> PlainTextResponse:
+    token = os.environ.get("PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN", "")
+    if not token:
+        logger.info("http_request path=/.well-known/openai-apps-challenge status=404")
+        return PlainTextResponse("", status_code=404)
+    logger.info("http_request path=/.well-known/openai-apps-challenge status=200")
+    return PlainTextResponse(token)
+
+
 def _not_found(message: str = "Not found") -> JSONResponse:
     return JSONResponse({"error": {"code": "NOT_FOUND", "message": message}}, status_code=404)
 
@@ -3352,16 +3361,22 @@ class OriginValidationMiddleware:
 
 class BearerAuthMiddleware:
     # Global på/av-spärr för hela servern via PROMPTBANKEN_MCP_API_KEY. När den är
-    # satt krävs exakt "Bearer <global_nyckel>" på alla paths utom /healthz och den
-    # publicerade /mcp-ytan. OBS: detta är ömsesidigt uteslutande med per-användares
-    # workspace-nycklar som skickas via Authorization (se _mcp_key_from_request) —
-    # sätt inte den globala nyckeln om workspace-nycklar via Authorization ska funka.
+    # satt krävs exakt "Bearer <global_nyckel>" på alla paths utom /healthz, den
+    # publicerade /mcp-ytan och /.well-known/openai-apps-challenge (OpenAI:s
+    # domänverifiering, som måste vara nåbar utan auth). OBS: detta är ömsesidigt
+    # uteslutande med per-användares workspace-nycklar som skickas via Authorization
+    # (se _mcp_key_from_request) — sätt inte den globala nyckeln om workspace-nycklar
+    # via Authorization ska funka.
     def __init__(self, app: Any) -> None:
         self.app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         token = _api_key()
-        if scope.get("type") == "http" and token and scope.get("path") not in {"/healthz", "/mcp"}:
+        if scope.get("type") == "http" and token and scope.get("path") not in {
+            "/healthz",
+            "/mcp",
+            "/.well-known/openai-apps-challenge",
+        }:
             headers = dict(scope.get("headers") or [])
             authorization = headers.get(b"authorization", b"").decode("utf-8")
             if not hmac.compare_digest(authorization, f"Bearer {token}"):
@@ -3386,7 +3401,8 @@ class AdminBearerAuthMiddleware:
     writes, since the route always authorizes internally as platform_owner
     regardless of who's calling (see admin_auth).
 
-    Deploy footgun: BearerAuthMiddleware only exempts {"/healthz", "/mcp"}
+    Deploy footgun: BearerAuthMiddleware only exempts
+    {"/healthz", "/mcp", "/.well-known/openai-apps-challenge"}
     from the global PROMPTBANKEN_MCP_API_KEY check, so /admin still passes
     through it. When that global key is set, a request to /admin must
     satisfy BOTH BearerAuthMiddleware and this middleware against the SAME
@@ -3503,6 +3519,7 @@ async def run_sse_async() -> None:
         routes=[
             Route("/", endpoint=_root_info, methods=["GET"]),
             Route("/healthz", endpoint=_healthz),
+            Route("/.well-known/openai-apps-challenge", endpoint=_openai_apps_challenge, methods=["GET"]),
             Route("/openapi.json", endpoint=_openapi),
             Route("/api/v1/skills", endpoint=_api_list_skills),
             Route("/api/v1/skills/simple", endpoint=_api_list_skills_simple),

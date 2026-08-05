@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -34,6 +35,18 @@ PUBLIC_TOOLS = {
 
 async def _accept_asgi_request(scope, receive, send) -> None:
     await Response(status_code=204)(scope, receive, send)
+
+
+def _make_challenge_request() -> "StarletteRequest":
+    from starlette.requests import Request as StarletteRequest
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    return StarletteRequest(
+        {"type": "http", "method": "GET", "path": "/.well-known/openai-apps-challenge", "headers": []},
+        receive,
+    )
 
 
 def _asgi_status(app, path: str, authorization: str = "") -> int:
@@ -265,4 +278,38 @@ class OpenAIPublicationContractTests(unittest.TestCase):
             "the public 9-tool set. This is the /sse over-exposure bug spec "
             "Beslut 3 must fix by gating the FastMCP registry to PUBLIC_TOOLS "
             "in hosted mode.",
+        )
+
+
+class OpenAIAppsChallengeTests(unittest.TestCase):
+    def test_challenge_route_serves_configured_token_without_auth(self) -> None:
+        from server.mcp_server import _openai_apps_challenge
+
+        with patch.dict(
+            "os.environ",
+            {"PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN": "test-token-value"},
+        ):
+            response = asyncio.run(_openai_apps_challenge(_make_challenge_request()))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(bytes(response.body).decode("utf-8"), "test-token-value")
+
+    def test_challenge_route_404s_when_token_unset(self) -> None:
+        from server.mcp_server import _openai_apps_challenge
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN", None)
+            response = asyncio.run(_openai_apps_challenge(_make_challenge_request()))
+
+        self.assertEqual(response.status_code, 404)
+
+    @patch("server.mcp_server._api_key", return_value="global-key")
+    def test_challenge_route_exempt_from_global_bearer_auth(self, _) -> None:
+        from server.mcp_server import BearerAuthMiddleware
+
+        app = BearerAuthMiddleware(_accept_asgi_request)
+
+        self.assertEqual(
+            _asgi_status(app, "/.well-known/openai-apps-challenge"),
+            204,
         )
