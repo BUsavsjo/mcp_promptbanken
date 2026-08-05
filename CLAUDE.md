@@ -182,6 +182,7 @@ aldrig till `review`/`published` som giltiga i `list_my_items`s
 POST/GET /mcp                                              # Streamable HTTP, primär yta
 GET      /sse, POST /messages/                             # legacy SSE, bara 16 statiska prompts, ingen X-MCP-Key
 GET      /healthz
+GET      /.well-known/openai-apps-challenge                  # OpenAI app-directory-domänverifiering, undantagen bearer-auth, 404 om PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN saknas
 GET      /api/v1/skills, /skills/simple, /skills/{id}, /skills/{id}/prompt
 GET      /api/v1/routing-instructions, /pro-templates
 GET/POST /api/v1/my-prompts                                 # GET: lista; POST: spara ny (Pro-gated)

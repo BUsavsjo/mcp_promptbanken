@@ -38,7 +38,7 @@
 - Produces: `GET /.well-known/openai-apps-challenge` — 200 with plain-text token body when `PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN` is set and non-empty; 404 with empty body when unset. No auth required regardless of `PROMPTBANKEN_MCP_API_KEY`.
 - Consumes: `os.environ` (already imported at `mcp_server.py:5`), `starlette.responses` (already imports `HTMLResponse, JSONResponse, Response` at line 20 — this task adds `PlainTextResponse` to that import).
 
-- [ ] **Step 1: Add the handler**
+- [x] **Step 1: Add the handler**
 
 In `mcp-server/server/mcp_server.py`, add this function immediately after `_healthz` (which ends at line 1717, right before `def _not_found`):
 
@@ -52,7 +52,7 @@ async def _openai_apps_challenge(request: Request) -> PlainTextResponse:
     return PlainTextResponse(token)
 ```
 
-- [ ] **Step 2: Import `PlainTextResponse`**
+- [x] **Step 2: Import `PlainTextResponse`**
 
 In `mcp-server/server/mcp_server.py` line 20, change:
 
@@ -66,7 +66,7 @@ to:
 from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 ```
 
-- [ ] **Step 3: Register the route**
+- [x] **Step 3: Register the route**
 
 In the `Starlette(routes=[...])` list (currently starting at line 3504), add a new entry directly after the `/healthz` line:
 
@@ -75,7 +75,7 @@ In the `Starlette(routes=[...])` list (currently starting at line 3504), add a n
             Route("/.well-known/openai-apps-challenge", endpoint=_openai_apps_challenge, methods=["GET"]),
 ```
 
-- [ ] **Step 4: Exempt the route from `BearerAuthMiddleware`**
+- [x] **Step 4: Exempt the route from `BearerAuthMiddleware`**
 
 In `mcp_server.py:3364`, change:
 
@@ -95,7 +95,7 @@ to:
 
 Also update the class docstring comment two lines above (currently "requires exactly 'Bearer <global_nyckel>' on all paths except /healthz and the published /mcp surface") to mention the new exempted path, so the next person reading the footgun warning at `AdminBearerAuthMiddleware`'s docstring (line 3389, which explicitly calls out this exemption set) isn't misled by a stale comment.
 
-- [ ] **Step 5: Write the test**
+- [x] **Step 5: Write the test**
 
 In `mcp-server/tests/test_openai_publication_contract.py`, add a new test class at the end of the file (after `OpenAIPublicationContractTests`, following the same `unittest.TestCase` + `_asgi_status`-helper pattern already used by `test_global_bearer_auth_keeps_public_mcp_anonymous` at line 152):
 
@@ -160,13 +160,13 @@ of the test file (add it next to the existing `import sys` at line 3 if
 not already present — check before adding, this file may not import `os`
 yet).
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run (from repo root, using the project's `.venv`, not `pytest` — this repo has no `pytest` dependency, only stdlib `unittest`): `cd mcp-server && .venv/Scripts/python.exe -m unittest tests.test_openai_publication_contract -v` (on Windows; `.venv/bin/python` on POSIX).
 
 Expected: all tests pass, including the 3 new ones and the pre-existing suite (unaffected).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp-server/server/mcp_server.py mcp-server/tests/test_openai_publication_contract.py
@@ -185,27 +185,27 @@ Claude-Session: https://claude.ai/code/session_014EpQBktNytn8fZT2JAsLMW"
 **Interfaces:**
 - Consumes: Task 1's route, deployed to the promptbanken-dev VPS via the existing `vps-deploy` skill/workflow for this repo.
 
-- [ ] **Step 1: Set a placeholder token env var on the VPS**
+- [x] **Step 1: Set a placeholder token env var on the VPS**
 
 Add `PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN=pending-openai-submission` (or similar obviously-placeholder value) to the server's environment configuration (wherever `PROMPTBANKEN_MCP_API_KEY` and similar are already set — `docker-compose.yml` env or an `.env` file referenced by it, per this repo's existing deploy convention). This is a placeholder; the real value comes from OpenAI's submission portal later and gets swapped in at that time — do not block this task on having the real value.
 
-- [ ] **Step 2: Deploy**
+- [x] **Step 2: Deploy**
 
 Use the `vps-deploy` skill for this repo (git pull + docker-compose rebuild on promptbanken-dev, with the mandatory disk-space check first).
 
-- [ ] **Step 3: Verify live, unauthenticated**
+- [x] **Step 3: Verify live, unauthenticated**
 
 Run: `curl -i https://mcp.promptbanken.se/.well-known/openai-apps-challenge`
 
 Expected: `HTTP/1.1 200`, body is exactly `pending-openai-submission` (or whatever placeholder was set), no `Authorization` header sent.
 
-- [ ] **Step 4: Verify the existing public surface is unaffected**
+- [x] **Step 4: Verify the existing public surface is unaffected**
 
 Run: `curl -i https://mcp.promptbanken.se/healthz`
 
 Expected: unchanged `200` response, confirming the middleware/route changes didn't regress the existing exemption.
 
-- [ ] **Step 5: Record the outcome**
+- [x] **Step 5: Record the outcome**
 
 No commit needed (deploy-only task) — note the verified-live status in the conversation/ledger for whoever runs the actual OpenAI submission later, since they'll need to replace the placeholder token with OpenAI's real one when the portal issues it.
 
@@ -220,25 +220,25 @@ No commit needed (deploy-only task) — note the verified-live status in the con
 **Interfaces:**
 - Consumes: production `/mcp` endpoint (`https://mcp.promptbanken.se/mcp`), the 9 public tools: `health_check`, `get_client_routing_instructions`, `list_templates`, `search_templates`, `get_template`, `list_packages`, `get_package`, `list_package_prompts`, `recommend_packages`.
 
-- [ ] **Step 1: Call each of the 9 public tools against production**
+- [x] **Step 1: Call each of the 9 public tools against production**
 
 For each tool, issue a representative JSON-RPC `tools/call` against `https://mcp.promptbanken.se/mcp` with realistic arguments (e.g. `search_templates` with a real Swedish query term, `get_template` with a known published slug — fetch one via `list_templates` first if no slug is known ahead of time). Record the full response JSON for each.
 
-- [ ] **Step 2: List every top-level field in each response**
+- [x] **Step 2: List every top-level field in each response**
 
 Build a table: tool name → list of field names in the response payload (not full values, just field names and a one-word description of what each holds, e.g. `prompt_text: full prompt template text`, `area: category label`).
 
-- [ ] **Step 3: Compare against `privacy.html`**
+- [x] **Step 3: Compare against `privacy.html`**
 
 Read `privacy.html` (the paragraph at line 48 already discloses that usage *statistics* — not tool response payloads — exclude prompt content, raw search terms, IPs, emails, user-agent, and key material). Check: does any field returned by the 9 tools contain something that paragraph doesn't already cover the spirit of (e.g. an internal database ID, a fine-grained timestamp with tracking value, anything not obviously "public catalog content")? Expected result given this is a read-only public catalog: no — tool responses are prompt/package template content, which is the product itself, not user data. Confirm this expectation holds; don't assume it without reading the actual field list from Step 2.
 
-- [ ] **Step 4: Update `privacy.html` only if Step 3 found a gap**
+- [x] **Step 4: Update `privacy.html` only if Step 3 found a gap**
 
 If a gap is found: add one sentence to the existing paragraph at line 48 (do not create a new section) describing the additional field's presence, following the same plain-Swedish style as the rest of that paragraph.
 
 If no gap is found: no file change. The audit table from Step 2 is the deliverable — write it into the task report.
 
-- [ ] **Step 5: Commit (only if Step 4 changed `privacy.html`)**
+- [x] **Step 5: Commit (only if Step 4 changed `privacy.html`)**
 
 ```bash
 git add privacy.html
@@ -260,11 +260,11 @@ Run this in the `promptbanken` repo, not `mcp_promptbanken` (different git root 
 **Interfaces:**
 - Consumes: production `/mcp` endpoint, same 9 tools as Task 3 (reuse findings from Task 3 where relevant — e.g. a known-good slug for `get_template`).
 
-- [ ] **Step 1: Run each proposed case against production and record actual output**
+- [x] **Step 1: Run each proposed case against production and record actual output**
 
 For each of the 8 cases listed in the design spec (`docs/superpowers/specs/2026-08-04-openai-app-directory-technical-readiness-design.md`, "Del 3"), issue the real JSON-RPC call against `https://mcp.promptbanken.se/mcp` and record the actual response. Do not write the document from the spec's proposed cases without running them — the spec's list is a starting proposal, not verified fact; a submission reviewer running these cases expects them to work exactly as documented.
 
-- [ ] **Step 2: Write the document**
+- [x] **Step 2: Write the document**
 
 Create `docs/openai-submission-test-cases.md` with this structure, one entry per case:
 
@@ -297,7 +297,7 @@ Verified against production (`https://mcp.promptbanken.se/mcp`) on <date>.
 
 Use the actual recorded outputs from Step 1, not placeholder text.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/openai-submission-test-cases.md

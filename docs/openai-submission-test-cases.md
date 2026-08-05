@@ -106,6 +106,6 @@ the public `/mcp` endpoint.
   get_package arguments"}` — standard JSON-RPC "Invalid params" error
   code, human-readable message, nothing implementation-specific exposed.
 - **Why this case matters:** Confirms malformed input from a
-  misconfigured or buggy client fails safely at the schema-validation
-  layer rather than reaching application code and producing an
+  misconfigured or buggy client fails safely at the argument-validation
+  layer, before reaching application code, rather than producing an
   unstructured error.

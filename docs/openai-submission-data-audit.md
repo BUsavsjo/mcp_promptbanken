@@ -46,9 +46,10 @@ anonymous, public-catalog MCP server.
 
 ## Conclusion
 
-No gap against `privacy.html`. Its existing paragraph (line 48) already
-disclosures that usage *statistics* collection excludes personal/sensitive
-data; this audit additionally confirms the tool *responses* themselves —
+No gap against `privacy.html`. Its existing paragraph (see the "Anonym
+användningsstatistik" section of privacy.html) already discloses that usage
+*statistics* collection excludes personal/sensitive data; this audit
+additionally confirms the tool *responses* themselves —
 a separate data flow from usage statistics — carry only public catalog
 content. No text change to `privacy.html` is needed. **This audit finding
 is the Task 3 deliverable.**

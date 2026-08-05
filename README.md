@@ -481,6 +481,7 @@ PROMPTBANKEN_MCP_API_KEY=
 PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
+PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN=  # OpenAI:s app-directory-domänverifieringstoken
 ```
 
 Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
@@ -490,7 +491,7 @@ Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
 
 `PROMPTBANKEN_MCP_API_KEY` är den globala servernyckeln för det SATT-läge som beskrivs i avsnittet **Auth för `/mcp/key`**. Lämna den tom för workspace/user-key-läget. `/mcp` förblir anonym.
 
-`/healthz` är undantagen från API-nyckelkravet.
+`/healthz`, `/mcp` och `/.well-known/openai-apps-challenge` är undantagna från API-nyckelkravet.
 
 ## MCP och REST
 

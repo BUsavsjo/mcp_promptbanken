@@ -5,6 +5,7 @@
 - [ ] Anonym `initialize`, `tools/list` och samtliga nio publika `tools/call` fungerar
 - [ ] Inga privata eller skrivande verktyg syns eller kan anropas
 - [ ] Verktygsnamn, svenska titlar, beskrivningar, scheman och annotations är verifierade
+- [ ] VPS:ens `.env` har `PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN` satt, och det nuvarande platshållarvärdet `pending-openai-submission` är utbytt mot OpenAI:s riktiga token (utfärdas i portalen) innan submission
 
 ## Listing
 - [ ] Plugin-namn och kort beskrivning är slutgranskade
