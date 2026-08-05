@@ -3,6 +3,10 @@ mcp.promptbanken.se {
         reverse_proxy 127.0.0.1:8000
     }
 
+    handle /.well-known/openai-apps-challenge {
+        reverse_proxy 127.0.0.1:8000
+    }
+
     handle /sse {
         reverse_proxy 127.0.0.1:8000
     }
