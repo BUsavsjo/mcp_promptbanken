@@ -1134,8 +1134,8 @@ def search_templates(
     limit: int = 10,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Search the open Promptbanken template catalog without fetching all 42
-    full prompts. Filter by free-text query (matched against title, syfte,
+    """Search the open Promptbanken template catalog without fetching every
+    full prompt. Filter by free-text query (matched against title, syfte,
     tags, output format), area and/or risk_level. role ranks results toward
     relevant job functions -- it does not exclude templates from other
     areas. context_keys can combine profile variants. Returns lightweight summaries -- no prompt_text -- so use
@@ -2203,8 +2203,8 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "search_templates",
             "description": (
-                "Search the open Promptbanken template catalog without fetching all "
-                "42 full prompts. Filter by free-text query (matched against title, "
+                "Search the open Promptbanken template catalog without fetching "
+                "every full prompt. Filter by free-text query (matched against title, "
                 "syfte, tags, output format), area and/or risk_level. role ranks "
                 "results toward relevant job functions -- it does not exclude "
                 "templates from other areas. context_keys can combine profile "
