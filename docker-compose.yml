@@ -55,7 +55,12 @@ services:
       # read-only MCP surface, not admin-mcp.
     ports:
       - "127.0.0.1:8001:8000"
-    restart: unless-stopped
+    # Not "unless-stopped" on purpose: only needed during active dev/testing,
+    # and the VPS has very little headroom (378Mi total RAM, see LOG.md
+    # 2026-08-08). Start it manually (`docker-compose up -d
+    # promptbanken-mcp-dev`) when testing, stop it when done
+    # (`docker-compose stop promptbanken-mcp-dev`).
+    restart: "no"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
       interval: 30s
