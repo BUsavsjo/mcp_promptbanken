@@ -1,5 +1,26 @@
 # Logg
 
+## 2026-08-08 - OpenAI ChatGPT app directory-ansökan inskickad, Promptbanken Open MCP live
+
+### Gjort
+- `chatgpt-app-submission.json` genererad via Codex ($chatgpt-app-submission-skillen), källspårat mot `PROJECT.md`/`DECISIONS.md`/`CLAUDE.md`/`README.md`: 9 publika verktyg med `readOnlyHint`/`openWorldHint`/`destructiveHint`-annoteringar + motiveringar, 5 positiva + 3 negativa testfall.
+- `app_info` kompletterad manuellt (Codex fabricerade inte dessa): `subtitle`/`description` omskrivna från "municipal" till bredare målgrupp (kommun/skola/företag/förening/privat, enligt Octopus `VISION.md` punkt 3 och de live kontextprofilerna), `website_url` (app.promptbanken.se), `support_url` (help.html), `privacy_policy_url` (privacy.html).
+- Tre buggfixar, alla committade, pushade och deployade till VPS, live-verifierade:
+  1. Hårdkodat "42" borttaget ur `search_templates`s beskrivning (Python-docstring + HTTP `_tool_definitions`-sträng + README) — katalogen är dynamisk (72 mallar just nu), räknaren fick aldrig peka på ett fast tal.
+  2. `health_check`s `no_key`-meddelande förenklat — tog bort reklamtext om att autentisera för Pro/Free-mallar; den öppna, publika ytan ska inte marknadsföra funktioner den inte exponerar.
+  3. `SERVICE_VERSION` bumpad `1.2.0` → `1.2.1` (OpenAI-formuläret krävde en version högre än tidigare publicerad).
+- OpenAI:s domänverifiering: `/.well-known/openai-apps-challenge`-routen (redan byggd i tidigare pass) fick sin riktiga token (`PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN`) i `.env` på VPS:en, ersatte platshållarvärdet `pending-openai-submission`. Live-verifierat: `https://mcp.promptbanken.se/.well-known/openai-apps-challenge` returnerar rätt token.
+- Release notes skrivna för ansökan (första inskicket — beskriver hela appen, inte bara sista diffen).
+- **Ansökan inskickad.**
+
+### Sidospår (annat repo, `promptbanken`)
+- Upptäckte under arbetet att `Projekt\mcp_promptbanken\promptbanken\` är en stale dubblettkopia — riktiga `promptbanken`-repot ligger på `Projekt\promptbanken\`. Påbörjade `privacy.html`-uppdatering (ta bort Google-login-sektion/kontosektion, öppen tjänst utan konto) i fel kopia först, korrigerat och handoff skriven för att slutföras i rätt repo. Öppen fråga där: `login.html` har fortfarande aktiv Google-inloggning för organisationskonton (Arbetsyta/Förvaltning/Kommun) — inte löst i detta pass.
+
+- Demofilm (Developer Mode, alla 9 verktyg, web/iOS/Android) inspelad enligt manus och bifogad ansökan.
+
+### Kvarstår
+- Inget — icon-assets, `privacy.html`/`terms.html` i rätt `promptbanken`-repo, demofilm och ansökan är alla klara enligt Peter.
+
 ## 2026-07-28 - Admin-MCP katalogförfattande (spec + plan + implementation)
 
 Brainstormade, specade, planerade och implementerade en ny `/admin`-MCP-route

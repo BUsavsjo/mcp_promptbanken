@@ -1,5 +1,91 @@
 # Beslut
 
+## 2026-08-08 - Ingen CI/staging idag — direkt-till-prod för både kod och databas, med en live-koll-regel efter RPC-migrationer
+
+### Beslut
+Varken `mcp_promptbanken`-koden eller databasen (`promptbanken`-repots
+Supabase-migrationer) har någon staging-miljö eller CI-pipeline. Flödet är
+och förblir: lokal ändring → branch → merge main → `vps-deploy`-skillen
+bygger om och startar om direkt på prod-VPS:en. Migrationer går på samma
+sätt rakt mot produktions-Supabase (`supabase db push`, eller manuell SQL
+i Studio när CLI:n kollisionerar — se STATUS.md för flera exempel).
+
+Detta ändras inte i sig — rimligt för nuvarande drift/teamstorlek. Vad som
+skärps: de publika MCP-verktygen (`search_templates`, `get_template`,
+`list_templates`, `list_packages`, `get_package`, `list_package_prompts`,
+`recommend_packages`) läser live från RPC:er i `promptbanken`-repot. En
+migration som ändrar en sådan RPC:s outputform bryter det frysta publika
+kontraktet **utan att någon deploy sker i det här repot** — inget bygge,
+inget kontraktstest fångar det per automatik.
+
+**Ny regel:** efter varje migration som rör en RPC de publika verktygen
+anropar (`get_pro_templates_for_mcp_key`, `list_published_prompts`,
+`get_published_prompt`, `list_published_package_prompts`, m.fl.), gör en
+direkt live-koll — `tools/call` mot minst `search_templates` och
+`get_template` på riktig prod — innan migrationen räknas som klar. Vänta
+inte på nästa manuella test.
+
+**Varför:** 2026-08-05-buggen (`save_prompt_for_key` skrev `status='draft'`,
+läsvägen filtrerade på `status='published'`, varje sparad rad blev
+permanent oläsbar) låg dold i flera dagar innan ett Peters ChatGPT-test
+hittade den — ingen automatisk signal fångade RPC-driften. Efter
+OpenAI-publicering är kostnaden för den typen av tyst regression högre:
+en extern granskare eller skarp ChatGPT-användare kan stöta på den innan
+vi själva gör det.
+
+## 2026-08-08 - Det frysta publika kontraktet väger tyngre efter OpenAI-publicering
+
+### Beslut
+2026-07-31 beslutades att `/mcp`s nio publika, anonyma verktyg är ett
+"fryst publikt kontrakt" (se posten nedan). Sedan Promptbanken Open MCP
+gick live i OpenAI:s ChatGPT app directory (ansökan inskickad 2026-08-08,
+se `LOG.md`) väger den frysningen tyngre:
+
+- **Namn, inputschema och outputform på de nio existerande verktygen får
+  inte ändras** utan att räkna med att det kan trigga en OpenAI-
+  omgranskning eller bryta den redan publicerade appen. En sådan ändring
+  kräver ett medvetet beslut, inte en rutinmässig refaktorering.
+- **Nya verktyg är fortfarande additivt okej** — precis som innan.
+- **Beskrivningstexter** (tool-beskrivningar, `health_check`-meddelanden,
+  `app_info` i `chatgpt-app-submission.json`) ska hållas fria från
+  hårdkodade tal och reklam för icke-exponerade funktioner (se separat
+  beslut nedan, samma datum) — en extern granskare läser exakt de
+  strängarna som appens självbeskrivning.
+- **Release notes** skrivs per `SERVICE_VERSION`-bump från och med nu
+  (mönster etablerat vid 1.2.0→1.2.1), så varje framtida OpenAI-
+  omgranskning har ett facit över vad som ändrats.
+
+**Varför:** innan publicering var kontraktsbrott bara en risk mot egna
+klienter (Claude Code, andra MCP-klienter). Efter publicering är OpenAI:s
+granskningsprocess och den skarpa ChatGPT-appen också beroende av att
+kontraktet håller — kostnaden för att bryta det steg påtagligt samma dag
+som ansökan skickades in.
+
+## 2026-08-08 - Publika verktygsbeskrivningar får aldrig hårdkoda katalogstorlek eller reklamera icke-exponerade funktioner
+
+### Beslut
+`search_templates`s docstring/HTTP-beskrivning hade hårdkodat "42 full
+prompts" — katalogen är dynamisk (var 72 vid fyndet) och talet drev direkt
+isär från verkligheten igen så fort en admin publicerade fler mallar.
+Omskrivet till "without fetching every full prompt", ingen siffra alls.
+Samtidigt hade `health_check`s öppna `no_key`-meddelande en rad om att
+autentisera för Pro/Free-mallar på app.promptbanken.se — men den öppna,
+publika MCP-ytan exponerar bara läsverktygen mot den öppna katalogen, inte
+Pro/Free-flödet. Meddelandet reklamerade en funktion anroparen inte kan nå
+via den här ytan. Borttaget.
+
+**Regel framåt:** verktygsbeskrivningar och statusmeddelanden i den publika
+(anonyma, no-key) MCP-ytan får aldrig innehålla siffror som kan drifta
+(antal mallar, antal paket) och får aldrig hänvisa till funktioner som
+kräver auth/plan den ytan inte själv exponerar. Skriv generiskt ("alla
+mallar" istället för "alla 42 mallar") eller hämta talet dynamiskt om det
+verkligen behövs.
+
+**Varför:** upptäcktes under förberedelse för OpenAI ChatGPT app directory-
+ansökan (se `LOG.md` 2026-08-08) — en extern granskare läser exakt de här
+strängarna som appens självbeskrivning, så drift här syns direkt utåt,
+inte bara internt.
+
 ## 2026-07-31 - Endpoint-strategi inför ChatGPT-publicering: /mcp fryses, Valvet växer via valfri OAuth på samma endpoint
 
 ### Beslut
