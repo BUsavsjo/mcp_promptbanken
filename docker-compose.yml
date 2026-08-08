@@ -35,6 +35,41 @@ services:
     cap_drop:
       - ALL
 
+  promptbanken-mcp-dev:
+    build:
+      context: ./mcp-server
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      MCP_LOG_LEVEL: INFO
+      PROMPTBANKEN_MCP_MODE: hosted
+      PROMPTBANKEN_MCP_API_KEY: ${PROMPTBANKEN_MCP_API_KEY:-}
+      PROMPTBANKEN_MCP_ALLOWED_ORIGINS: ${PROMPTBANKEN_MCP_ALLOWED_ORIGINS:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_MCP_ROLE_JWT: ${SUPABASE_MCP_ROLE_JWT:-}
+      # Admin route intentionally disabled here (no PROMPTBANKEN_ADMIN_KEY /
+      # SUPABASE_ADMIN_REFRESH_TOKEN) -- sharing prod's admin refresh token
+      # between two running processes reproduces the 2026-08-01 rotation-
+      # collision bug (see DECISIONS.md). Dev is for testing the public
+      # read-only MCP surface, not admin-mcp.
+    ports:
+      - "127.0.0.1:8001:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   autoheal:
     image: willfarrell/autoheal@sha256:201d007d40e3dc395b1176052ea8fe1cf5c4cf69c6d5aeeda6fcdeb256f2400d
     restart: unless-stopped

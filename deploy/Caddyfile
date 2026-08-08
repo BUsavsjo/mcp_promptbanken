@@ -87,6 +87,88 @@ mcp.promptbanken.se {
     }
 }
 
+dev.promptbanken.se {
+    basic_auth {
+        peter $2a$14$fAuKviaUNIBkFbSagVvAPO/MA6S4e6g/z/3mf4igINz2jNvAqWSpa
+    }
+
+    handle /healthz {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /sse {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /messages/* {
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /mcp {
+        @options {
+            method OPTIONS
+        }
+        handle @options {
+            header Access-Control-Allow-Origin "*"
+            header Access-Control-Allow-Methods "POST, OPTIONS"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-MCP-Key"
+            respond 204
+        }
+        header Access-Control-Allow-Origin "*"
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /mcp/key {
+        @key_options {
+            method OPTIONS
+        }
+        handle @key_options {
+            header Access-Control-Allow-Origin "*"
+            header Access-Control-Allow-Methods "POST, OPTIONS"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-MCP-Key"
+            respond 204
+        }
+        header Access-Control-Allow-Origin "*"
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /api/v1/* {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle /openapi.json {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle / {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle {
+        respond "Not found" 404
+    }
+
+    log {
+        output file /var/log/caddy/mcp_dev_access.log
+        format filter {
+            wrap json
+            fields {
+                request>headers>Authorization delete
+                request>headers>X-Mcp-Key delete
+            }
+        }
+    }
+}
+
 # kommun.promptbanken.se is being retired in favor of app.promptbanken.se
 # (GitHub Pages). DNS for kommun now points here (A record) instead of
 # GitHub Pages so this permanent redirect can cover every path/legacy link.
