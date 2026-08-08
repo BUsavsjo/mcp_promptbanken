@@ -1461,10 +1461,7 @@ _HEALTH_CHECK_STATES = {
     "no_key": {
         "plan": "public",
         "catalog": "open",
-        "message": (
-            "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för "
-            "användar- eller Pro-mallar på app.promptbanken.se."
-        ),
+        "message": "Detta är den öppna katalogen.",
     },
     "invalid_key": {
         "plan": "public",

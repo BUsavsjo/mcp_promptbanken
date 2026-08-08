@@ -43,7 +43,7 @@ Exempel på svar:
   "mode": "hosted",
   "catalog": "open",
   "plan": "public",
-  "message": "Detta är den öppna katalogen. Autentisera med API/MCP-nyckel för användar- eller Pro-mallar på app.promptbanken.se.",
+  "message": "Detta är den öppna katalogen.",
   "catalog_prompt_count": 66
 }
 ```
