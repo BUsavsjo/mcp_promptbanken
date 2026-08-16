@@ -73,6 +73,8 @@
         "admin_unpublish_prompt",
         "admin_delete_draft_prompt",
         "admin_create_package",
+        "admin_upsert_package_variant",
+        "admin_upsert_package_metadata",
         "admin_add_prompt_to_package",
         "admin_publish_package",
         "admin_unpublish_package",

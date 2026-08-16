@@ -2988,6 +2988,45 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "admin_upsert_package_variant",
+            "description": "Add or edit one context variant of a package: title/summary/intro_text plus the editorial fields (problem_text/when_to_use/outcome_text) and parameter_schema/default_bindings/binding_overrides. Omitted optional fields keep their existing value.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_id": {"type": "string"},
+                    "context_key": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "intro_text": {"type": "string"},
+                    "audience_label": {"type": "string"},
+                    "parameter_schema": {"type": "object"},
+                    "default_bindings": {"type": "object"},
+                    "binding_overrides": {"type": "array"},
+                    "problem_text": {"type": "string"},
+                    "when_to_use": {"type": "string"},
+                    "outcome_text": {"type": "string"},
+                },
+                "required": ["package_id", "context_key", "title", "summary"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_upsert_package_metadata",
+            "description": "Set a package's area/tags/is_indexable (fields on catalog_packages itself, not a context variant). Omitted area/tags keep their existing value; is_indexable is only changed when is_indexable_provided=true (needed to distinguish 'leave as Auto' from 'set to null/Auto explicitly').",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_id": {"type": "string"},
+                    "area": {"type": "string"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "is_indexable": {"type": "boolean"},
+                    "is_indexable_provided": {"type": "boolean"},
+                },
+                "required": ["package_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "admin_add_prompt_to_package",
             "description": "Add an existing prompt to a draft package at a given sort position.",
             "inputSchema": {
@@ -3181,6 +3220,42 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
                 arguments["title"],
                 arguments["summary"],
                 arguments.get("intro_text"),
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_upsert_package_variant":
+            for key in ("package_id", "context_key", "title", "summary"):
+                if not isinstance(arguments.get(key), str) or not arguments.get(key):
+                    return _json_rpc_error(request_id, -32602, f"Invalid or missing '{key}'")
+            result = admin_catalog.upsert_package_variant(
+                arguments["package_id"],
+                arguments["context_key"],
+                arguments["title"],
+                arguments["summary"],
+                arguments.get("intro_text"),
+                arguments.get("audience_label"),
+                arguments.get("parameter_schema"),
+                arguments.get("default_bindings"),
+                arguments.get("binding_overrides"),
+                arguments.get("problem_text"),
+                arguments.get("when_to_use"),
+                arguments.get("outcome_text"),
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_upsert_package_metadata":
+            package_id = arguments.get("package_id")
+            if not isinstance(package_id, str) or not package_id:
+                return _json_rpc_error(request_id, -32602, "Invalid or missing 'package_id'")
+            is_indexable_provided = arguments.get("is_indexable_provided", False)
+            if not isinstance(is_indexable_provided, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid 'is_indexable_provided'")
+            result = admin_catalog.upsert_package_metadata(
+                package_id,
+                arguments.get("area"),
+                arguments.get("tags"),
+                arguments.get("is_indexable"),
+                is_indexable_provided,
             )
             return _json_rpc_result(request_id, _mcp_content_result(result))
 
