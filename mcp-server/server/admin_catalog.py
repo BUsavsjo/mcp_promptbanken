@@ -236,6 +236,62 @@ def delete_draft_package(package_id: str, confirm: bool) -> None:
     )
 
 
+def upsert_package_variant(
+    package_id: str,
+    context_key: str,
+    title: str,
+    summary: str,
+    intro_text: str | None = None,
+    audience_label: str | None = None,
+    parameter_schema: dict[str, Any] | None = None,
+    default_bindings: dict[str, Any] | None = None,
+    binding_overrides: list[Any] | None = None,
+    problem_text: str | None = None,
+    when_to_use: str | None = None,
+    outcome_text: str | None = None,
+) -> dict[str, Any]:
+    return _write(
+        "admin_upsert_package_variant",
+        "upsert_catalog_package_variant",
+        {
+            "p_package_id": package_id,
+            "p_context_key": context_key,
+            "p_title": title,
+            "p_summary": summary,
+            "p_intro_text": intro_text,
+            "p_audience_label": audience_label,
+            "p_parameter_schema": parameter_schema,
+            "p_default_bindings": default_bindings,
+            "p_binding_overrides": binding_overrides,
+            "p_problem_text": problem_text,
+            "p_when_to_use": when_to_use,
+            "p_outcome_text": outcome_text,
+        },
+        target_id=package_id,
+    )
+
+
+def upsert_package_metadata(
+    package_id: str,
+    area: str | None = None,
+    tags: list[str] | None = None,
+    is_indexable: bool | None = None,
+    is_indexable_provided: bool = False,
+) -> dict[str, Any]:
+    return _write(
+        "admin_upsert_package_metadata",
+        "upsert_catalog_package_metadata",
+        {
+            "p_package_id": package_id,
+            "p_area": area,
+            "p_tags": tags,
+            "p_is_indexable": is_indexable,
+            "p_is_indexable_provided": is_indexable_provided,
+        },
+        target_id=package_id,
+    )
+
+
 def list_package_history(package_id: str) -> list[dict[str, Any]]:
     return _call_rpc("admin_list_package_history", {"p_package_id": package_id}) or []
 

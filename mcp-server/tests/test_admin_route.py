@@ -15,7 +15,7 @@ from server.mcp_server import (
 
 
 class AdminRouteTests(unittest.TestCase):
-    def test_admin_tool_definitions_are_exactly_the_sixteen_admin_tools(self):
+    def test_admin_tool_definitions_are_exactly_the_eighteen_admin_tools(self):
         names = {tool["name"] for tool in _admin_tool_definitions()}
         self.assertEqual(
             names,
@@ -30,6 +30,8 @@ class AdminRouteTests(unittest.TestCase):
                 "admin_list_prompt_history",
                 "admin_restore_prompt_version",
                 "admin_create_package",
+                "admin_upsert_package_variant",
+                "admin_upsert_package_metadata",
                 "admin_add_prompt_to_package",
                 "admin_publish_package",
                 "admin_unpublish_package",

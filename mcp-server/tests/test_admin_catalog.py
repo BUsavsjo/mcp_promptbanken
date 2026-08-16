@@ -60,6 +60,45 @@ class AdminCatalogTests(unittest.TestCase):
         second_call_payload = post.call_args_list[1].kwargs["json"]
         self.assertEqual(second_call_payload["p_outcome"], "rejected")
 
+    @patch("server.admin_catalog._SUPABASE_URL", "https://example.supabase.co")
+    @patch("server.admin_catalog._ANON_KEY", "test-anon-key")
+    @patch("server.admin_catalog.admin_auth.get_access_token", return_value="at-1")
+    @patch("server.admin_catalog.httpx.post")
+    def test_upsert_package_variant_calls_rpc(self, post, get_token):
+        post.side_effect = [
+            _JsonResponse({"package_id": "pkg-1", "context_key": "generell"}),
+            _JsonResponse(None, status_code=204),
+        ]
+
+        result = admin_catalog.upsert_package_variant(
+            "pkg-1", "generell", "Title", "Summary", problem_text="Problem"
+        )
+
+        self.assertEqual(result["package_id"], "pkg-1")
+        first_call_url = post.call_args_list[0].args[0]
+        self.assertIn("/rpc/upsert_catalog_package_variant", first_call_url)
+        first_call_payload = post.call_args_list[0].kwargs["json"]
+        self.assertEqual(first_call_payload["p_problem_text"], "Problem")
+
+    @patch("server.admin_catalog._SUPABASE_URL", "https://example.supabase.co")
+    @patch("server.admin_catalog._ANON_KEY", "test-anon-key")
+    @patch("server.admin_catalog.admin_auth.get_access_token", return_value="at-1")
+    @patch("server.admin_catalog.httpx.post")
+    def test_upsert_package_metadata_calls_rpc(self, post, get_token):
+        post.side_effect = [
+            _JsonResponse({"id": "pkg-1", "area": "arbetsbank"}),
+            _JsonResponse(None, status_code=204),
+        ]
+
+        result = admin_catalog.upsert_package_metadata("pkg-1", area="arbetsbank", tags=["a", "b"])
+
+        self.assertEqual(result["area"], "arbetsbank")
+        first_call_url = post.call_args_list[0].args[0]
+        self.assertIn("/rpc/upsert_catalog_package_metadata", first_call_url)
+        first_call_payload = post.call_args_list[0].kwargs["json"]
+        self.assertEqual(first_call_payload["p_tags"], ["a", "b"])
+        self.assertEqual(first_call_payload["p_is_indexable_provided"], False)
+
     def test_publish_prompt_requires_explicit_confirm(self):
         with self.assertRaises(ValueError):
             admin_catalog.publish_prompt("prompt-1", confirm=False)
