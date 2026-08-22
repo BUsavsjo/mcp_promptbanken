@@ -76,12 +76,20 @@ mcp.promptbanken.se {
     }
 
     log {
-        output file /var/log/caddy/mcp_access.log
+        output file /var/log/caddy/mcp_access.log {
+            roll_size 20MiB
+            roll_keep 5
+            roll_keep_for 720h
+        }
         format filter {
             wrap json
             fields {
                 request>headers>Authorization delete
                 request>headers>X-Mcp-Key delete
+                request>headers>Cookie delete
+                request>remote_ip delete
+                request>remote_port delete
+                request>client_ip delete
             }
         }
     }
@@ -158,12 +166,20 @@ dev.promptbanken.se {
     }
 
     log {
-        output file /var/log/caddy/mcp_dev_access.log
+        output file /var/log/caddy/mcp_dev_access.log {
+            roll_size 20MiB
+            roll_keep 5
+            roll_keep_for 720h
+        }
         format filter {
             wrap json
             fields {
                 request>headers>Authorization delete
                 request>headers>X-Mcp-Key delete
+                request>headers>Cookie delete
+                request>remote_ip delete
+                request>remote_port delete
+                request>client_ip delete
             }
         }
     }
