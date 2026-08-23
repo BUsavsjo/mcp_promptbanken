@@ -140,7 +140,7 @@ def _server_mode() -> str:
 
 
 SERVER_MODE = _server_mode()
-SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.2.1")
+SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.2.2")
 HOSTED_GUARD_MODE = os.getenv("PROMPTBANKEN_MCP_HOSTED_GUARD", "warn").strip().lower()
 logger.info("server_config mode=%s skill_count=%s", SERVER_MODE, len(repository.list_skills()))
 
@@ -222,6 +222,20 @@ _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
 _catalog_prompt_count_cache: tuple[float, int] | None = None
 
+_CATALOG_AREA_SLUG_CACHE_TTL_SECONDS = 300
+_catalog_area_slug_cache: tuple[float, list[str]] | None = None
+
+# Used only when the catalog cannot be reached -- see _open_catalog_areas.
+_FALLBACK_CATALOG_AREAS = (
+    "arbetsbank",
+    "beslutsberedning",
+    "forandringsledning",
+    "kommunikation",
+    "ledarskap",
+    "processer",
+    "visuellt",
+)
+
 
 def _open_catalog_prompt_count() -> int | None:
     """Antal publicerade mallar i den öppna katalogen (list_templates), cachat 5 min.
@@ -244,6 +258,42 @@ def _open_catalog_prompt_count() -> int | None:
 
     _catalog_prompt_count_cache = (now, count)
     return count
+
+
+def _open_catalog_areas() -> list[str]:
+    """Områdena i den öppna katalogen, som search_templates faktiskt filtrerar
+    på. Cachat 5 min.
+
+    Områdena är paketens slugs och växer när nya paket publiceras. Den
+    hårdkodade listan i tool-schemat hade sju värden medan katalogen hade
+    sjutton, så tio områden gick inte att filtrera på alls. Faller tillbaka på
+    den kända listan om katalogen inte kan nås -- tools/list får aldrig gå
+    sönder för att katalogen är nere.
+    """
+    global _catalog_area_slug_cache
+    now = time.monotonic()
+    if _catalog_area_slug_cache and now - _catalog_area_slug_cache[0] < _CATALOG_AREA_SLUG_CACHE_TTL_SECONDS:
+        return _catalog_area_slug_cache[1]
+
+    try:
+        areas = sorted(
+            {
+                str(package["slug"])
+                for package in _catalog.list_published_packages()
+                if isinstance(package.get("slug"), str) and package.get("slug")
+            }
+        )
+    except Exception:  # noqa: BLE001 - tools/list får aldrig krascha på detta
+        logger.warning("open_catalog_areas_failed", exc_info=True)
+        if _catalog_area_slug_cache:
+            return _catalog_area_slug_cache[1]
+        return list(_FALLBACK_CATALOG_AREAS)
+
+    if not areas:
+        return list(_FALLBACK_CATALOG_AREAS)
+
+    _catalog_area_slug_cache = (now, areas)
+    return areas
 
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
@@ -502,7 +552,15 @@ def _search_templates_payload(
             role_bonus_areas = {p["area"] for p in recommendation["packages"]}
 
     raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
-    tokens = [tok for tok in raw_tokens if len(tok) > 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
+    # Two characters, not three: "AI", "HR" and "IT" are exactly the terms
+    # people search this catalogue for. The two-letter Swedish function words
+    # are handled by STOPWORDS instead of by a blunt length cut.
+    tokens = [tok for tok in raw_tokens if len(tok) >= 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
+
+    # A query the tokenizer discarded entirely -- a single letter, or nothing
+    # but stopwords -- must never fall through to "no filter", which reported
+    # every template in the catalogue as a match.
+    fallback_needle = " ".join(raw_tokens) if raw_tokens and not tokens else ""
 
     scored: list[tuple[int, dict[str, Any]]] = []
     for t in templates:
@@ -510,7 +568,7 @@ def _search_templates_payload(
             continue
         if risk_level and t.get("risk_level") != risk_level:
             continue
-        if tokens:
+        if tokens or fallback_needle:
             strong = (_search_text(t.get("title")) + " " + _search_text(t.get("tags"))).lower()
             weak = " ".join(
                 [
@@ -520,7 +578,10 @@ def _search_templates_payload(
                     _search_text(t.get("tone_hint")),
                 ]
             ).lower()
-            score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
+            if tokens:
+                score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
+            else:
+                score = 2 if fallback_needle in strong else 1 if fallback_needle in weak else 0
             if score <= 0:
                 continue
         else:
@@ -1619,7 +1680,7 @@ def get_client_routing_instructions() -> dict[str, Any]:
                 "vi",
             ],
             "score": [
-                "Ta bort stopwords och ord kortare an tre tecken innan scoring.",
+                "Ta bort stopwords och ord pa ett tecken innan scoring. Behall tvateckensord som AI, HR och IT -- de ar riktiga sokord i den har katalogen.",
                 "Ge 30 poäng om skill-id förekommer i användarens uppgift, till exempel informationsutskick.",
                 "Ge 20 poäng om hela eller stor del av skillens display_name eller name förekommer som fras i uppgiften.",
                 "Ge 14 poäng per träff i example_phrases.",
@@ -2297,10 +2358,11 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     },
                     "area": {
                         "type": "string",
-                        "enum": [
-                            "kommunikation", "forandringsledning", "processer",
-                            "beslutsberedning", "visuellt", "ledarskap", "arbetsbank",
-                        ],
+                        "description": (
+                            "Restrict the search to one area. The values are the "
+                            "package slugs in the published catalogue."
+                        ),
+                        "enum": _open_catalog_areas(),
                     },
                     "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
                     "limit": {"type": "integer", "default": 10},
@@ -3878,7 +3940,11 @@ if SERVER_MODE != "hosted":
 
 @mcp.tool()
 def recommend_packages(role: str) -> dict[str, Any]:
-    """Recommend prompt packages for a job role (see tools/call description above)."""
+    """Suggest which prompt packages suit a given job role -- a good first step
+    when the user does not yet know what to ask for. Takes a short Swedish role
+    term such as 'chef' or 'kommunikator'; ask the user for their role first if
+    it is unknown. An unrecognised role returns every package with
+    role_recognized=false rather than an empty result."""
     logger.info("tool_call name=recommend_packages")
     return _recommend_packages_payload(role)
 

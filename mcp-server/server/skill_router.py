@@ -22,9 +22,16 @@ class SkillMatch:
 
 
 class SkillRouter:
+    # Two-letter Swedish function words (ar, at, da, ju, ni, nu, sa, ur) used
+    # to be filtered out by the old "longer than two characters" cut. That cut
+    # is now ">= 2" so acronyms like AI, HR and IT survive, which means these
+    # have to be named explicitly instead.
     STOPWORDS = {
+        "ar",
+        "at",
         "att",
         "av",
+        "da",
         "de",
         "den",
         "det",
@@ -38,16 +45,21 @@ class SkillRouter:
         "hur",
         "i",
         "jag",
+        "ju",
         "kan",
         "med",
+        "ni",
+        "nu",
         "och",
         "om",
         "pa",
+        "sa",
         "ska",
         "skriv",
         "skriva",
         "som",
         "till",
+        "ur",
         "var",
         "vara",
         "vi",
@@ -151,7 +163,7 @@ class SkillRouter:
         return {
             normalized
             for term in re.findall(r"\w+", text.lower(), flags=re.UNICODE)
-            if len((normalized := SkillRouter._normalize(term))) > 2 and normalized not in SkillRouter.STOPWORDS
+            if len((normalized := SkillRouter._normalize(term))) >= 2 and normalized not in SkillRouter.STOPWORDS
         }
 
     @staticmethod
