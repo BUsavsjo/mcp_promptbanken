@@ -14,7 +14,9 @@ from server.mcp_server import (
     SERVER_MODE,
     BearerAuthMiddleware,
     _handle_mcp_message,
+    _mcp_content_result,
     _save_my_item_payload,
+    _search_templates_payload,
     _tool_definitions_for_profile,
 )
 from server.mcp_server import mcp as _fastmcp_instance
@@ -125,6 +127,73 @@ class OpenAIPublicationContractTests(unittest.TestCase):
                 self.assertTrue(description.strip())
                 for term in jargon:
                     self.assertNotIn(term, description)
+
+    def test_result_tools_declare_output_schemas(self) -> None:
+        """OpenAI read output_json_schema as null for every tool in 1.2.1.
+        The tools that return a result worth interpreting should describe its
+        shape."""
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        for name in ("search_templates", "get_template", "list_packages", "get_package"):
+            with self.subTest(tool=name):
+                schema = definitions[name].get("outputSchema")
+                self.assertIsInstance(schema, dict)
+                self.assertEqual(schema["type"], "object")
+                self.assertTrue(schema["properties"])
+
+    def test_declared_output_schema_comes_with_structured_content(self) -> None:
+        """MCP requires structuredContent from a tool that declares an
+        outputSchema. Declaring one without sending the other is what makes a
+        strict client reject an otherwise fine response."""
+        payload = {"total_matches": 0, "returned": 0, "templates": []}
+        result = _mcp_content_result(payload, "search_templates")
+
+        self.assertIn("structuredContent", result)
+        self.assertEqual(result["structuredContent"]["total_matches"], 0)
+        self.assertEqual(
+            json.loads(result["content"][0]["text"]),
+            result["structuredContent"],
+        )
+
+    def test_tools_without_output_schema_send_no_structured_content(self) -> None:
+        """structuredContent repeats the entire payload. Attaching it to
+        list_templates would undo the summary projection that took its
+        response from 198 KB to 41 KB."""
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        self.assertNotIn("outputSchema", definitions["list_templates"])
+
+        result = _mcp_content_result({"templates": []}, "list_templates")
+
+        self.assertNotIn("structuredContent", result)
+
+    def test_search_output_schema_covers_what_search_actually_returns(self) -> None:
+        """Guards against the schema drifting away from the payload: every
+        top-level key a real search emits has to be described."""
+        catalog = {
+            "templates": [
+                {
+                    "id": "1",
+                    "title": "Kallelse",
+                    "tags": ["möte"],
+                    "syfte": "Kalla till möte",
+                    "output_format": "text",
+                    "area_label": "Kommunikation",
+                    "tone_hint": None,
+                    "area": "kommunikation",
+                    "risk_level": "low",
+                }
+            ]
+        }
+        with patch("server.mcp_server._list_templates_payload", return_value=catalog):
+            payload = _search_templates_payload(query="kallelse", role="chef")
+
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        described = set(definitions["search_templates"]["outputSchema"]["properties"])
+        self.assertEqual(set(payload) - described, set())
+
+        described_template = set(
+            definitions["search_templates"]["outputSchema"]["properties"]["templates"]["items"]["properties"]
+        )
+        self.assertEqual(set(payload["templates"][0]) - described_template, set())
 
     def test_public_profile_stays_public_even_when_key_is_present(self) -> None:
         response = _handle_mcp_message(

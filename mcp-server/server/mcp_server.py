@@ -203,6 +203,93 @@ _TEMPLATE_SUMMARY_FIELDS = (
     "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
 )
 
+# Tools that declare an outputSchema, and therefore must also return
+# structuredContent. Keep the two in step -- see _mcp_content_result.
+_TOOLS_WITH_OUTPUT_SCHEMA = frozenset(
+    {"search_templates", "get_template", "list_packages", "get_package"}
+)
+
+
+def _nullable(*types: str) -> dict[str, Any]:
+    return {"type": [*types, "null"]}
+
+
+def _nullable_array(item_type: str = "string") -> dict[str, Any]:
+    return {"type": ["array", "null"], "items": {"type": item_type}}
+
+
+# Response schemas. Deliberately without "required": the catalog error payload
+# ({status, message, ...}) travels through the same envelope, and a schema that
+# rejected it would turn an outage into a client-side validation error. They
+# describe the shape so a model can read the fields; they are not a gate.
+_TEMPLATE_SUMMARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "A template as returned in list form -- no prompt_text.",
+    "properties": {
+        "id": {"type": "string", "description": "Pass this to get_template."},
+        "title": {"type": "string"},
+        "syfte": _nullable("string") | {"description": "What the template is for."},
+        "area": _nullable("string") | {"description": "Package slug the template belongs to."},
+        "area_label": _nullable("string"),
+        "output_format": _nullable("string"),
+        "tags": _nullable_array(),
+        "risk_level": _nullable("string") | {"description": "low, medium or high."},
+    },
+    "additionalProperties": True,
+}
+
+_TEMPLATE_FULL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "One template in full, including the text to use.",
+    "properties": {
+        **_TEMPLATE_SUMMARY_SCHEMA["properties"],
+        "slug": _nullable("string"),
+        "icon_key": _nullable("string"),
+        "image_key": _nullable("string"),
+        "color_theme": _nullable("string"),
+        "prompt_text": _nullable("string") | {"description": "The prompt itself, for the client to fill in and use."},
+        "example_input": _nullable("string"),
+        "audience_label": _nullable("string"),
+        "tone_hint": _nullable("string"),
+        "context_key": _nullable("string") | {"description": "Which stored variant this is."},
+        "parameter_schema": _nullable("object", "array") | {"description": "Fields the user fills in, when the template has any."},
+        "default_bindings": _nullable("object") | {"description": "Suggested values for those fields."},
+        "binding_overrides": _nullable("array"),
+        "security_examples": _nullable_array(),
+    },
+    "additionalProperties": True,
+}
+
+_PACKAGE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "A package -- a themed set of prompts covering one task.",
+    "properties": {
+        "id": {"type": "string"},
+        "slug": {"type": "string", "description": "Pass this to get_package and list_package_prompts."},
+        "package_type": _nullable("string"),
+        "title": {"type": "string"},
+        "summary": _nullable("string"),
+        "intro_text": _nullable("string") | {"description": "The package's own introduction."},
+        "icon_key": _nullable("string"),
+        "image_key": _nullable("string"),
+        "color_theme": _nullable("string"),
+        "audience_label": _nullable("string"),
+        "context_key": _nullable("string"),
+        "parameter_schema": _nullable("object", "array"),
+        "default_bindings": _nullable("object"),
+        "binding_overrides": _nullable("array"),
+    },
+    "additionalProperties": True,
+}
+
+_VARIANT_DIAGNOSTIC_PROPERTIES: dict[str, Any] = {
+    "status": {"type": "string"},
+    "requested_context_keys": _nullable_array(),
+    "matched_context_keys": _nullable_array() | {"description": "Which requested keys actually had a stored variant."},
+    "variant_source": _nullable("string")
+    | {"description": "profile_variant, fallback_generell or mixed."},
+}
+
 _PUBLIC_OPEN_TOOL_NAMES = {
     "health_check",
     "get_client_routing_instructions",
@@ -2357,6 +2444,19 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Söker efter promptmallar",
                 "Sökningen klar",
             ),
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    "total_matches": {"type": "integer", "description": "How many templates matched, before limit."},
+                    "returned": {"type": "integer", "description": "How many are in this response."},
+                    "templates": {"type": "array", "items": _TEMPLATE_SUMMARY_SCHEMA},
+                    "role_recognized": {"type": "boolean", "description": "Present when role was supplied."},
+                    "matched_role": _nullable("string"),
+                    "role_match_source": _nullable("string"),
+                    "recommended_areas": _nullable_array(),
+                },
+                "additionalProperties": True,
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2398,6 +2498,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar promptmallen",
                 "Promptmallen hämtad",
             ),
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    **_VARIANT_DIAGNOSTIC_PROPERTIES,
+                    "template": _TEMPLATE_FULL_SCHEMA,
+                },
+                "additionalProperties": True,
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2423,6 +2531,11 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar promptpaket",
                 "Promptpaketen hämtade",
             ),
+            "outputSchema": {
+                "type": "object",
+                "properties": {"packages": {"type": "array", "items": _PACKAGE_SCHEMA}},
+                "additionalProperties": True,
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2447,6 +2560,19 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar promptpaketet",
                 "Promptpaketet hämtat",
             ),
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    **_VARIANT_DIAGNOSTIC_PROPERTIES,
+                    "package": _PACKAGE_SCHEMA,
+                    "variants": {
+                        "type": "array",
+                        "items": _PACKAGE_SCHEMA,
+                        "description": "The stored profile variants of this package.",
+                    },
+                },
+                "additionalProperties": True,
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2773,8 +2899,8 @@ def _json_rpc_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
 
-def _mcp_content_result(value: Any) -> dict[str, Any]:
-    return {
+def _mcp_content_result(value: Any, tool_name: str = "") -> dict[str, Any]:
+    result: dict[str, Any] = {
         "content": [
             {
                 "type": "text",
@@ -2783,6 +2909,13 @@ def _mcp_content_result(value: Any) -> dict[str, Any]:
         ],
         "isError": False,
     }
+    # MCP requires structuredContent from a tool that declares an outputSchema
+    # -- and only from those. It repeats the whole payload, so attaching it
+    # everywhere would double list_templates back to the ~198 KB the summary
+    # projection was introduced to avoid.
+    if tool_name in _TOOLS_WITH_OUTPUT_SCHEMA and isinstance(value, dict):
+        result["structuredContent"] = value
+    return result
 
 
 def _optional_context_keys(arguments: dict[str, Any]) -> list[str] | None:
@@ -2897,7 +3030,7 @@ def _handle_mcp_message(
             return _json_rpc_result(request_id, _mcp_content_result(_search_templates_with_usage(
                 arguments.get("query", ""), arguments.get("role", ""),
                 arguments.get("area", ""), arguments.get("risk_level", ""), limit, context_keys,
-            )))
+            ), tool_name))
         if tool_name == "get_template":
             template_id = arguments.get("template_id")
             context_keys = _optional_context_keys(arguments)
@@ -2905,7 +3038,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid get_template arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_get_template_with_usage(template_id, context_keys)),
+                _mcp_content_result(_get_template_with_usage(template_id, context_keys), tool_name),
             )
         if tool_name == "list_packages":
             context_keys = _optional_context_keys(arguments)
@@ -2914,7 +3047,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid list_packages arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_packages_with_usage(context_keys, package_type)),
+                _mcp_content_result(_list_packages_with_usage(context_keys, package_type), tool_name),
             )
         if tool_name == "get_package":
             package_slug = arguments.get("package_slug")
@@ -2923,7 +3056,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid get_package arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_get_package_with_usage(package_slug, context_keys)),
+                _mcp_content_result(_get_package_with_usage(package_slug, context_keys), tool_name),
             )
         if tool_name == "list_package_prompts":
             package_slug = arguments.get("package_slug")
