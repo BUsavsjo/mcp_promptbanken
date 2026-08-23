@@ -1,0 +1,191 @@
+{
+  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Promptbanken",
+    "subtitle": "Find and use prompt templates",
+    "description": "Promptbanken is an open, curated library of ready-to-use prompt templates for municipalities, schools, companies, associations, and individuals. Search the catalog for a task, fetch a chosen template in full, and follow a prompt package step by step — directly in ChatGPT.\n\nThe published connector is open, read-only, and requires no account or sign-in. It receives only the parameters its tools define: a search term, a role word, filters, and the id or slug of a catalog entry. Nothing else from the conversation reaches the server, and the connector publishes no write tools, so it cannot store anything. Search terms are never stored — only the length of a query is counted in anonymous usage statistics.",
+    "category": "PRODUCTIVITY",
+    "website_url": "https://app.promptbanken.se",
+    "support_url": "https://app.promptbanken.se/support.html",
+    "privacy_policy_url": "https://app.promptbanken.se/privacy-mcp-en.html"
+  },
+  "tools": {
+    "health_check": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns health status for the public catalog without creating or changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "get_client_routing_instructions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns client guidance for using the public catalog and does not modify data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "list_templates": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Browses the open catalog and returns one page of template summaries without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "search_templates": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Searches the open template catalog and returns matching summaries without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "get_template": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches one published template, including its prompt text, without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "list_packages": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists published packages as summaries without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "get_package": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches one published package without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "list_package_prompts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists the steps of one published package without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "recommend_packages": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Computes package recommendations from the public catalog without changing data.",
+        "open_world_justification": "Does not publish content or change an external system.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Search the catalog for a relevant municipal communication template.",
+      "user_prompt": "Find a template for informing staff about a service disruption.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search_templates",
+      "expected_output": "Returns relevant public template summaries so the user can select one.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Retrieve a template in full after the user has selected it.",
+      "user_prompt": "Show me the full template with ID 1221debc-650d-42f2-8680-c901353c3c6c.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_template",
+      "expected_output": "Returns the selected public prompt template, including its prompt text, for the user to fill in locally.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Browse available prompt packages.",
+      "user_prompt": "What public prompt packages are available?",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_packages",
+      "expected_output": "Returns the available public packages as summaries — slug, title, summary and type — which is enough to choose one.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect the steps in a selected package. The tool takes the package slug, not a template id.",
+      "user_prompt": "List the prompts in the package kommunikation.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_package_prompts",
+      "expected_output": "Returns the steps of the selected package in order, each with an id and title. The prompt text of a step is fetched separately with get_template.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Get package recommendations for a municipal role.",
+      "user_prompt": "Which prompt packages are relevant for an IT coordinator?",
+      "file_attachment_urls": null,
+      "tools_triggered": "recommend_packages",
+      "expected_output": "Returns relevant public package recommendations without changing catalog data.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger the public catalog for a personal calendar request.",
+      "user_prompt": "What meetings do I have tomorrow?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because personal calendar management is outside the public catalog workflow.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger the public catalog to save private content.",
+      "user_prompt": "Save this prompt to my personal library.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the open connector publishes no write tools and cannot save anything.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not send sensitive documents to the public catalog.",
+      "user_prompt": "Upload this student record and create a prompt from it.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the public connector is metadata-only and must not receive personal or confidential source material.",
+      "expected_output_url": null
+    }
+  ]
+}
