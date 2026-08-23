@@ -1130,12 +1130,14 @@ def _save_workspace_prompt_payload(
 def list_templates(
     context_keys: list[str] | None = None, include_prompt_text: bool = False
 ) -> dict[str, Any]:
-    """List the Promptbanken template catalog. The catalog is open -- no plan
-    or key required. Returns lightweight summaries by default; call
-    get_template(id) for the full prompt text of a chosen template. Set
-    include_prompt_text=true only when you genuinely need every prompt at
-    once -- the whole catalog is large and will crowd out the conversation.
-    Pass context_keys like ["kommun", "skola"] to combine profile variants."""
+    """Browse Promptbanken's catalogue of ready-made prompt templates for
+    Swedish public-sector work -- writing, communication, decision support,
+    leadership and more. The catalogue is open to everyone; no account or key
+    is needed. Returns short summaries by default; call get_template(id) for
+    the full text of a chosen template. Set include_prompt_text=true only when
+    every prompt really is needed at once -- the whole catalogue is large and
+    will crowd out the conversation. context_keys like ["kommun", "skola"]
+    picks the variant written for the user's setting."""
     logger.info("tool_call name=list_templates")
     return _list_templates_with_usage(context_keys, include_prompt_text=include_prompt_text)
 
@@ -1149,12 +1151,13 @@ def search_templates(
     limit: int = 10,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Search the open Promptbanken template catalog without fetching every
-    full prompt. Filter by free-text query (matched against title, syfte,
-    tags, output format), area and/or risk_level. role ranks results toward
-    relevant job functions -- it does not exclude templates from other
-    areas. context_keys can combine profile variants. Returns lightweight summaries -- no prompt_text -- so use
-    get_template(id) on a chosen result to fetch the full prompt."""
+    """Find the prompt templates that fit a task, without pulling in the whole
+    catalogue. The free-text query is matched against title, purpose, tags and
+    output format; area and risk_level narrow the result. role ranks results
+    toward a job function -- it does not hide templates from other areas.
+    context_keys picks the variant written for the user's setting. Returns
+    short summaries, so call get_template(id) on a chosen result for the full
+    prompt."""
     logger.info("tool_call name=search_templates")
     return _search_templates_with_usage(query, role, area, risk_level, limit, context_keys)
 
@@ -1164,12 +1167,11 @@ def get_template(
     template_id: str,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch one full template, including prompt_text, by its id (as returned
-    by search_templates or list_templates). context_keys can combine profile
-    variants and only select which stored variant is returned -- the server
-    never assembles a finished prompt. The payload carries prompt_text,
-    parameter_schema, default_bindings and binding_overrides; the client does
-    all filling-in and rendering locally."""
+    """Fetch one template in full, ready to use, by the id returned from
+    search_templates or list_templates. context_keys only chooses which stored
+    variant comes back. The template arrives as its own text plus the fields
+    the user is meant to fill in; the client fills those in locally -- the
+    server never returns a finished, filled-in prompt."""
     logger.info("tool_call name=get_template")
     return _get_template_with_usage(template_id, context_keys)
 
@@ -1178,10 +1180,11 @@ def get_template(
 def list_packages(
     context_keys: list[str] | None = None, package_type: str | None = None
 ) -> dict[str, Any]:
-    """List published Promptbanken packages/workflows. context_keys can combine
-    profile variants; package_type filters when supplied. Each package carries
-    raw intro_text plus parameter_schema, default_bindings and
-    binding_overrides for the client to render itself."""
+    """List Promptbanken's packages -- themed sets of prompts that carry a
+    whole task from start to finish, such as change communication or preparing
+    a decision. context_keys picks the variant written for the user's setting;
+    package_type narrows the list when supplied. Each package arrives as its
+    own introduction plus the fields the client fills in locally."""
     logger.info("tool_call name=list_packages")
     return _list_packages_with_usage(context_keys, package_type)
 
@@ -1191,11 +1194,11 @@ def get_package(
     package_slug: str,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch one published package by slug, including the best matching
-    profile variant for the supplied context_keys (variant selection only --
-    no server-side rendering). The payload carries raw intro_text,
-    parameter_schema, default_bindings and binding_overrides; the client
-    fills these in and renders the final text itself."""
+    """Fetch one package by its slug -- a short name such as 'kommunikation',
+    not a template id -- in the variant that best matches context_keys.
+    Returns the package's introduction plus the fields the client fills in
+    locally; the server never returns finished text. Use list_package_prompts
+    for the prompts inside the package."""
     logger.info("tool_call name=get_package")
     return _get_package_with_usage(package_slug, context_keys)
 
@@ -1205,11 +1208,11 @@ def list_package_prompts(
     package_slug: str,
     context_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """List the prompts inside one published package, in sort order, using the
-    best matching profile variant for the supplied context_keys (variant
-    selection only -- no server-side rendering). Each prompt carries raw
-    prompt_text, parameter_schema, default_bindings and binding_overrides;
-    the client fills these in and renders the final text itself."""
+    """List the prompts inside one package, in the order they are meant to be
+    used. Takes the package slug -- a short name such as 'kommunikation', not
+    a template id -- and context_keys to pick the variant written for the
+    user's setting. Each prompt arrives as its own text plus the fields the
+    client fills in locally."""
     logger.info("tool_call name=list_package_prompts")
     return _list_package_prompts_with_usage(package_slug, context_keys)
 
@@ -1530,14 +1533,19 @@ def _health_check_payload(mcp_key: str = "") -> dict[str, Any]:
 
 @mcp.tool()
 def health_check() -> dict[str, Any]:
-    """Return lightweight service status without loading prompt text."""
+    """Check that Promptbanken is reachable and report the service status.
+    Reads no prompt content and takes no input."""
     logger.info("tool_call name=health_check")
     return _health_check_payload()
 
 
 @mcp.tool()
 def get_client_routing_instructions() -> dict[str, Any]:
-    """Return instructions for client-side skill routing without sending user text to the MCP server."""
+    """Get Promptbanken's guidance for using this connector: which tool to
+    reach for in which situation, and the privacy rule that the user's own
+    text, personal data and confidential material stay in the client and are
+    never sent to the server. Worth calling once before the first catalog
+    lookup in a conversation."""
     logger.info("tool_call name=get_client_routing_instructions")
     catalog_privacy_instruction = (
         "I hosted-läge ska MCP-klienten inte skicka användarens uppgift, indata, dokumenttext, "
@@ -2142,6 +2150,19 @@ def _public_tool_annotations(title: str) -> dict[str, Any]:
     }
 
 
+def _public_tool_status_meta(invoking: str, invoked: str) -> dict[str, Any]:
+    """Status texts a client shows while and after a public tool runs.
+
+    Apps SDK tool-descriptor keys, max 64 characters each. Written in Swedish
+    like ``annotations.title`` -- both are end-user surfaces, while the tool
+    description is written in English for the model and for review.
+    """
+    return {
+        "openai/toolInvocation/invoking": invoking,
+        "openai/toolInvocation/invoked": invoked,
+    }
+
+
 def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
     tools = [
         {
@@ -2183,28 +2204,53 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         },
         {
             "name": "health_check",
-            "description": "Return lightweight service status without loading prompt text.",
+            "description": (
+                "Check that Promptbanken is reachable and report the service "
+                "status. Reads no prompt content and takes no input."
+            ),
             "annotations": _public_tool_annotations("Kontrollera tjänstens status"),
+            "_meta": _public_tool_status_meta(
+                "Kontrollerar Promptbankens status",
+                "Statusen hämtad",
+            ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
             "name": "get_client_routing_instructions",
-            "description": "Return instructions for client-side skill routing without sending user text to the MCP server.",
+            "description": (
+                "Get Promptbanken's guidance for using this connector: which "
+                "tool to reach for in which situation, and the privacy rule "
+                "that the user's own text, personal data and confidential "
+                "material stay in the client and are never sent to the server. "
+                "Worth calling once before the first catalog lookup in a "
+                "conversation."
+            ),
             "annotations": _public_tool_annotations("Hämta routing- och integritetsregler"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar Promptbankens användningsregler",
+                "Reglerna hämtade",
+            ),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
             "name": "list_templates",
             "description": (
-                "List the Promptbanken template catalog. The catalog is open -- "
-                "no plan or key required. Returns lightweight summaries by "
-                "default; call get_template(id) for the full prompt text of a "
-                "chosen template. Set include_prompt_text=true only when you "
-                "genuinely need every prompt at once -- the whole catalog is "
-                "large and will crowd out the conversation. Pass context_keys "
-                "to combine profile variants."
+                "Browse Promptbanken's catalogue of ready-made prompt "
+                "templates for Swedish public-sector work -- writing, "
+                "communication, decision support, leadership and more. The "
+                "catalogue is open to everyone; no account or key is needed. "
+                "Returns short summaries by default; call get_template(id) for "
+                "the full text of a chosen template. Set "
+                "include_prompt_text=true only when every prompt really is "
+                "needed at once -- the whole catalogue is large and will crowd "
+                "out the conversation. context_keys picks the variant written "
+                "for the user's setting, for example kommun or skola."
             ),
             "annotations": _public_tool_annotations("Lista publicerade promptmallar"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar promptmallar från Promptbanken",
+                "Promptmallarna hämtade",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2224,15 +2270,20 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "search_templates",
             "description": (
-                "Search the open Promptbanken template catalog without fetching "
-                "every full prompt. Filter by free-text query (matched against title, "
-                "syfte, tags, output format), area and/or risk_level. role ranks "
-                "results toward relevant job functions -- it does not exclude "
-                "templates from other areas. context_keys can combine profile "
-                "variants. Returns lightweight summaries -- no prompt_text -- so "
-                "use get_template(id) on a chosen result to fetch the full prompt."
+                "Find the prompt templates that fit a task, without pulling in "
+                "the whole catalogue. The free-text query is matched against "
+                "title, purpose, tags and output format; area and risk_level "
+                "narrow the result. role ranks results toward a job function -- "
+                "it does not hide templates from other areas. context_keys "
+                "picks the variant written for the user's setting. Returns "
+                "short summaries, so call get_template(id) on a chosen result "
+                "for the full prompt."
             ),
             "annotations": _public_tool_annotations("Sök publicerade promptmallar"),
+            "_meta": _public_tool_status_meta(
+                "Söker efter promptmallar",
+                "Sökningen klar",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2261,15 +2312,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "get_template",
             "description": (
-                "Fetch one full template, including prompt_text, by its id (as "
-                "returned by search_templates or list_templates). context_keys can "
-                "combine profile variants and only select which stored variant is "
-                "returned -- the server never assembles a finished prompt. The "
-                "payload carries prompt_text, parameter_schema, default_bindings "
-                "and binding_overrides; the client does all filling-in and "
-                "rendering locally."
+                "Fetch one template in full, ready to use, by the id returned "
+                "from search_templates or list_templates. context_keys only "
+                "chooses which stored variant comes back. The template arrives "
+                "as its own text plus the fields the user is meant to fill in; "
+                "the client fills those in locally -- the server never returns "
+                "a finished, filled-in prompt."
             ),
             "annotations": _public_tool_annotations("Hämta en publicerad promptmall"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar promptmallen",
+                "Promptmallen hämtad",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2283,13 +2337,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "list_packages",
             "description": (
-                "List published Promptbanken packages/workflows. context_keys can "
-                "combine profile variants; package_type filters when supplied. "
-                "Each package carries raw intro_text plus parameter_schema, "
-                "default_bindings and binding_overrides for the client to render "
-                "itself."
+                "List Promptbanken's packages -- themed sets of prompts that "
+                "carry a whole task from start to finish, such as change "
+                "communication or preparing a decision. context_keys picks the "
+                "variant written for the user's setting; package_type narrows "
+                "the list when supplied. Each package arrives as its own "
+                "introduction plus the fields the client fills in locally."
             ),
             "annotations": _public_tool_annotations("Lista publicerade promptpaket"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar promptpaket",
+                "Promptpaketen hämtade",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2302,14 +2361,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "get_package",
             "description": (
-                "Fetch one published package by slug, including the best matching "
-                "profile variant for the supplied context_keys (variant selection "
-                "only -- no server-side rendering). The payload carries raw "
-                "intro_text, parameter_schema, default_bindings and "
-                "binding_overrides; the client fills these in and renders the "
-                "final text itself."
+                "Fetch one package by its slug -- a short name such as "
+                "'kommunikation', not a template id -- in the variant that best "
+                "matches context_keys. Returns the package's introduction plus "
+                "the fields the client fills in locally; the server never "
+                "returns finished text. Use list_package_prompts for the "
+                "prompts inside the package."
             ),
             "annotations": _public_tool_annotations("Hämta ett publicerat promptpaket"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar promptpaketet",
+                "Promptpaketet hämtat",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2323,14 +2386,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "list_package_prompts",
             "description": (
-                "List the prompts inside one published package, in sort order, "
-                "using the best matching profile variant for the supplied "
-                "context_keys (variant selection only -- no server-side "
-                "rendering). Each prompt carries raw prompt_text, "
-                "parameter_schema, default_bindings and binding_overrides; the "
-                "client fills these in and renders the final text itself."
+                "List the prompts inside one package, in the order they are "
+                "meant to be used. Takes the package slug -- a short name such "
+                "as 'kommunikation', not a template id -- and context_keys to "
+                "pick the variant written for the user's setting. Each prompt "
+                "arrives as its own text plus the fields the client fills in "
+                "locally."
             ),
             "annotations": _public_tool_annotations("Lista mallar i ett promptpaket"),
+            "_meta": _public_tool_status_meta(
+                "Hämtar paketets promptmallar",
+                "Paketets promptmallar hämtade",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2591,13 +2658,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "recommend_packages",
             "description": (
-                "Recommend prompt packages (areas) suited to a job role. Pass a "
-                "short role term (e.g. 'chef', 'kommunikator') -- if the calling "
-                "client doesn't know the user's role, it should ask the user first. "
-                "If the role isn't recognized, all packages are returned with "
+                "Suggest which prompt packages suit a given job role -- a good "
+                "first step when the user does not yet know what to ask for. "
+                "Takes a short Swedish role term such as 'chef' or "
+                "'kommunikator'; ask the user for their role first if it is "
+                "unknown. An unrecognised role returns every package with "
                 "role_recognized=false rather than an empty result."
             ),
             "annotations": _public_tool_annotations("Rekommendera promptpaket för en roll"),
+            "_meta": _public_tool_status_meta(
+                "Söker promptpaket för rollen",
+                "Rekommendationerna klara",
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {"role": {"type": "string"}},
