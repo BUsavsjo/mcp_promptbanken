@@ -9,7 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.hosted_guard import HostedMetadataGuard
 from server.usage_events import _safe_metadata
+from server import mcp_server as server_mcp
 from server.mcp_server import (
+    _tool_definitions_for_profile,
     _TEMPLATE_SUMMARY_FIELDS,
     _handle_mcp_message,
     _list_templates_with_usage,
@@ -255,6 +257,70 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(payload["total_matches"], 1)
         self.assertEqual(payload["templates"][0]["id"], "123")
+
+    def _two_template_catalog(self) -> dict[str, object]:
+        return {
+            "templates": [
+                {
+                    "id": "1",
+                    "title": "Förklara AI för medarbetare",
+                    "tags": ["ai"],
+                    "syfte": None,
+                    "output_format": None,
+                    "area_label": None,
+                    "tone_hint": None,
+                },
+                {
+                    "id": "2",
+                    "title": "Kallelse till möte",
+                    "tags": ["möte"],
+                    "syfte": None,
+                    "output_format": None,
+                    "area_label": None,
+                    "tone_hint": None,
+                },
+            ]
+        }
+
+    def test_short_acronym_query_filters_instead_of_matching_everything(self) -> None:
+        """Verified against production 2026-08-23: query='AI' reported
+        total_matches=102, the entire catalogue. The tokenizer dropped every
+        token under three characters, left an empty token list, and the scoring
+        loop treated "no tokens" as "no filter". AI, HR and IT are exactly the
+        terms this catalogue is searched for."""
+        with patch(
+            "server.mcp_server._list_templates_payload",
+            return_value=self._two_template_catalog(),
+        ):
+            payload = _search_templates_payload(query="AI")
+
+        self.assertEqual(payload["total_matches"], 1)
+        self.assertEqual(payload["templates"][0]["id"], "1")
+
+    def test_query_of_only_stopwords_does_not_return_whole_catalogue(self) -> None:
+        """The same "empty token list means no filter" bug, reachable even
+        after the length cut is lowered -- a query has to keep filtering, or
+        report nothing, but never claim every template matched."""
+        with patch(
+            "server.mcp_server._list_templates_payload",
+            return_value=self._two_template_catalog(),
+        ):
+            payload = _search_templates_payload(query="och")
+
+        self.assertEqual(payload["total_matches"], 0)
+        self.assertEqual(payload["templates"], [])
+
+    def test_area_enum_follows_the_published_catalogue(self) -> None:
+        """The hardcoded enum listed 7 areas while the live catalogue had 17,
+        so ten areas could not be filtered on at all."""
+        packages = [{"slug": "anti-slop"}, {"slug": "kommunikation"}, {"slug": "hall-traden"}]
+        with patch("server.mcp_server._catalog.list_published_packages", return_value=packages):
+            server_mcp._catalog_area_slug_cache = None
+            definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+            server_mcp._catalog_area_slug_cache = None
+
+        area_enum = definitions["search_templates"]["inputSchema"]["properties"]["area"]["enum"]
+        self.assertEqual(area_enum, ["anti-slop", "hall-traden", "kommunikation"])
 
     def test_search_templates_propagates_catalog_error_payload(self) -> None:
         catalog_error = {
