@@ -98,6 +98,34 @@ class OpenAIPublicationContractTests(unittest.TestCase):
                 self.assertIs(tool["annotations"]["openWorldHint"], False)
                 self.assertFalse(tool["inputSchema"].get("additionalProperties", True))
 
+    def test_public_tools_carry_apps_sdk_invocation_status_messages(self) -> None:
+        """The submitted 1.2.1 app manifest had tool_invoking_message and
+        tool_invoked_message empty on all nine tools because the server sent no
+        _meta at all. OpenAI reads these from the tool descriptor; the keys and
+        the 64-character ceiling are from the Apps SDK reference."""
+        for tool in _tool_definitions_for_profile("public"):
+            with self.subTest(tool=tool["name"]):
+                meta = tool.get("_meta", {})
+                for key in (
+                    "openai/toolInvocation/invoking",
+                    "openai/toolInvocation/invoked",
+                ):
+                    message = meta.get(key)
+                    self.assertIsInstance(message, str)
+                    self.assertTrue(message.strip())
+                    self.assertLessEqual(len(message), 64)
+
+    def test_public_tool_descriptions_stay_free_of_internal_field_names(self) -> None:
+        """Descriptions are end-user- and reviewer-facing in ChatGPT. Internal
+        payload field names say nothing about what the tool is good for."""
+        jargon = ("binding_overrides", "default_bindings", "parameter_schema", "intro_text")
+        for tool in _tool_definitions_for_profile("public"):
+            with self.subTest(tool=tool["name"]):
+                description = tool["description"]
+                self.assertTrue(description.strip())
+                for term in jargon:
+                    self.assertNotIn(term, description)
+
     def test_public_profile_stays_public_even_when_key_is_present(self) -> None:
         response = _handle_mcp_message(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
