@@ -16,12 +16,12 @@ top-level field in the response payload.
 |---|---|
 | `health_check` | `status`, `service`, `version`, `mode`, `catalog`, `plan`, `message`, `catalog_prompt_count` |
 | `get_client_routing_instructions` | `mode`, `privacy_instruction`, `client_flow` (array of instruction strings) |
-| `list_templates` | `unlocked`, `requested_context_keys`, `matched_context_keys`, `variant_source`, `templates[]` — each: `id`, `title`, `syfte`, `area`, `area_label`, `output_format`, `tags`, `risk_level`, `slug`, `icon_key`, `image_key`, `color_theme`, `prompt_text`, `example_input`, `audience_label`, `tone_hint`, `context_key`, `parameter_schema`, `default_bindings`, `binding_overrides`, `security_examples` |
-| `search_templates` | `total_matches`, `returned`, `templates[]` (lighter summary — no `prompt_text`): `id`, `title`, `syfte`, `area`, `area_label`, `output_format`, `tags`, `risk_level` |
-| `get_template` | `status`, `requested_context_keys`, `matched_context_keys`, `variant_source`, `template` (same shape as one `list_templates` entry) |
+| `list_templates` | `unlocked`, `requested_context_keys`, `matched_context_keys`, `variant_source`, `templates[]` — **by default the summary shape** (see `search_templates`). With `include_prompt_text: true`, each entry is the **full template shape**: `id`, `title`, `syfte`, `area`, `area_label`, `output_format`, `tags`, `risk_level`, `slug`, `icon_key`, `image_key`, `color_theme`, `prompt_text`, `example_input`, `audience_label`, `tone_hint`, `context_key`, `parameter_schema`, `default_bindings`, `binding_overrides`, `security_examples` |
+| `search_templates` | `total_matches`, `returned`, `templates[]` — the **summary shape** (no `prompt_text`): `id`, `title`, `syfte`, `area`, `area_label`, `output_format`, `tags`, `risk_level` |
+| `get_template` | `status`, `requested_context_keys`, `matched_context_keys`, `variant_source`, `template` (one entry in the **full template shape**) |
 | `list_packages` | `packages[]` — each: `id`, `slug`, `package_type`, `icon_key`, `image_key`, `color_theme`, `title`, `summary`, `intro_text`, `audience_label`, `context_key`, `parameter_schema`, `default_bindings`, `binding_overrides` |
 | `get_package` | `status`, `requested_context_keys`, `matched_context_keys`, `variant_source`, `package` (single, same shape as a `list_packages` entry), `variants[]` (same shape, one per context) |
-| `list_package_prompts` | `requested_context_keys`, `matched_context_keys`, `variant_source`, `prompts[]` (same shape as `list_templates` entries) |
+| `list_package_prompts` | `requested_context_keys`, `matched_context_keys`, `variant_source`, `prompts[]` (the **full template shape** — a package holds a handful of prompts, so the text is included) |
 | `recommend_packages` | `role_recognized`, `packages[]` (`area`, `area_label`, `template_count`), `matched_role`, `role_match_source`, `recommended_areas` |
 
 ## Assessment
