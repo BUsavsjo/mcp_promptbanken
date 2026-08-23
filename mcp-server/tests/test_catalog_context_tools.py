@@ -299,8 +299,8 @@ class CatalogContextToolsTests(unittest.TestCase):
 
     def test_query_of_only_stopwords_does_not_return_whole_catalogue(self) -> None:
         """The same "empty token list means no filter" bug, reachable even
-        after the length cut is lowered -- a query has to keep filtering, or
-        report nothing, but never claim every template matched."""
+        after the length cut is lowered. Measured in production before the
+        fix: query="och" reported 91 of 102 templates."""
         with patch(
             "server.mcp_server._list_templates_payload",
             return_value=self._two_template_catalog(),
@@ -309,6 +309,42 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         self.assertEqual(payload["total_matches"], 0)
         self.assertEqual(payload["templates"], [])
+
+    def test_short_token_must_match_a_whole_word(self) -> None:
+        """Measured in production: query="IT" returned 36 templates, matching
+        the letters inside words like "politik" and "kvalitet". Short tokens
+        need a word boundary; longer ones keep substring matching so Swedish
+        inflections still work."""
+        catalog = {
+            "templates": [
+                {
+                    "id": "politik",
+                    "title": "Skriva om politiken",
+                    "tags": None,
+                    "syfte": None,
+                    "output_format": None,
+                    "area_label": None,
+                    "tone_hint": None,
+                },
+                {
+                    "id": "it",
+                    "title": "Beställning till IT-avdelningen",
+                    "tags": None,
+                    "syfte": None,
+                    "output_format": None,
+                    "area_label": None,
+                    "tone_hint": None,
+                },
+            ]
+        }
+        with patch("server.mcp_server._list_templates_payload", return_value=catalog):
+            payload = _search_templates_payload(query="IT")
+            inflected = _search_templates_payload(query="politik")
+
+        self.assertEqual(payload["total_matches"], 1)
+        self.assertEqual(payload["templates"][0]["id"], "it")
+        self.assertEqual(inflected["total_matches"], 1)
+        self.assertEqual(inflected["templates"][0]["id"], "politik")
 
     def test_area_enum_follows_the_published_catalogue(self) -> None:
         """The hardcoded enum listed 7 areas while the live catalogue had 17,

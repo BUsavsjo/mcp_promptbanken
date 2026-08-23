@@ -558,9 +558,21 @@ def _search_templates_payload(
     tokens = [tok for tok in raw_tokens if len(tok) >= 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
 
     # A query the tokenizer discarded entirely -- a single letter, or nothing
-    # but stopwords -- must never fall through to "no filter", which reported
-    # every template in the catalogue as a match.
-    fallback_needle = " ".join(raw_tokens) if raw_tokens and not tokens else ""
+    # but stopwords -- carries no signal. Report nothing rather than falling
+    # through to "no filter", which used to return the whole catalogue.
+    if raw_tokens and not tokens:
+        return {"total_matches": 0, "returned": 0, "templates": []}
+
+    # Short tokens have to match a whole word. Plain substring matching is
+    # what makes "IT" hit "politik" and "kvalitet"; longer tokens keep it, so
+    # Swedish compounds and inflections ("mall" -> "mallar") still match.
+    matchers = [
+        (re.compile(rf"\b{re.escape(tok)}\b", flags=re.UNICODE).search if len(tok) <= 3 else None, tok)
+        for tok in tokens
+    ]
+
+    def _hits(needle_matcher: Any, tok: str, haystack: str) -> bool:
+        return bool(needle_matcher(haystack)) if needle_matcher else tok in haystack
 
     scored: list[tuple[int, dict[str, Any]]] = []
     for t in templates:
@@ -568,7 +580,7 @@ def _search_templates_payload(
             continue
         if risk_level and t.get("risk_level") != risk_level:
             continue
-        if tokens or fallback_needle:
+        if tokens:
             strong = (_search_text(t.get("title")) + " " + _search_text(t.get("tags"))).lower()
             weak = " ".join(
                 [
@@ -578,10 +590,10 @@ def _search_templates_payload(
                     _search_text(t.get("tone_hint")),
                 ]
             ).lower()
-            if tokens:
-                score = sum(2 if tok in strong else 1 if tok in weak else 0 for tok in tokens)
-            else:
-                score = 2 if fallback_needle in strong else 1 if fallback_needle in weak else 0
+            score = sum(
+                2 if _hits(matcher, tok, strong) else 1 if _hits(matcher, tok, weak) else 0
+                for matcher, tok in matchers
+            )
             if score <= 0:
                 continue
         else:
