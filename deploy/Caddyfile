@@ -95,8 +95,13 @@ mcp.promptbanken.se {
     }
 }
 
+# The VPS runs Caddy 2.6.2, where this directive is spelled `basicauth`.
+# `basic_auth` only exists from 2.7 onwards and fails to adapt here with
+# "unrecognized directive" -- which is why this site block, added on
+# 2026-08-08, never actually reached production. Newer Caddy still accepts
+# `basicauth` as a deprecated alias, so this spelling works either way.
 dev.promptbanken.se {
-    basic_auth {
+    basicauth {
         peter $2a$14$fAuKviaUNIBkFbSagVvAPO/MA6S4e6g/z/3mf4igINz2jNvAqWSpa
     }
 
