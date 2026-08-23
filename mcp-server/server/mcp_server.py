@@ -203,6 +203,13 @@ _TEMPLATE_SUMMARY_FIELDS = (
     "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
 )
 
+# Tools that declare an outputSchema, and therefore must also return
+# structuredContent. Keep the two in step -- see _mcp_content_result.
+_TOOLS_WITH_OUTPUT_SCHEMA = frozenset(
+    {"search_templates", "get_template", "list_packages", "get_package"}
+)
+
+
 def _nullable(*types: str) -> dict[str, Any]:
     return {"type": [*types, "null"]}
 
@@ -275,20 +282,6 @@ _PACKAGE_SCHEMA: dict[str, Any] = {
     "additionalProperties": True,
 }
 
-_PACKAGE_PROMPT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "description": "One prompt inside a package: a full template plus its place in the sequence.",
-    "properties": {
-        **_TEMPLATE_FULL_SCHEMA["properties"],
-        "prompt_slug": _nullable("string"),
-        "sort_order": _nullable("integer") | {"description": "The order the prompts are meant to be used in."},
-        "step_title": _nullable("string"),
-        "step_intro": _nullable("string"),
-        "is_required": _nullable("boolean"),
-    },
-    "additionalProperties": True,
-}
-
 _VARIANT_DIAGNOSTIC_PROPERTIES: dict[str, Any] = {
     "status": {"type": "string"},
     "requested_context_keys": _nullable_array(),
@@ -308,11 +301,6 @@ _PUBLIC_OPEN_TOOL_NAMES = {
     "list_package_prompts",
     "recommend_packages",
 }
-
-# Every tool on the open surface declares an outputSchema, and therefore must
-# also return structuredContent. Keep the two in step -- see
-# _mcp_content_result.
-_TOOLS_WITH_OUTPUT_SCHEMA = frozenset(_PUBLIC_OPEN_TOOL_NAMES)
 
 _CATALOG_AREA_CACHE_TTL_SECONDS = 60
 _catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
@@ -2385,21 +2373,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Kontrollerar Promptbankens status",
                 "Statusen hämtad",
             ),
-            "outputSchema": {
-                "type": "object",
-                "properties": {
-                    "status": {"type": "string", "description": "ok when the service is healthy."},
-                    "service": {"type": "string"},
-                    "version": {"type": "string"},
-                    "mode": {"type": "string"},
-                    "catalog": {"type": "string", "description": "open on the public surface."},
-                    "plan": {"type": "string"},
-                    "message": {"type": "string"},
-                    "catalog_prompt_count": _nullable("integer")
-                    | {"description": "How many templates the open catalogue holds."},
-                },
-                "additionalProperties": True,
-            },
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -2417,27 +2390,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar Promptbankens användningsregler",
                 "Reglerna hämtade",
             ),
-            "outputSchema": {
-                "type": "object",
-                "properties": {
-                    "mode": {"type": "string"},
-                    "privacy_instruction": {
-                        "type": "string",
-                        "description": "What the client must not send to the server.",
-                    },
-                    "client_flow": _nullable_array()
-                    | {"description": "Suggested order of tool calls, in Swedish."},
-                    "routing_algorithm": _nullable("object")
-                    | {"description": "How to match a task to a template locally."},
-                    "local_mode_note": _nullable("string"),
-                    "skills": {
-                        "type": ["array", "null"],
-                        "items": {"type": "object", "additionalProperties": True},
-                        "description": "Legacy skill metadata for client-side routing.",
-                    },
-                },
-                "additionalProperties": True,
-            },
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -2459,21 +2411,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar promptmallar från Promptbanken",
                 "Promptmallarna hämtade",
             ),
-            "outputSchema": {
-                "type": "object",
-                "properties": {
-                    "unlocked": _nullable("boolean"),
-                    **_VARIANT_DIAGNOSTIC_PROPERTIES,
-                    "templates": {
-                        "type": "array",
-                        # Summaries by default; the full shape when
-                        # include_prompt_text is set. Nothing is required, so
-                        # the full schema describes both.
-                        "items": _TEMPLATE_FULL_SCHEMA,
-                    },
-                },
-                "additionalProperties": True,
-            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2661,14 +2598,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Hämtar paketets promptmallar",
                 "Paketets promptmallar hämtade",
             ),
-            "outputSchema": {
-                "type": "object",
-                "properties": {
-                    **_VARIANT_DIAGNOSTIC_PROPERTIES,
-                    "prompts": {"type": "array", "items": _PACKAGE_PROMPT_SCHEMA},
-                },
-                "additionalProperties": True,
-            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2941,28 +2870,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "Söker promptpaket för rollen",
                 "Rekommendationerna klara",
             ),
-            "outputSchema": {
-                "type": "object",
-                "properties": {
-                    "role_recognized": {"type": "boolean"},
-                    "matched_role": _nullable("string"),
-                    "role_match_source": _nullable("string"),
-                    "recommended_areas": _nullable_array(),
-                    "packages": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "area": {"type": "string", "description": "Package slug."},
-                                "area_label": _nullable("string"),
-                                "template_count": _nullable("integer"),
-                            },
-                            "additionalProperties": True,
-                        },
-                    },
-                },
-                "additionalProperties": True,
-            },
             "inputSchema": {
                 "type": "object",
                 "properties": {"role": {"type": "string"}},
@@ -3097,11 +3004,9 @@ def _handle_mcp_message(
                 skill.to_dict(include_prompt=include_prompt, prompt=prompt)
             ))
         if tool_name == "health_check":
-            return _json_rpc_result(request_id, _mcp_content_result(_health_check_payload(mcp_key), tool_name))
+            return _json_rpc_result(request_id, _mcp_content_result(_health_check_payload(mcp_key)))
         if tool_name == "get_client_routing_instructions":
-            return _json_rpc_result(
-                request_id, _mcp_content_result(get_client_routing_instructions(), tool_name)
-            )
+            return _json_rpc_result(request_id, _mcp_content_result(get_client_routing_instructions()))
         if tool_name == "list_templates":
             context_keys = _optional_context_keys(arguments)
             if context_keys == []:
@@ -3114,8 +3019,7 @@ def _handle_mcp_message(
                 _mcp_content_result(
                     _list_templates_with_usage(
                         context_keys, include_prompt_text=include_prompt_text
-                    ),
-                    tool_name,
+                    )
                 ),
             )
         if tool_name == "search_templates":
@@ -3161,7 +3065,7 @@ def _handle_mcp_message(
                 return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_package_prompts_with_usage(package_slug, context_keys), tool_name),
+                _mcp_content_result(_list_package_prompts_with_usage(package_slug, context_keys)),
             )
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
@@ -3283,9 +3187,7 @@ def _handle_mcp_message(
             role = arguments.get("role")
             if not isinstance(role, str) or not role:
                 return _json_rpc_error(request_id, -32602, "Invalid recommend_packages arguments")
-            return _json_rpc_result(
-                request_id, _mcp_content_result(_recommend_packages_payload(role), tool_name)
-            )
+            return _json_rpc_result(request_id, _mcp_content_result(_recommend_packages_payload(role)))
         return _json_rpc_error(request_id, -32601, "Tool not found")
     return _json_rpc_error(request_id, -32601, "Method not found")
 

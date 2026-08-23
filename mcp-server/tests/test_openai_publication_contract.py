@@ -128,12 +128,14 @@ class OpenAIPublicationContractTests(unittest.TestCase):
                 for term in jargon:
                     self.assertNotIn(term, description)
 
-    def test_every_public_tool_declares_an_output_schema(self) -> None:
+    def test_result_tools_declare_output_schemas(self) -> None:
         """OpenAI read output_json_schema as null for every tool in 1.2.1.
-        Every tool on the open surface now describes what it returns."""
-        for tool in _tool_definitions_for_profile("public"):
-            with self.subTest(tool=tool["name"]):
-                schema = tool.get("outputSchema")
+        The tools that return a result worth interpreting should describe its
+        shape."""
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        for name in ("search_templates", "get_template", "list_packages", "get_package"):
+            with self.subTest(tool=name):
+                schema = definitions[name].get("outputSchema")
                 self.assertIsInstance(schema, dict)
                 self.assertEqual(schema["type"], "object")
                 self.assertTrue(schema["properties"])
@@ -152,18 +154,16 @@ class OpenAIPublicationContractTests(unittest.TestCase):
             result["structuredContent"],
         )
 
-    def test_structured_content_tracks_the_declared_schemas(self) -> None:
-        """The two have to move together: a declared outputSchema without
-        structuredContent is what makes a strict client reject a good
-        response, and structuredContent repeats the whole payload, so sending
-        it where no schema is declared is dead weight."""
-        declared = {tool["name"] for tool in _tool_definitions_for_profile("public")}
-        for name in declared:
-            with self.subTest(tool=name):
-                self.assertIn("structuredContent", _mcp_content_result({"a": 1}, name))
+    def test_tools_without_output_schema_send_no_structured_content(self) -> None:
+        """structuredContent repeats the entire payload. Attaching it to
+        list_templates would undo the summary projection that took its
+        response from 198 KB to 41 KB."""
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        self.assertNotIn("outputSchema", definitions["list_templates"])
 
-        self.assertNotIn("structuredContent", _mcp_content_result({"a": 1}, "list_my_items"))
-        self.assertNotIn("structuredContent", _mcp_content_result({"a": 1}))
+        result = _mcp_content_result({"templates": []}, "list_templates")
+
+        self.assertNotIn("structuredContent", result)
 
     def test_search_output_schema_covers_what_search_actually_returns(self) -> None:
         """Guards against the schema drifting away from the payload: every
