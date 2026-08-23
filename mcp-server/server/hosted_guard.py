@@ -51,7 +51,7 @@ class HostedMetadataGuard:
             "list_skills_simple": set(),
             "health_check": set(),
             "get_client_routing_instructions": set(),
-            "list_templates": {"context_keys"},
+            "list_templates": {"context_keys", "include_prompt_text"},
             "search_templates": {"query", "role", "area", "risk_level", "limit", "context_keys"},
             "get_template": {"template_id", "context_keys", "role", "audience", "tone"},
             "list_packages": {"context_keys", "package_type"},
@@ -260,6 +260,9 @@ class HostedMetadataGuard:
                 or not all(isinstance(item, str) for item in context_keys)
             ):
                 return {"reason": "invalid_context_keys", "method": method, "tool": tool_name, "id": request_id}
+            include_prompt_text = arguments.get("include_prompt_text")
+            if include_prompt_text is not None and not isinstance(include_prompt_text, bool):
+                return {"reason": "invalid_include_prompt_text", "method": method, "tool": tool_name, "id": request_id}
         elif tool_name == "list_packages":
             package_type = arguments.get("package_type")
             if package_type is not None and not isinstance(package_type, str):

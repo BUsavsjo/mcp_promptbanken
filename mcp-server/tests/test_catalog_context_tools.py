@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -9,7 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.hosted_guard import HostedMetadataGuard
 from server.usage_events import _safe_metadata
 from server.mcp_server import (
+    _TEMPLATE_SUMMARY_FIELDS,
     _handle_mcp_message,
+    _list_templates_with_usage,
     _catalog_prompt_to_template_summary,
     _get_package_payload,
     _get_template_payload,
@@ -40,8 +43,107 @@ class CatalogContextToolsTests(unittest.TestCase):
                 "",
             )
 
-        self.assertEqual(response["result"]["content"][0]["text"], '{"templates": [{"id": "123"}]}')
+        # list_templates now returns summary fields only, so the response is
+        # the summary projection of the mocked payload rather than the mock
+        # verbatim -- absent fields come back as null, same as
+        # search_templates has always done. What this test is about is that
+        # context_keys reaches the payload function.
+        templates = json.loads(response["result"]["content"][0]["text"])["templates"]
+        self.assertEqual(templates[0]["id"], "123")
+        self.assertNotIn("prompt_text", templates[0])
         mocked_payload.assert_called_once_with(["kommun", "skola"])
+
+    def _catalog_of(self, count: int) -> list[dict[str, object]]:
+        return [
+            {
+                "id": f"prompt-{i}",
+                "slug": f"mall-{i}",
+                "title": f"Mall {i}",
+                "summary": "Syfte",
+                "prompt_text": "X" * 2000,
+            }
+            for i in range(count)
+        ]
+
+    def test_list_templates_omits_prompt_text_by_default(self) -> None:
+        # 102 templates with full prompt_text was a 198 KB single response --
+        # roughly 50k tokens, a third of a typical context window, from one
+        # call. Summaries keep the tool usable; get_template fetches the text.
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+            patch("server.mcp_server.track_usage_event"),
+        ):
+            mocked_prompts.return_value = self._catalog_of(3)
+
+            payload = _list_templates_with_usage(["generell"])
+
+        self.assertEqual(len(payload["templates"]), 3)
+        for template in payload["templates"]:
+            self.assertNotIn("prompt_text", template)
+            self.assertNotIn("parameter_schema", template)
+            self.assertEqual(set(template), set(_TEMPLATE_SUMMARY_FIELDS))
+
+    def test_list_templates_includes_prompt_text_when_asked(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+            patch("server.mcp_server.track_usage_event"),
+        ):
+            mocked_prompts.return_value = self._catalog_of(2)
+
+            payload = _list_templates_with_usage(["generell"], include_prompt_text=True)
+
+        self.assertEqual(payload["templates"][0]["prompt_text"], "X" * 2000)
+
+    def test_list_templates_forwards_include_prompt_text_over_mcp(self) -> None:
+        with patch("server.mcp_server._list_templates_with_usage") as mocked:
+            mocked.return_value = {"templates": []}
+
+            _handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "list_templates",
+                        "arguments": {"include_prompt_text": True},
+                    },
+                },
+                "",
+            )
+
+        self.assertTrue(mocked.call_args.kwargs["include_prompt_text"])
+
+    def test_list_templates_rejects_non_boolean_include_prompt_text(self) -> None:
+        response = _handle_mcp_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "list_templates",
+                    "arguments": {"include_prompt_text": "yes"},
+                },
+            },
+            "",
+        )
+
+        self.assertEqual(response["error"]["code"], -32602)
+
+    def test_search_templates_still_sees_full_templates_internally(self) -> None:
+        # The slimming happens at the tool boundary, not in
+        # _list_templates_payload -- search filters on fields that only exist
+        # on the full template, so it must keep receiving them.
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+        ):
+            mocked_prompts.return_value = self._catalog_of(1)
+
+            payload = _list_templates_payload(["generell"])
+
+        self.assertIn("prompt_text", payload["templates"][0])
 
     def test_tool_definitions_expose_context_keys_and_package_tools(self) -> None:
         # spec 2026-07-27 v2, Beslut 1/1b: role/audience/tone/input_text are

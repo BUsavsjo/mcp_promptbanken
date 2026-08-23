@@ -801,7 +801,9 @@ def _list_package_prompts_payload(
     return payload
 
 
-def _list_templates_with_usage(context_keys: list[str] | None = None) -> dict[str, Any]:
+def _list_templates_with_usage(
+    context_keys: list[str] | None = None, *, include_prompt_text: bool = False
+) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
     payload = _list_templates_payload(context_keys)
     if payload.get("status") == "error":
@@ -814,6 +816,18 @@ def _list_templates_with_usage(context_keys: list[str] | None = None) -> dict[st
         return payload
 
     templates = payload.get("templates", [])
+    if not include_prompt_text:
+        # The full catalog with prompt_text is ~2 KB per template; at 102
+        # published templates that is a 198 KB single response, roughly a
+        # third of a typical context window spent on one call. Summaries here
+        # mirror what search_templates returns, and get_template fetches the
+        # text for the one template the client actually chose.
+        payload = payload | {
+            "templates": [
+                {key: template.get(key) for key in _TEMPLATE_SUMMARY_FIELDS}
+                for template in templates
+            ]
+        }
     track_usage_event(
         event_type="prompt_list",
         outcome="empty" if not templates else "success",
@@ -1113,16 +1127,17 @@ def _save_workspace_prompt_payload(
 
 
 @mcp.tool()
-def list_templates(context_keys: list[str] | None = None) -> dict[str, Any]:
-    """List the full Promptbanken template catalog. The catalog is open --
-    no plan or key required; full prompt text is always included. Pass
-    context_keys like ["kommun", "skola"] to combine profile variants. The
-    server never renders a finished prompt -- each template carries raw
-    prompt_text plus parameter_schema, default_bindings and
-    binding_overrides; the calling client fills these in and renders the
-    final text itself."""
+def list_templates(
+    context_keys: list[str] | None = None, include_prompt_text: bool = False
+) -> dict[str, Any]:
+    """List the Promptbanken template catalog. The catalog is open -- no plan
+    or key required. Returns lightweight summaries by default; call
+    get_template(id) for the full prompt text of a chosen template. Set
+    include_prompt_text=true only when you genuinely need every prompt at
+    once -- the whole catalog is large and will crowd out the conversation.
+    Pass context_keys like ["kommun", "skola"] to combine profile variants."""
     logger.info("tool_call name=list_templates")
-    return _list_templates_with_usage(context_keys)
+    return _list_templates_with_usage(context_keys, include_prompt_text=include_prompt_text)
 
 
 @mcp.tool()
@@ -2181,18 +2196,27 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "list_templates",
             "description": (
-                "List the full Promptbanken template catalog. The catalog is open -- "
-                "no plan or key required; full prompt text is always included. "
-                "Pass context_keys to combine profile variants. The server never "
-                "renders a finished prompt -- each template carries raw prompt_text "
-                "plus parameter_schema, default_bindings and binding_overrides; "
-                "the client fills these in and renders the final text itself."
+                "List the Promptbanken template catalog. The catalog is open -- "
+                "no plan or key required. Returns lightweight summaries by "
+                "default; call get_template(id) for the full prompt text of a "
+                "chosen template. Set include_prompt_text=true only when you "
+                "genuinely need every prompt at once -- the whole catalog is "
+                "large and will crowd out the conversation. Pass context_keys "
+                "to combine profile variants."
             ),
             "annotations": _public_tool_annotations("Lista publicerade promptmallar"),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "include_prompt_text": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Return the full prompt text of every template. Off by "
+                            "default because the whole catalog is large."
+                        ),
+                    },
                 },
                 "additionalProperties": False,
             },
@@ -2708,7 +2732,17 @@ def _handle_mcp_message(
             context_keys = _optional_context_keys(arguments)
             if context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
-            return _json_rpc_result(request_id, _mcp_content_result(_list_templates_with_usage(context_keys)))
+            include_prompt_text = arguments.get("include_prompt_text", False)
+            if not isinstance(include_prompt_text, bool):
+                return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(
+                    _list_templates_with_usage(
+                        context_keys, include_prompt_text=include_prompt_text
+                    )
+                ),
+            )
         if tool_name == "search_templates":
             limit = arguments.get("limit", 10)
             context_keys = _optional_context_keys(arguments)
