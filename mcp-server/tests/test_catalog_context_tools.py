@@ -19,6 +19,7 @@ from server.mcp_server import (
     _get_package_payload,
     _get_template_payload,
     _list_package_prompts_payload,
+    _list_packages_payload,
     _list_templates_payload,
     _search_templates_payload,
     _search_templates_with_usage,
@@ -357,6 +358,66 @@ class CatalogContextToolsTests(unittest.TestCase):
 
         area_enum = definitions["search_templates"]["inputSchema"]["properties"]["area"]["enum"]
         self.assertEqual(area_enum, ["anti-slop", "hall-traden", "kommunikation"])
+
+    def test_list_templates_pages_instead_of_returning_everything(self) -> None:
+        """Browsing returned all 102 templates in one call. It is paginated
+        now, with search_templates as the normal way in."""
+        catalog = {
+            "templates": [
+                {"id": str(n), "title": f"Mall {n}", "tags": None, "syfte": None,
+                 "output_format": None, "area_label": None, "tone_hint": None,
+                 "area": "kommunikation", "risk_level": "low"}
+                for n in range(60)
+            ]
+        }
+        with patch("server.mcp_server._list_templates_payload", return_value=catalog):
+            first = _list_templates_with_usage(limit=10)
+            second = _list_templates_with_usage(limit=10, offset=55)
+
+        self.assertEqual(first["total"], 60)
+        self.assertEqual(first["returned"], 10)
+        self.assertEqual(first["offset"], 0)
+        self.assertIs(first["has_more"], True)
+        self.assertEqual(first["templates"][0]["id"], "0")
+
+        self.assertEqual(second["returned"], 5)
+        self.assertIs(second["has_more"], False)
+        self.assertEqual(second["templates"][0]["id"], "55")
+
+    def test_list_packages_returns_only_what_a_listing_needs(self) -> None:
+        """The listing carried intro_text and the binding fields for every
+        package -- ~29 KB. get_package is where the full package lives."""
+        packages = [{
+            "id": "p1", "slug": "kommunikation", "title": "Kommunikation",
+            "summary": "Paket", "package_type": "workflow",
+            "intro_text": "en lång introduktion", "default_bindings": {"a": 1},
+        }]
+        with patch("server.mcp_server._catalog.list_published_packages", return_value=packages):
+            payload = _list_packages_payload(["generell"])
+
+        package = payload["packages"][0]
+        self.assertEqual(set(package), {"id", "slug", "title", "summary", "package_type"})
+
+    def test_hosted_routing_instructions_stay_a_bootstrap(self) -> None:
+        """The hosted payload shipped the legacy skill registry, the scoring
+        table and the stopword list -- ~51 KB before the client had asked for
+        anything."""
+        payload = server_mcp.get_client_routing_instructions()
+
+        self.assertEqual(server_mcp.SERVER_MODE, "hosted")
+        self.assertEqual(set(payload), {"mode", "privacy_instruction", "client_flow"})
+        self.assertLess(len(json.dumps(payload, ensure_ascii=False)), 4000)
+
+    def test_search_templates_description_states_the_privacy_rule(self) -> None:
+        """The connector is unauthenticated: the query is the one field a
+        model could put user text into, so the tool has to say not to."""
+        definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
+        description = definitions["search_templates"]["description"].lower()
+        query = definitions["search_templates"]["inputSchema"]["properties"]["query"]["description"].lower()
+
+        for text in (description, query):
+            self.assertIn("anonymised", text)
+            self.assertIn("personal data", text)
 
     def test_search_templates_propagates_catalog_error_payload(self) -> None:
         catalog_error = {

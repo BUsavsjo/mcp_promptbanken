@@ -148,7 +148,10 @@ class ReadOnlyCatalogPayloadContractTests(unittest.TestCase):
                 }
             ]
 
-            payload = _list_package_prompts_payload("kommunikation", ["generell"])
+            payload = _list_package_prompts_payload(
+                "kommunikation", ["generell"], include_prompt_text=True
+            )
+            steps_only = _list_package_prompts_payload("kommunikation", ["generell"])
 
         prompt = payload["prompts"][0]
         self.assertNotIn("rendered_prompt_text", prompt)
@@ -156,6 +159,16 @@ class ReadOnlyCatalogPayloadContractTests(unittest.TestCase):
         self.assertIn("parameter_schema", prompt)
         self.assertIn("default_bindings", prompt)
         self.assertIn("binding_overrides", prompt)
+
+        # The default is now a step listing -- id and title, no prompt text --
+        # so the client fetches each step just in time with get_template(id).
+        # The render contract still holds: what is absent cannot be rendered,
+        # and the full form above is still raw.
+        step = steps_only["prompts"][0]
+        self.assertNotIn("rendered_prompt_text", step)
+        self.assertNotIn("prompt_text", step)
+        self.assertEqual(step["id"], "prompt-1")
+        self.assertEqual(step["title"], "Mejl")
 
 
 class CatalogResponseIdenticalRegardlessOfAuthTests(unittest.TestCase):

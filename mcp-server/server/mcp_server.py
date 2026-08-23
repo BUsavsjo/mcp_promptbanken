@@ -203,6 +203,21 @@ _TEMPLATE_SUMMARY_FIELDS = (
     "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
 )
 
+# What a listing needs to let a client choose. The full package, including
+# intro_text and the fill-in fields, comes from get_package.
+_PACKAGE_SUMMARY_FIELDS = ("id", "slug", "title", "summary", "package_type")
+
+# A package prompt as a step in the sequence. The prompt itself is fetched
+# just in time with get_template(id) -- the same id this listing returns.
+_PACKAGE_STEP_FIELDS = (
+    "id", "slug", "title", "syfte", "area", "prompt_slug",
+    "sort_order", "step_title", "step_intro", "is_required",
+)
+
+# list_templates returns the whole catalogue, so it needs a ceiling.
+_LIST_TEMPLATES_DEFAULT_LIMIT = 25
+_LIST_TEMPLATES_MAX_LIMIT = 200
+
 def _nullable(*types: str) -> dict[str, Any]:
     return {"type": [*types, "null"]}
 
@@ -271,6 +286,36 @@ _PACKAGE_SCHEMA: dict[str, Any] = {
         "parameter_schema": _nullable("object", "array"),
         "default_bindings": _nullable("object"),
         "binding_overrides": _nullable("array"),
+    },
+    "additionalProperties": True,
+}
+
+_PACKAGE_SUMMARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "A package as returned in list form -- enough to choose one.",
+    "properties": {
+        key: _PACKAGE_SCHEMA["properties"][key] for key in _PACKAGE_SUMMARY_FIELDS
+    },
+    "additionalProperties": True,
+}
+
+_PACKAGE_STEP_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": (
+        "One step in a package. Fetch the step's prompt text just in time with "
+        "get_template(id)."
+    ),
+    "properties": {
+        "id": {"type": "string", "description": "Pass this to get_template."},
+        "slug": _nullable("string"),
+        "title": {"type": "string"},
+        "syfte": _nullable("string"),
+        "area": _nullable("string"),
+        "prompt_slug": _nullable("string"),
+        "sort_order": _nullable("integer") | {"description": "The order the steps are used in."},
+        "step_title": _nullable("string"),
+        "step_intro": _nullable("string"),
+        "is_required": _nullable("boolean"),
     },
     "additionalProperties": True,
 }
@@ -876,7 +921,12 @@ def _list_packages_payload(
             result_count=len(packages),
             metadata={"tool": "list_packages", "package_type": package_type},
         )
-    return {"packages": [_catalog_package_to_payload(package) for package in packages]}
+    return {
+        "packages": [
+            {key: package.get(key) for key in _PACKAGE_SUMMARY_FIELDS}
+            for package in (_catalog_package_to_payload(p) for p in packages)
+        ]
+    }
 
 
 def _get_package_payload(
@@ -928,6 +978,7 @@ def _list_package_prompts_payload(
     package_slug: str,
     context_keys: list[str] | None = None,
     *,
+    include_prompt_text: bool = False,
     track_usage: bool = False,
 ) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
@@ -951,15 +1002,26 @@ def _list_package_prompts_payload(
         for prompt in prompts
         for key in filter(None, (_catalog_prompt_identifier(prompt), _catalog_prompt_slug(prompt)))
     }
-    payload = {
-        **_variant_diagnostics(normalized_contexts, prompts),
-        "prompts": [_catalog_prompt_to_template(prompt, area_index) | {
+    full_prompts = [
+        _catalog_prompt_to_template(prompt, area_index) | {
             "sort_order": prompt.get("sort_order"),
             "step_title": prompt.get("step_title"),
             "step_intro": prompt.get("step_intro"),
             "is_required": prompt.get("is_required"),
             "prompt_slug": prompt.get("prompt_slug"),
-        } for prompt in prompts],
+        }
+        for prompt in prompts
+    ]
+    payload = {
+        **_variant_diagnostics(normalized_contexts, prompts),
+        # Steps only by default: the package's own prompt texts are fetched
+        # just in time with get_template(id), which accepts the id returned
+        # here. Returning every full prompt made this response ~47 KB for a
+        # four-step package.
+        "prompts": full_prompts if include_prompt_text else [
+            {key: prompt.get(key) for key in _PACKAGE_STEP_FIELDS}
+            for prompt in full_prompts
+        ],
     }
     if track_usage:
         track_usage_event(
@@ -974,7 +1036,11 @@ def _list_package_prompts_payload(
 
 
 def _list_templates_with_usage(
-    context_keys: list[str] | None = None, *, include_prompt_text: bool = False
+    context_keys: list[str] | None = None,
+    *,
+    include_prompt_text: bool = False,
+    limit: int = _LIST_TEMPLATES_DEFAULT_LIMIT,
+    offset: int = 0,
 ) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
     payload = _list_templates_payload(context_keys)
@@ -994,17 +1060,29 @@ def _list_templates_with_usage(
         # third of a typical context window spent on one call. Summaries here
         # mirror what search_templates returns, and get_template fetches the
         # text for the one template the client actually chose.
-        payload = payload | {
-            "templates": [
-                {key: template.get(key) for key in _TEMPLATE_SUMMARY_FIELDS}
-                for template in templates
-            ]
-        }
+        templates = [
+            {key: template.get(key) for key in _TEMPLATE_SUMMARY_FIELDS}
+            for template in templates
+        ]
+
+    # Browsing the catalogue is paginated; search_templates is the normal way
+    # in. Without a ceiling one call returns all 102 templates whether or not
+    # the client can use them.
+    total = len(templates)
+    start = max(0, offset)
+    window = templates[start : start + max(1, limit)]
+    payload = payload | {
+        "total": total,
+        "returned": len(window),
+        "offset": start,
+        "has_more": start + len(window) < total,
+        "templates": window,
+    }
     track_usage_event(
         event_type="prompt_list",
-        outcome="empty" if not templates else "success",
+        outcome="empty" if not window else "success",
         context_keys=normalized_contexts,
-        result_count=len(templates),
+        result_count=len(window),
         metadata={"tool": "list_prompts"},
     )
     return payload
@@ -1029,9 +1107,17 @@ def _get_package_with_usage(
 
 
 def _list_package_prompts_with_usage(
-    package_slug: str, context_keys: list[str] | None = None
+    package_slug: str,
+    context_keys: list[str] | None = None,
+    *,
+    include_prompt_text: bool = False,
 ) -> dict[str, Any]:
-    return _list_package_prompts_payload(package_slug, context_keys, track_usage=True)
+    return _list_package_prompts_payload(
+        package_slug,
+        context_keys,
+        include_prompt_text=include_prompt_text,
+        track_usage=True,
+    )
 
 
 _WRITE_OUTCOME_PATTERNS = [
@@ -1300,18 +1386,24 @@ def _save_workspace_prompt_payload(
 
 @mcp.tool()
 def list_templates(
-    context_keys: list[str] | None = None, include_prompt_text: bool = False
+    context_keys: list[str] | None = None,
+    include_prompt_text: bool = False,
+    limit: int = _LIST_TEMPLATES_DEFAULT_LIMIT,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Browse Promptbanken's catalogue of ready-made prompt templates for
     Swedish public-sector work -- writing, communication, decision support,
     leadership and more. The catalogue is open to everyone; no account or key
-    is needed. Returns short summaries by default; call get_template(id) for
-    the full text of a chosen template. Set include_prompt_text=true only when
-    every prompt really is needed at once -- the whole catalogue is large and
-    will crowd out the conversation. context_keys like ["kommun", "skola"]
-    picks the variant written for the user's setting."""
+    is needed. Use search_templates when the task is known -- this tool is for
+    browsing, and is paginated: total and has_more tell you whether to fetch
+    the next page with offset. Call get_template(id) for the full text of a
+    chosen template. Set include_prompt_text=true only when every prompt really
+    is needed at once. context_keys like ["kommun", "skola"] picks the variant
+    written for the user's setting."""
     logger.info("tool_call name=list_templates")
-    return _list_templates_with_usage(context_keys, include_prompt_text=include_prompt_text)
+    return _list_templates_with_usage(
+        context_keys, include_prompt_text=include_prompt_text, limit=limit, offset=offset
+    )
 
 
 @mcp.tool()
@@ -1354,9 +1446,11 @@ def list_packages(
 ) -> dict[str, Any]:
     """List Promptbanken's packages -- themed sets of prompts that carry a
     whole task from start to finish, such as change communication or preparing
-    a decision. context_keys picks the variant written for the user's setting;
-    package_type narrows the list when supplied. Each package arrives as its
-    own introduction plus the fields the client fills in locally."""
+    a decision. Returns just enough to choose one: slug, title, summary and
+    type. Call get_package(slug) for the package's own introduction, and
+    list_package_prompts(slug) for its steps. context_keys picks the variant
+    written for the user's setting; package_type narrows the list when
+    supplied."""
     logger.info("tool_call name=list_packages")
     return _list_packages_with_usage(context_keys, package_type)
 
@@ -1379,14 +1473,18 @@ def get_package(
 def list_package_prompts(
     package_slug: str,
     context_keys: list[str] | None = None,
+    include_prompt_text: bool = False,
 ) -> dict[str, Any]:
-    """List the prompts inside one package, in the order they are meant to be
+    """List the steps inside one package, in the order they are meant to be
     used. Takes the package slug -- a short name such as 'kommunikation', not
     a template id -- and context_keys to pick the variant written for the
-    user's setting. Each prompt arrives as its own text plus the fields the
-    client fills in locally."""
+    user's setting. Returns each step's id, title and purpose; fetch a step's
+    prompt text with get_template(id) when that step is actually reached. Set
+    include_prompt_text=true only to pull every step's text at once."""
     logger.info("tool_call name=list_package_prompts")
-    return _list_package_prompts_with_usage(package_slug, context_keys)
+    return _list_package_prompts_with_usage(
+        package_slug, context_keys, include_prompt_text=include_prompt_text
+    )
 
 
 def _list_skills_simple_payload(mcp_key: str = "") -> dict[str, Any]:
@@ -1733,11 +1831,22 @@ def get_client_routing_instructions() -> dict[str, Any]:
         "Använd search_templates(query, role, area, risk_level, context_keys) för att hitta relevanta publika mallar utan att hämta allt innehåll.",
         "Använd area från list_packages eller recommend_packages för områdesfilter, till exempel kommunikation eller beslutsberedning.",
         "När användaren valt mall: hämta full text med get_template(template_id, context_keys).",
-        "För arbetsflöden: visa paket med list_packages, hämta paketinfo med get_package och stegen med list_package_prompts.",
+        "list_templates är för bläddring och är sidindelad (limit/offset). search_templates är normalvägen in.",
+        "För arbetsflöden: visa paket med list_packages, hämta paketinfo med get_package och stegen med list_package_prompts. Stegen innehåller id och titel -- hämta varje stegs prompttext med get_template(id) när steget ska användas.",
         "Servern levererar bara rådata -- prompt_text/intro_text, parameter_schema, default_bindings och binding_overrides. Klienten gör all ifyllning, tolkning och sammanfogning lokalt; servern renderar aldrig en färdig prompt.",
         "Om klienten behöver användarens faktiska ärendetext ska den infogas lokalt efter riskkontroll. Skicka inte personuppgifter eller sekretess till den öppna MCP-servern.",
         "Valvet-, personliga workspace- och skrivverktyg kräver autentiserad MCP-nyckel och ska inte förväntas i den öppna connectorn.",
     ]
+    if SERVER_MODE == "hosted":
+        # A bootstrap, not a manual. The full payload carried the legacy skill
+        # registry, the scoring table and the stopword list -- ~51 KB spent
+        # before the client had asked for anything. None of it applies to the
+        # open catalogue, which routes locally against search_templates.
+        return {
+            "mode": SERVER_MODE,
+            "privacy_instruction": catalog_privacy_instruction,
+            "client_flow": catalog_client_flow,
+        }
     return {
         "mode": SERVER_MODE,
         "privacy_instruction": (
@@ -2377,8 +2486,12 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "health_check",
             "description": (
-                "Check that Promptbanken is reachable and report the service "
-                "status. Reads no prompt content and takes no input."
+                "Diagnostic only: check that Promptbanken is reachable and "
+                "report the service status. Not part of normal use -- go "
+                "straight to search_templates or recommend_packages for a "
+                "user's task, and reach for this only when a call has failed "
+                "and you need to know whether the service is up. Reads no "
+                "prompt content and takes no input."
             ),
             "annotations": _public_tool_annotations("Kontrollera tjänstens status"),
             "_meta": _public_tool_status_meta(
@@ -2405,11 +2518,11 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "get_client_routing_instructions",
             "description": (
-                "Get Promptbanken's guidance for using this connector: which "
-                "tool to reach for in which situation, and the privacy rule "
-                "that the user's own text, personal data and confidential "
+                "Get Promptbanken's short bootstrap for using this connector: "
+                "which tool to reach for in which situation, and the privacy "
+                "rule that the user's own text, personal data and confidential "
                 "material stay in the client and are never sent to the server. "
-                "Worth calling once before the first catalog lookup in a "
+                "Worth calling once before the first catalogue lookup in a "
                 "conversation."
             ),
             "annotations": _public_tool_annotations("Hämta routing- och integritetsregler"),
@@ -2427,14 +2540,6 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     },
                     "client_flow": _nullable_array()
                     | {"description": "Suggested order of tool calls, in Swedish."},
-                    "routing_algorithm": _nullable("object")
-                    | {"description": "How to match a task to a template locally."},
-                    "local_mode_note": _nullable("string"),
-                    "skills": {
-                        "type": ["array", "null"],
-                        "items": {"type": "object", "additionalProperties": True},
-                        "description": "Legacy skill metadata for client-side routing.",
-                    },
                 },
                 "additionalProperties": True,
             },
@@ -2447,12 +2552,15 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "templates for Swedish public-sector work -- writing, "
                 "communication, decision support, leadership and more. The "
                 "catalogue is open to everyone; no account or key is needed. "
-                "Returns short summaries by default; call get_template(id) for "
-                "the full text of a chosen template. Set "
-                "include_prompt_text=true only when every prompt really is "
-                "needed at once -- the whole catalogue is large and will crowd "
-                "out the conversation. context_keys picks the variant written "
-                "for the user's setting, for example kommun or skola."
+                "Use search_templates when the task is known -- this tool is "
+                "for browsing, and is paginated: it returns "
+                f"{_LIST_TEMPLATES_DEFAULT_LIMIT} summaries at a time, with "
+                "total and has_more telling you whether to fetch the next page "
+                "with offset. Call get_template(id) for the full text of a "
+                "chosen template. Set include_prompt_text=true only when every "
+                "prompt really is needed at once -- it will crowd out the "
+                "conversation. context_keys picks the variant written for the "
+                "user's setting, for example kommun or skola."
             ),
             "annotations": _public_tool_annotations("Lista publicerade promptmallar"),
             "_meta": _public_tool_status_meta(
@@ -2464,6 +2572,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "properties": {
                     "unlocked": _nullable("boolean"),
                     **_VARIANT_DIAGNOSTIC_PROPERTIES,
+                    "total": {"type": "integer", "description": "Templates in the catalogue."},
+                    "returned": {"type": "integer", "description": "Templates on this page."},
+                    "offset": {"type": "integer"},
+                    "has_more": {"type": "boolean", "description": "True when another page follows."},
                     "templates": {
                         "type": "array",
                         # Summaries by default; the full shape when
@@ -2478,12 +2590,25 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "limit": {
+                        "type": "integer",
+                        "default": _LIST_TEMPLATES_DEFAULT_LIMIT,
+                        "minimum": 1,
+                        "maximum": _LIST_TEMPLATES_MAX_LIMIT,
+                        "description": "How many templates to return on this page.",
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "default": 0,
+                        "minimum": 0,
+                        "description": "Where to start. Use with has_more to page through.",
+                    },
                     "include_prompt_text": {
                         "type": "boolean",
                         "default": False,
                         "description": (
-                            "Return the full prompt text of every template. Off by "
-                            "default because the whole catalog is large."
+                            "Return the full prompt text of every template on "
+                            "the page. Off by default because it is large."
                         ),
                     },
                 },
@@ -2494,13 +2619,18 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "name": "search_templates",
             "description": (
                 "Find the prompt templates that fit a task, without pulling in "
-                "the whole catalogue. The free-text query is matched against "
-                "title, purpose, tags and output format; area and risk_level "
-                "narrow the result. role ranks results toward a job function -- "
-                "it does not hide templates from other areas. context_keys "
-                "picks the variant written for the user's setting. Returns "
-                "short summaries, so call get_template(id) on a chosen result "
-                "for the full prompt."
+                "the whole catalogue. This is the normal way into the "
+                "catalogue. PRIVACY: send only general, anonymised search "
+                "terms that describe the kind of task -- never the user's own "
+                "text, pasted document content, case material, personal data "
+                "or confidential information. Summarise the need in a few "
+                "words instead. The free-text query is matched against title, "
+                "purpose, tags and output format; area and risk_level narrow "
+                "the result. role ranks results toward a job function -- it "
+                "does not hide templates from other areas. context_keys picks "
+                "the variant written for the user's setting. Returns short "
+                "summaries, so call get_template(id) on a chosen result for "
+                "the full prompt."
             ),
             "annotations": _public_tool_annotations("Sök publicerade promptmallar"),
             "_meta": _public_tool_status_meta(
@@ -2523,7 +2653,15 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string"},
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "General, anonymised search terms describing the "
+                            "kind of task -- never the user's own text, "
+                            "document content, personal data or confidential "
+                            "material."
+                        ),
+                    },
                     "role": {
                         "type": "string",
                         "description": (
@@ -2584,10 +2722,12 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             "description": (
                 "List Promptbanken's packages -- themed sets of prompts that "
                 "carry a whole task from start to finish, such as change "
-                "communication or preparing a decision. context_keys picks the "
-                "variant written for the user's setting; package_type narrows "
-                "the list when supplied. Each package arrives as its own "
-                "introduction plus the fields the client fills in locally."
+                "communication or preparing a decision. Returns just enough to "
+                "choose one: slug, title, summary and type. Call "
+                "get_package(slug) for the package's own introduction, and "
+                "list_package_prompts(slug) for its steps. context_keys picks "
+                "the variant written for the user's setting; package_type "
+                "narrows the list when supplied."
             ),
             "annotations": _public_tool_annotations("Lista publicerade promptpaket"),
             "_meta": _public_tool_status_meta(
@@ -2596,7 +2736,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             ),
             "outputSchema": {
                 "type": "object",
-                "properties": {"packages": {"type": "array", "items": _PACKAGE_SCHEMA}},
+                "properties": {"packages": {"type": "array", "items": _PACKAGE_SUMMARY_SCHEMA}},
                 "additionalProperties": True,
             },
             "inputSchema": {
@@ -2649,12 +2789,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
         {
             "name": "list_package_prompts",
             "description": (
-                "List the prompts inside one package, in the order they are "
+                "List the steps inside one package, in the order they are "
                 "meant to be used. Takes the package slug -- a short name such "
                 "as 'kommunikation', not a template id -- and context_keys to "
-                "pick the variant written for the user's setting. Each prompt "
-                "arrives as its own text plus the fields the client fills in "
-                "locally."
+                "pick the variant written for the user's setting. Returns each "
+                "step's id, title and purpose; fetch a step's prompt text with "
+                "get_template(id) when that step is actually reached. Set "
+                "include_prompt_text=true only to pull every step's text at "
+                "once."
             ),
             "annotations": _public_tool_annotations("Lista mallar i ett promptpaket"),
             "_meta": _public_tool_status_meta(
@@ -2665,6 +2807,8 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     **_VARIANT_DIAGNOSTIC_PROPERTIES,
+                    # Steps by default, full prompts with include_prompt_text.
+                    # Nothing is required, so one schema describes both.
                     "prompts": {"type": "array", "items": _PACKAGE_PROMPT_SCHEMA},
                 },
                 "additionalProperties": True,
@@ -2674,6 +2818,15 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "properties": {
                     "package_slug": {"type": "string"},
                     "context_keys": {"type": "array", "items": {"type": "string"}},
+                    "include_prompt_text": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Return every step's full prompt text. Off by "
+                            "default -- fetch the step you need with "
+                            "get_template(id) instead."
+                        ),
+                    },
                 },
                 "required": ["package_slug"],
                 "additionalProperties": False,
@@ -3107,13 +3260,27 @@ def _handle_mcp_message(
             if context_keys == []:
                 return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
             include_prompt_text = arguments.get("include_prompt_text", False)
-            if not isinstance(include_prompt_text, bool):
+            limit = arguments.get("limit", _LIST_TEMPLATES_DEFAULT_LIMIT)
+            offset = arguments.get("offset", 0)
+            if (
+                not isinstance(include_prompt_text, bool)
+                or not isinstance(limit, int)
+                or isinstance(limit, bool)
+                or not isinstance(offset, int)
+                or isinstance(offset, bool)
+                or limit < 1
+                or limit > _LIST_TEMPLATES_MAX_LIMIT
+                or offset < 0
+            ):
                 return _json_rpc_error(request_id, -32602, "Invalid list_templates arguments")
             return _json_rpc_result(
                 request_id,
                 _mcp_content_result(
                     _list_templates_with_usage(
-                        context_keys, include_prompt_text=include_prompt_text
+                        context_keys,
+                        include_prompt_text=include_prompt_text,
+                        limit=limit,
+                        offset=offset,
                     ),
                     tool_name,
                 ),
@@ -3157,11 +3324,22 @@ def _handle_mcp_message(
         if tool_name == "list_package_prompts":
             package_slug = arguments.get("package_slug")
             context_keys = _optional_context_keys(arguments)
-            if not isinstance(package_slug, str) or not package_slug or context_keys == []:
+            include_prompt_text = arguments.get("include_prompt_text", False)
+            if (
+                not isinstance(package_slug, str)
+                or not package_slug
+                or context_keys == []
+                or not isinstance(include_prompt_text, bool)
+            ):
                 return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
             return _json_rpc_result(
                 request_id,
-                _mcp_content_result(_list_package_prompts_with_usage(package_slug, context_keys), tool_name),
+                _mcp_content_result(
+                    _list_package_prompts_with_usage(
+                        package_slug, context_keys, include_prompt_text=include_prompt_text
+                    ),
+                    tool_name,
+                ),
             )
         if tool_name == "list_my_prompts":
             return _json_rpc_result(request_id, _mcp_content_result(_my_prompts_payload(mcp_key)))
