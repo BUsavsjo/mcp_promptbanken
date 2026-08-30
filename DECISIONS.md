@@ -1,5 +1,43 @@
 # Beslut
 
+## 2026-08-30 - `area` är paketets slug, inte en egen kategori — och workflow slutar vid effektuppföljning
+
+### Beslut 1: ingen separat områdestaxonomi
+I den öppna katalogen **är `area` paketets slug**. `_open_catalog_areas()`
+(`mcp_server.py`) bygger listan av områden från publicerade paketslugs, och
+`_catalog_area_index()` stämplar varje prompts `area`/`area_label` från det
+paket den är medlem i. En prompt som inte ligger i något paket får
+`area: null` — den är fortfarande publicerad och sökbar (`list_templates`
+läser alla publicerade prompts oberoende av paket), men tappar sitt
+områdesfält och kan dyka upp som `null` i `recommended_areas` för okända
+roller.
+
+**Följd:** "flytta en prompt till ett annat område" finns inte som operation.
+Det som finns är "flytta en prompt till ett annat paket". Ett handover-förslag
+om att sätta `area = processer` på workflowstegen byggde på fel premiss och
+genomfördes inte.
+
+**Följd 2:** `recommend_packages` rekommenderar områden, alltså paket. Ett nytt
+paket blir automatiskt ett nytt rekommenderbart område så snart det publiceras
+— men syns bara för en roll om paketets slug läggs till i `_AREA_ROLES` i
+`package_recommendations.py`.
+
+### Beslut 2: `Från behov till effekt` är sex steg, inte sju
+Workflowet slutar vid steg 6 (`Bestäm hur effekten ska följas upp`). Efter
+steg 6 har förändringen normalt inte genomförts, så det finns inget utfall att
+utvärdera — ett obligatoriskt utvärderingssteg där tvingar fram en utvärdering
+av något som inte hänt. `Utvärdera och justera` är därför en **fristående
+specialistmall** i collectionen `Verksamhetsutveckling och processer`, dit
+användaren återkommer när förändringen varit i drift och det finns
+uppföljningsdata. Steg 6:s text pekar vidare dit.
+
+Grundprincipen bakom uppdelningen: **collection = verktygslåda, workflow =
+arbetssätt.**
+
+### Beslut 3: `behov-till-effekt` rekommenderas bara för `verksamhetsutvecklare`
+Tills vidare. `utredare`, `samordnare` och `chef` är rimliga tillägg men
+ändrar deras rekommendationslistor, så de lades inte till utan eget beslut.
+
 ## 2026-08-08 - Ingen CI/staging idag — direkt-till-prod för både kod och databas, med en live-koll-regel efter RPC-migrationer
 
 ### Beslut

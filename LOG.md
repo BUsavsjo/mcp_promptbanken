@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-08-30 - Workflowet "Från behov till effekt" färdigställt: admin-MCP 18 → 20 verktyg, steg 7 utkopplat, rollrekommendation fixad
+
+### Gjort
+- **Admin-MCP 18 → 20 verktyg** (`c5d9c32`, deployat och live-verifierat). `admin_remove_prompt_from_package(package_id, prompt_id, confirm)` och `admin_update_package_item(package_id, prompt_id, sort_order, step_title?, step_intro?, is_required?)`. Ingen migration behövdes — `public.remove_prompt_from_catalog_package(uuid,uuid)` och `public.update_catalog_package_item(...)` fanns redan sedan `20260721120000`/`20260721150000` i `promptbanken`-repot, `platform_owner`-gatade och grantade till `authenticated`. Bara wrappern saknades, vilket gjorde paketens stegliste append-only.
+- **Rollrekommendation för `verksamhetsutvecklare`** (`package_recommendations.py`): `behov-till-effekt` tillagt i `_AREA_ROLES`, ny post i `_ROLE_AREA_PRIORITY`. Live-verifierat: `["behov-till-effekt", "processer", "forandringsledning", "arbetsbank"]`. `arbetsbank` är `None`/universell och kan inte filtreras bort, men rankas sist och faller ur topp-3.
+- **Katalogändringar i produktion** via de nya verktygen: `Utvärdera och justera` (`964e8fb8`) bortkopplad från workflowet `behov-till-effekt` (`aa9197e6`), tillagd i collectionen `processer` (`78101c02`) på `sort_order` 106 med `step_title`/`step_intro` satta via `admin_update_package_item`. Prompten aldrig avpublicerad.
+- **End-to-end-verifierat live:** workflowet visar exakt 6 steg med steg 6 sist; steg 6:s text avslutar workflowet och pekar vidare till den fristående mallen; `Utvärdera och justera` har `area=processer`, rankas #1 på "utvärdera effekt av genomförd förändring", förekommer exakt en gång; `processer` gick 7 → 8 mallar; inga dubbletter skapade. 99/99 unittests OK lokalt.
+
+### Rättade felaktiga premisser i handovern
+- Prompterna hade **inte** flyttats till `area=processer` — de låg kvar på `behov-till-effekt` hela tiden.
+- `area` är **inte** en fristående katalogkategori i den här kodbasen: `_open_catalog_areas()` (`mcp_server.py:411`) och `_catalog_area_index()` (`:527`) härleder area från publicerade **paketslugs**. `area` == paketets slug. Därför krävdes ingen områdesflytt alls, och därför måste utvärderingsmallen läggas till i `processer`-paketet för att få `area=processer` — enbart bortkoppling hade gett `area: null`.
+- Rollmappningen ligger i statisk kod (`package_recommendations.py`), inte i någon databastabell.
+
+### Deploy-anteckningar
+- Diskutrymmet på VPS:en var 232M innan städning, 368M efter (image prune, apt clean, journal vacuum). Under `vps-deploy`-skillens 1G-tröskel, men bygget var cache-only (`requirements.txt`/`Dockerfile`/`docker-compose.yml` oförändrade sedan VPS-commiten `11e37dd`) så bara ett COPY-lager byggdes om.
+- Kända `KeyError: 'ContainerConfig'` slog till på recreate igen; dokumenterad fix (`docker rm -f` på de omdöpta containrarna + `docker-compose up -d`) fungerade.
+
 ## 2026-08-08 - OpenAI ChatGPT app directory-ansökan inskickad, Promptbanken Open MCP live
 
 ### Gjort
