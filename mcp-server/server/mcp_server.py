@@ -3630,6 +3630,37 @@ def _admin_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "admin_update_package_item",
+            "description": "Change an existing package item's sort_order/step_title/step_intro/is_required. The underlying RPC overwrites all four every call, so omitted step_title/step_intro become null and omitted is_required becomes true -- pass the values you want to keep.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_id": {"type": "string"},
+                    "prompt_id": {"type": "string"},
+                    "sort_order": {"type": "integer"},
+                    "step_title": {"type": "string"},
+                    "step_intro": {"type": "string"},
+                    "is_required": {"type": "boolean"},
+                },
+                "required": ["package_id", "prompt_id", "sort_order"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "admin_remove_prompt_from_package",
+            "description": "Detach a prompt from a package (deletes only the catalog_package_items link). Requires confirm=true. The prompt itself is neither deleted nor unpublished and stays findable via search_templates. Works on published packages too; renumber the remaining steps with admin_update_package_item afterwards if the order left a gap.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "package_id": {"type": "string"},
+                    "prompt_id": {"type": "string"},
+                    "confirm": {"type": "boolean"},
+                },
+                "required": ["package_id", "prompt_id", "confirm"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "admin_publish_package",
             "description": "Publish a draft package. Requires confirm=true. Rejected unless the generell variant exists, it has at least one prompt, and every prompt in it is already published.",
             "inputSchema": {
@@ -3860,6 +3891,50 @@ def _handle_admin_message(message: dict[str, Any]) -> dict[str, Any] | None:
                 return _json_rpc_error(request_id, -32602, "Invalid or missing package_id/prompt_id/sort_order")
             result = admin_catalog.add_prompt_to_package(package_id, prompt_id, sort_order)
             return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_update_package_item":
+            package_id = arguments.get("package_id")
+            prompt_id = arguments.get("prompt_id")
+            sort_order = arguments.get("sort_order")
+            is_required = arguments.get("is_required", True)
+            if (
+                not isinstance(package_id, str) or not package_id
+                or not isinstance(prompt_id, str) or not prompt_id
+                or not isinstance(sort_order, int) or isinstance(sort_order, bool)
+                or not isinstance(is_required, bool)
+            ):
+                return _json_rpc_error(
+                    request_id, -32602, "Invalid or missing package_id/prompt_id/sort_order/is_required"
+                )
+            result = admin_catalog.update_package_item(
+                package_id,
+                prompt_id,
+                sort_order,
+                arguments.get("step_title"),
+                arguments.get("step_intro"),
+                is_required,
+            )
+            return _json_rpc_result(request_id, _mcp_content_result(result))
+
+        if tool_name == "admin_remove_prompt_from_package":
+            package_id = arguments.get("package_id")
+            prompt_id = arguments.get("prompt_id")
+            confirm = arguments.get("confirm")
+            if (
+                not isinstance(package_id, str) or not package_id
+                or not isinstance(prompt_id, str) or not prompt_id
+                or not isinstance(confirm, bool)
+            ):
+                return _json_rpc_error(
+                    request_id, -32602, "Invalid or missing package_id/prompt_id/confirm"
+                )
+            admin_catalog.remove_prompt_from_package(package_id, prompt_id, confirm)
+            return _json_rpc_result(
+                request_id,
+                _mcp_content_result(
+                    {"status": "removed", "package_id": package_id, "prompt_id": prompt_id}
+                ),
+            )
 
         if tool_name == "admin_publish_package":
             package_id = arguments.get("package_id")

@@ -15,6 +15,7 @@ _AREA_ROLES: dict[str, set[str] | None] = {
     "kommunikation": {"kommunikator", "handlaggare", "kundcenter", "samordnare", "rektor"},
     "forandringsledning": {"samordnare", "verksamhetsutvecklare", "chef", "rektor"},
     "processer": {"verksamhetsutvecklare", "utredare", "samordnare", "rektor"},
+    "behov-till-effekt": {"verksamhetsutvecklare"},
     "beslutsberedning": {"utredare", "handlaggare", "chef", "sekreterare", "rektor"},
     "visuellt": {"kommunikator", "pedagog"},
     "ledarskap": {"chef", "samordnare", "rektor"},
@@ -22,6 +23,12 @@ _AREA_ROLES: dict[str, set[str] | None] = {
 }
 
 _ROLE_AREA_PRIORITY = {
+    "verksamhetsutvecklare": [
+        "behov-till-effekt",
+        "processer",
+        "forandringsledning",
+        "arbetsbank",
+    ],
     "rektor": [
         "ledarskap",
         "kommunikation",
