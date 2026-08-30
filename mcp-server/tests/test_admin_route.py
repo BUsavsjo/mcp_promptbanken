@@ -15,7 +15,7 @@ from server.mcp_server import (
 
 
 class AdminRouteTests(unittest.TestCase):
-    def test_admin_tool_definitions_are_exactly_the_eighteen_admin_tools(self):
+    def test_admin_tool_definitions_are_exactly_the_twenty_admin_tools(self):
         names = {tool["name"] for tool in _admin_tool_definitions()}
         self.assertEqual(
             names,
@@ -33,6 +33,8 @@ class AdminRouteTests(unittest.TestCase):
                 "admin_upsert_package_variant",
                 "admin_upsert_package_metadata",
                 "admin_add_prompt_to_package",
+                "admin_update_package_item",
+                "admin_remove_prompt_from_package",
                 "admin_publish_package",
                 "admin_unpublish_package",
                 "admin_delete_draft_package",
@@ -183,6 +185,72 @@ class AdminRouteTests(unittest.TestCase):
 
         restore_package_version.assert_called_once_with(2, True)
         self.assertNotIn("error", response)
+
+    def test_admin_remove_prompt_from_package_requires_confirm_argument(self):
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_remove_prompt_from_package",
+                    "arguments": {"package_id": "package-1", "prompt_id": "prompt-1"},
+                },
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
+
+    @patch("server.mcp_server.admin_catalog.remove_prompt_from_package")
+    def test_admin_remove_prompt_from_package_dispatches_to_admin_catalog(self, remove_prompt_from_package):
+        remove_prompt_from_package.return_value = None
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_remove_prompt_from_package",
+                    "arguments": {"package_id": "package-1", "prompt_id": "prompt-1", "confirm": True},
+                },
+            }
+        )
+
+        remove_prompt_from_package.assert_called_once_with("package-1", "prompt-1", True)
+        self.assertNotIn("error", response)
+
+    @patch("server.mcp_server.admin_catalog.update_package_item")
+    def test_admin_update_package_item_dispatches_with_defaults(self, update_package_item):
+        update_package_item.return_value = {"package_id": "package-1"}
+
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_update_package_item",
+                    "arguments": {"package_id": "package-1", "prompt_id": "prompt-1", "sort_order": 3},
+                },
+            }
+        )
+
+        update_package_item.assert_called_once_with("package-1", "prompt-1", 3, None, None, True)
+        self.assertNotIn("error", response)
+
+    def test_admin_update_package_item_rejects_missing_sort_order(self):
+        response = _handle_admin_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "admin_update_package_item",
+                    "arguments": {"package_id": "package-1", "prompt_id": "prompt-1"},
+                },
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
 
     def test_admin_tools_are_absent_from_public_and_key_authenticated_profiles(self):
         admin_names = {tool["name"] for tool in _admin_tool_definitions()}

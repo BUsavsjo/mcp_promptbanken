@@ -76,6 +76,8 @@
         "admin_upsert_package_variant",
         "admin_upsert_package_metadata",
         "admin_add_prompt_to_package",
+        "admin_update_package_item",
+        "admin_remove_prompt_from_package",
         "admin_publish_package",
         "admin_unpublish_package",
         "admin_delete_draft_package",

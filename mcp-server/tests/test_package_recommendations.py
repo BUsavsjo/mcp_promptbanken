@@ -19,6 +19,7 @@ def _templates() -> list[dict[str, str]]:
             "visuellt",
             "ledarskap",
             "arbetsbank",
+            "behov-till-effekt",
         )
     ]
 
@@ -37,6 +38,21 @@ class PackageRecommendationTests(unittest.TestCase):
                 "processer",
                 "forandringsledning",
                 "beslutsberedning",
+                "arbetsbank",
+            ],
+        )
+
+    def test_verksamhetsutvecklare_leads_with_the_behov_till_effekt_workflow(self) -> None:
+        payload = recommend("verksamhetsutvecklare", _templates())
+
+        self.assertTrue(payload["role_recognized"])
+        self.assertEqual(payload["matched_role"], "verksamhetsutvecklare")
+        self.assertEqual(
+            payload["recommended_areas"],
+            [
+                "behov-till-effekt",
+                "processer",
+                "forandringsledning",
                 "arbetsbank",
             ],
         )

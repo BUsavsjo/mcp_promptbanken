@@ -211,6 +211,40 @@ def add_prompt_to_package(package_id: str, prompt_id: str, sort_order: int) -> d
     )
 
 
+def update_package_item(
+    package_id: str,
+    prompt_id: str,
+    sort_order: int,
+    step_title: str | None = None,
+    step_intro: str | None = None,
+    is_required: bool = True,
+) -> dict[str, Any]:
+    return _write(
+        "admin_update_package_item",
+        "update_catalog_package_item",
+        {
+            "p_package_id": package_id,
+            "p_prompt_id": prompt_id,
+            "p_sort_order": sort_order,
+            "p_step_title": step_title,
+            "p_step_intro": step_intro,
+            "p_is_required": is_required,
+        },
+        target_id=package_id,
+    )
+
+
+def remove_prompt_from_package(package_id: str, prompt_id: str, confirm: bool) -> None:
+    if confirm is not True:
+        raise ValueError("confirm måste vara true för att koppla loss en prompt från ett paket.")
+    return _write(
+        "admin_remove_prompt_from_package",
+        "remove_prompt_from_catalog_package",
+        {"p_package_id": package_id, "p_prompt_id": prompt_id},
+        target_id=package_id,
+    )
+
+
 def publish_package(package_id: str, confirm: bool) -> dict[str, Any]:
     if confirm is not True:
         raise ValueError("confirm måste vara true för att publicera ett paket.")
