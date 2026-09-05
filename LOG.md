@@ -1,5 +1,40 @@
 # Logg
 
+## 2026-09-05 - Connect läser Creator-biblioteket, deployat
+
+### Gjort
+- Bytte Connect från den begränsade Valvet-/workspace-prototypen till
+  Creator-biblioteket: egna Creator-prompter, sparade biblioteks-prompter,
+  paket med ordning och egna delningar.
+- Lade till den smala, ägarbundna Supabase-RPC:n
+  `get_my_connect_library_prompt(uuid)` i Promptbanken-repots separata branch
+  `codex/connect-creator-read-rpcs` (`8005f5e`). RPC:n är applicerad mot
+  produktion och markerad som applicerad i migrationshistoriken.
+- Connect anropar Creator-RPC:er med anroparens OAuth-token och publishable
+  key. Ingen service-rollnyckel, separat datakopia eller skrivverktyg finns.
+- Ersatte endast Connect-containern på VPS:en med Connect-branchens commit
+  `90ab240`. Promptbanken Open-containern startades inte om.
+
+### Verifierat
+- Databasverifieraren `verify_connect_creator_read.sql` gav fyra godkända
+  resultat: egen Creator-prompt, egen Valvet-kopia, levande referens och
+  avslag för annan användare.
+- `python -m pytest -q`: 17 tester godkända. Starlette rapporterar en känd
+  deprecation-varning för `TestClient`/httpx, utan testfel.
+- `python -m compileall connect_service`: godkänt.
+- `https://connect.promptbanken.se/healthz`: 200 och tjänsten `promptbanken-connect`.
+- OAuth protected-resource metadata visar Connects MCP-adress och Promptbankens
+  Supabase issuer. `POST /mcp` utan token ger 401 med korrekt Bearer-resurs.
+- `https://mcp.promptbanken.se/healthz` svarar fortsatt version `1.2.2`,
+  hosted/open-katalog.
+
+### Kvarstår
+- Genomför första riktiga authorization-code-med-PKCE-rundan från en MCP-klient
+  och kontrollera `tools/list` efter användarens samtycke.
+- Beta-skrivningar är ett separat arbete med entitlement, idempotens och
+  uttryckliga bekräftelser.
+
+
 ## 2026-09-05 - Fristående Connect OAuth-bootstrap
 
 ### Gjort
