@@ -16,10 +16,14 @@ standardmålgruppen `authenticated`; OAuth-klientens identitet finns i
 behörighetskontroll.
 
 ### Följd
-Första läsfasen använder befintlig RLS med anroparens OAuth-token: Valvets
-privata poster och delade arbetsytors synliga prompts kan läsas, men inga
-skrivningar finns. Den återstående produktionskontrollen är en riktig
-authorization-code-med-PKCE-runda mot den separata Connect-hosten.
+Connect använder samma Creator-bibliotek som användaren ser på
+`app.promptbanken.se`: egna Creator-prompter, sparade biblioteks-prompter,
+paket och delningar. All läsning går via Creator-RPC:er med anroparens
+OAuth-token och publishable key; ingen separat datakopia eller
+service-rollnyckel införs. Första leveransen ger läsparitet. Under beta får
+inloggade användare sedan skrivverktyg, och efter beta kontrolleras Pro per
+skrivverktyg. Full design finns i
+`docs/superpowers/specs/2026-09-05-connect-creator-library-design.md`.
 
 ## 2026-08-30 - `area` är paketets slug, inte en egen kategori — och workflow slutar vid effektuppföljning
 
