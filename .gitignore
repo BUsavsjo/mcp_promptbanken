@@ -5,6 +5,7 @@ __pycache__/
 mcp-server/.venv/
 .env
 .env.*
+!connect-server/.env.example
 mcp-server/.env
 mcp-server/.env.*
 *.key

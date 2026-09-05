@@ -1,5 +1,26 @@
 # Beslut
 
+## 2026-09-05 - Promptbanken Connect byggs som en separat OAuth-tjänst
+
+### Beslut
+Promptbanken Connect byggs i `connect-server/` med egen startpunkt,
+beroenden och framtida host. Promptbanken Open 1.2.2, dess `mcp-server/` och
+dess driftkonfiguration ändras inte av Connect-arbetet medan Open är under
+granskning.
+
+Connect använder OAuth 2.1 med authorization code och PKCE via Supabase OAuth
+Server. Access tokens verifieras med asymmetrisk signatur via JWKS samt mot
+issuer, audience, utgångstid och `sub`. Supabases OAuth-access-token har
+standardmålgruppen `authenticated`; OAuth-klientens identitet finns i
+`client_id`. OAuth-auktorisering ersätter inte RLS eller serverns egen
+behörighetskontroll.
+
+### Följd
+Första läsfasen använder befintlig RLS med anroparens OAuth-token: Valvets
+privata poster och delade arbetsytors synliga prompts kan läsas, men inga
+skrivningar finns. Den återstående produktionskontrollen är en riktig
+authorization-code-med-PKCE-runda mot den separata Connect-hosten.
+
 ## 2026-08-30 - `area` är paketets slug, inte en egen kategori — och workflow slutar vid effektuppföljning
 
 ### Beslut 1: ingen separat områdestaxonomi

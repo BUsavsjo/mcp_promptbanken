@@ -1,0 +1,14 @@
+services:
+  connect:
+    build: .
+    env_file: .env
+    ports:
+      - "127.0.0.1:8010:8010"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

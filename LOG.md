@@ -1,5 +1,36 @@
 # Logg
 
+## 2026-09-05 - Fristående Connect OAuth-bootstrap
+
+### Gjort
+- Skapade arbetsgrenen `codex/connect-oauth-bootstrap` i ett eget worktree.
+- Lade till `connect-server/`, helt avskild från den granskade Open-servern.
+- Implementerade OAuth protected-resource-metadata, Bearer-utmaning och en
+  JWT-verifierare som kräver JWKS, asymmetrisk signatur, issuer, audience,
+  utgångstid och användaridentitet.
+- Lade till ett minimalt MCP-flöde: `initialize`, `tools/list` och
+  `get_connect_context`.
+- Aktiverade det RLS-bundna läsflödet i samma separata tjänst:
+  `list_my_library`, `list_shared_workspace_prompts` och `get_connect_item`.
+  De använder OAuth-tokenen från anropet tillsammans med en publishable key;
+  ingen service-nyckel eller skrivning används.
+- Verifierade projektets live discovery-dokument: issuer,
+  authorization/token/JWKS-endpoints och dynamisk registrering finns på
+  `cohyrgxeatqexkqihktu.supabase.co`. Supabases standard-audience är
+  `authenticated`.
+- Lade till en separat Docker-konfiguration och hälsokontroll för den framtida
+  `connect.promptbanken.se`-hosten.
+
+### Verifierat
+- `python -m pytest -q`: 13 tester godkända för metadata, anonymt avslag,
+  verktygsupptäckt, RLS-bundna läsverktyg, dataanropsgränser och accepterad
+  respektive avvisad JWT-verifiering.
+- `python -m compileall -q connect_service`: godkänt.
+
+### Nästa steg
+- Sätt upp den separata Caddy-routen och DNS för `connect.promptbanken.se`,
+  därefter genomför en riktig PKCE-runda från en MCP-klient.
+
 ## 2026-08-30 - Workflowet "Från behov till effekt" färdigställt: admin-MCP 18 → 20 verktyg, steg 7 utkopplat, rollrekommendation fixad
 
 ### Gjort

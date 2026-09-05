@@ -7,6 +7,14 @@ Projektet är byggt för två driftlägen:
 - `hosted`: publik eller delad server där användarens uppgift och dokumenttext inte ska skickas till MCP-servern.
 - `local`: lokal installation på användarens egen maskin där servern även kan routa, riskkontrollera och kompilera prompts lokalt.
 
+## Promptbanken Connect (under uppbyggnad)
+
+Promptbanken Connect är en separat OAuth-skyddad MCP-tjänst för den inloggade
+användarens bibliotek och samarbetsytor. Den ligger i `connect-server/` och
+ändrar inte den granskade Promptbanken Open-connectorn. Första lokala
+OAuth-provet, dess test och nästa Supabase-steg finns dokumenterade i
+[`connect-server/README.md`](connect-server/README.md).
+
 ## Snabbstart
 
 Från repo-roten:

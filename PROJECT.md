@@ -19,7 +19,13 @@ Projektet ska inte köra någon AI-modell eller fungera som ett stort projektnav
 ## Nuläge
 Projektet innehåller en MCP-server i `mcp-server/`, promptmallar i `mcp-server/prompts/`, skill-katalog i `mcp-server/skills.json`, Docker-stöd och npm-script i rotens `package.json`.
 
+En fristående Connect-prototyp finns i `connect-server/`. Den har en egen
+OAuth-skyddad MCP-yta, läser Valvet och delade arbetsytor genom befintlig RLS,
+och är inte kopplad till Open-serverns drift eller data.
+
 Plan B för Valvet utvecklas i worktreet/branchen `worktree-valvet-plan-b`. Task 1–5 är klara: RPC-klienten `vault.py`, tre läsverktyg och tre skrivverktyg med MCP-, REST- och hosted-guard-stöd, live-verifierade mot staging, dokumentation uppdaterad.
 
 ## Nästa större steg
-Slutlig helbranch-recension av Plan B, sedan avsluta branchen (merge/PR-beslut). Produktionsdeploy är ett separat, uttryckligt beslut och inte del av Plan B.
+Deploya Connect på en separat host och verifiera discovery, dynamisk
+registrering, authorization code med PKCE samt RLS-läsningar med en riktig
+användare. Skrivverktyg är ett separat, uttryckligt beslut.
