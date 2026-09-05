@@ -1,30 +1,45 @@
 # Promptbanken Connect
 
-Detta är en fristående startpunkt för Promptbanken Connect. Den ligger avsiktligt
-utanför `mcp-server/`, som innehåller Promptbanken Open 1.2.2 under granskning.
+Promptbanken Connect är en separat, OAuth-skyddad MCP-anslutning till samma
+privata Creator-bibliotek som användaren hanterar på `app.promptbanken.se`.
+Den ligger avsiktligt utanför `mcp-server/`, som innehåller Promptbanken Open
+1.2.2 under granskning.
 
-## Vad som fungerar i denna första leverans
+## Anslutningsadress
 
-- MCP-resursmetadata på `/.well-known/oauth-protected-resource/mcp`.
-- Bearer-token krävs för `POST /mcp` och felaktiga eller saknade tokens får en
-  OAuth-utmaning med rätt resurs-URL.
-- `get_connect_context` returnerar den verifierade användaridentiteten.
-- `list_my_library` listar den inloggade användarens aktiva privata poster i
-  Valvet. `list_shared_workspace_prompts` listar aktiva delade poster i de
-  arbetsytor användaren är medlem i. `get_connect_item` hämtar en specifik
-  RLS-synlig post.
-- Samtliga dataanrop går till Supabase med anroparens OAuth-token och en
-  publishable key. Connect använder aldrig service-nyckel och skriver inte.
-- Driftverifieraren använder Supabase JWKS och kräver signatur, utgivare,
-  målgrupp, utgångstid och användaridentitet.
-- `GET /healthz` är öppen för driftkontroll. Övriga MCP-anrop kräver Bearer-
-  token.
+Använd en MCP-klient med OAuth mot:
+
+```text
+https://connect.promptbanken.se/mcp
+```
+
+Anslutningen öppnar Promptbankens Supabase-samtycke på
+`app.promptbanken.se/oauth/consent`. Open har fortsatt sin separata adress och
+påverkas inte av Connect.
+
+## Vad Connect kan läsa
+
+Efter inloggning kan AI-klienten:
+
+- bekräfta den anslutna användaren med `get_connect_context`;
+- lista Creator-prompter, sparade biblioteks-prompter och paket med
+  `list_my_library`;
+- hämta en specifik prompt inklusive aktuell text för en levande Open-referens
+  med `get_my_library_prompt`;
+- lista och hämta användarens paket, med promptarna i deras sparade ordning,
+  via `list_my_packages` och `get_my_package`;
+- lista egna aktiva eller avslutade delningar med `list_my_shares`.
+
+Connect använder alltid anroparens OAuth-token och Supabases publishable key.
+Alla dataläsningar går genom Creator-RPC:er som kontrollerar `auth.uid()`.
+Tjänsten har ingen service-rollnyckel och inga skrivverktyg i denna release.
 
 ## Lokal kontroll
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
+python -m compileall connect_service
 ```
 
 För att köra tjänsten krävs följande miljövariabler. Lägg dem i den lokala
@@ -33,25 +48,20 @@ miljön, aldrig i Git:
 | Variabel | Innehåll |
 | --- | --- |
 | `CONNECT_RESOURCE_URL` | Den publika URL:en för Connects `/mcp`, till exempel `https://connect.promptbanken.se/mcp`. |
-| `CONNECT_SUPABASE_PUBLISHABLE_KEY` | Projektets publishable key för RLS-skyddade REST-läsningar. Det är inte en service-nyckel. |
+| `CONNECT_SUPABASE_PUBLISHABLE_KEY` | Projektets publishable key för RLS-skyddade RPC-läsningar. Det är inte en service-nyckel. |
 | `CONNECT_AUTHORIZATION_SERVER` | Valfri override för OAuth-serverns issuer. Standard är Promptbankens verifierade issuer. |
 | `CONNECT_TOKEN_ISSUER` | Valfri override för tokenens issuer. |
 | `CONNECT_TOKEN_AUDIENCE` | Valfri override för tokenens målgrupp. Supabases standard är `authenticated`. |
 | `CONNECT_JWKS_URL` | Valfri override för OAuth-serverns JWKS-endpoint. |
 
-Starta därefter med `python -m connect_service`.
+Starta därefter med `python -m connect_service` eller `docker-compose up --build`.
 
-Se `.env.example` för kompletta konfigurationsvärden. Kör lokalt med
-`docker-compose up --build` eller `python -m connect_service`.
+## Kvar före första klientanslutningen
 
-## Kvar före första riktiga anslutning
-
-1. Lägg Connect på sin egen host och proxyregel: `connect.promptbanken.se` →
-   denna container på `127.0.0.1:8010`. Open-routen ändras inte.
-2. Genomför en riktig authorization-code-med-PKCE-runda från en MCP-klient.
-3. Kontrollera i OAuth Apps att den registrerade klienten, dess redirect-URL
-   och samtyckesinformationen är korrekta. Avvisa okända appar.
-4. Följ upp dynamiskt registrerade appar regelbundet. OAuth-scopes styr bara
-   OIDC-information; RLS är fortsatt dataskyddet.
-5. Planera skrivverktyg som en separat fas med idempotens, tydliga
-   användarbekräftelser och ändringslogg.
+1. Genomför en riktig authorization-code-med-PKCE-runda från en MCP-klient och
+   kontrollera verktygslistan efter samtycke.
+2. Kontrollera OAuth Apps och avvisa okända klienter. Dynamisk registrering
+   innebär att användaren alltid ska granska appnamn och redirect-adress på
+   samtyckessidan.
+3. Nästa produktfas är beta-skrivningar: entitlement per verktyg,
+   idempotens och uttrycklig bekräftelse för ändringar och delningar.
