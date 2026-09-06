@@ -11,6 +11,11 @@ class ConnectWriteError(Exception):
     """Ett säkert, användbart fel från Connects skriv-RPC:er."""
 
 
+_SEARCH_SYNONYMS = {
+    "hr": ("personal", "medarbetare", "rekrytering", "arbetsmiljö", "förändringsledning"),
+}
+
+
 class HttpClient(Protocol):
     def post(
         self,
@@ -310,7 +315,8 @@ class SupabaseConnectRepository:
     @staticmethod
     def _matches_catalog_item(item: Mapping[str, object], query: str, category: str | None) -> bool:
         haystack = " ".join(str(item.get(key) or "") for key in ("title", "summary", "category")).casefold()
-        return (not query or query in haystack) and (category is None or str(item.get("category") or "").casefold() == category)
+        search_terms = _SEARCH_SYNONYMS.get(query, (query,))
+        return (not query or any(term in haystack for term in search_terms)) and (category is None or str(item.get("category") or "").casefold() == category)
 
     @staticmethod
     def _is_uuid(value: str) -> bool:

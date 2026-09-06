@@ -266,3 +266,11 @@ def test_update_keeps_the_clear_open_reference_read_only_message():
             category=None,
             request_id="00000000-0000-0000-0000-000000000041",
         )
+
+
+def test_hr_search_matches_related_swedish_catalog_terms():
+    assert SupabaseConnectRepository._matches_catalog_item(
+        {"title": "Förändringsledning och införande", "summary": "Stöd för verksamheten", "category": "Ledning"},
+        "hr",
+        None,
+    )
