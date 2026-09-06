@@ -15,6 +15,11 @@ class Library:
         assert access_token == "test-access-token"
         return [{"id": "library-item", "kind": kind, "title": "Min Creator-prompt"}]
 
+    def search_open_catalog(self, *, access_token: str, query: str, kind: str, category: str | None, limit: int, cursor: int):
+        assert access_token == "test-access-token"
+        assert (query, kind, category, limit, cursor) == ("beslut", "prompt", None, 10, 0)
+        return {"items": [{"id": "open-item", "kind": "prompt", "title": "Beslutsunderlag"}], "next_cursor": None}
+
     def get_library_prompt(self, *, access_token: str, prompt_id: str):
         assert access_token == "test-access-token"
         if prompt_id == "00000000-0000-0000-0000-000000000010":
@@ -34,6 +39,20 @@ class Library:
     def list_shares(self, *, access_token: str, include_inactive: bool):
         assert access_token == "test-access-token"
         return [{"id": "share-item", "is_active": not include_inactive}]
+
+    def create_my_prompt(self, *, access_token: str, title: str, content: str, summary: str | None, category: str | None, request_id: str):
+        assert access_token == "test-access-token"
+        assert content == "Skriv ett kort informationsbrev."
+        assert summary is None
+        assert category is None
+        assert request_id == "00000000-0000-0000-0000-000000000030"
+        return {"id": "00000000-0000-0000-0000-000000000031", "title": title, "status": "draft"}
+
+    def archive_my_prompt(self, *, access_token: str, prompt_id: str, request_id: str):
+        assert access_token == "test-access-token"
+        assert prompt_id == "00000000-0000-0000-0000-000000000070"
+        assert request_id == "00000000-0000-0000-0000-000000000071"
+        return {"id": prompt_id, "status": "archived"}
 
 
 def client() -> TestClient:
@@ -74,11 +93,23 @@ def test_authenticated_client_discovers_creator_library_tools():
     assert response.status_code == 200
     assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
         "get_connect_context",
+        "search_open_catalog",
         "list_my_library",
         "get_my_library_prompt",
         "list_my_packages",
         "get_my_package",
         "list_my_shares",
+        "create_my_prompt",
+        "update_my_prompt",
+        "archive_my_prompt",
+        "save_my_package",
+        "set_package_prompts",
+        "archive_my_package",
+        "add_open_prompt_to_library",
+        "add_open_package_to_library",
+        "create_my_share",
+        "revoke_my_share",
+        "extend_my_share",
     ]
 
 
@@ -151,3 +182,92 @@ def test_invalid_creator_tool_arguments_return_invalid_params():
     )
 
     assert response.json()["error"] == {"code": -32602, "message": "Ogiltiga verktygsargument."}
+
+
+def test_create_my_prompt_requires_explicit_confirmation_before_any_write():
+    response = authenticated_post(
+        {
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "create_my_prompt",
+                "arguments": {
+                    "title": "Informationsbrev",
+                    "content": "Skriv ett kort informationsbrev.",
+                    "confirmed": False,
+                    "request_id": "00000000-0000-0000-0000-000000000030",
+                },
+            },
+        }
+    )
+
+    assert response.json()["error"] == {
+        "code": -32010,
+        "message": "Bekräfta ändringen med confirmed: true.",
+    }
+
+
+def test_create_my_prompt_returns_the_created_creator_draft():
+    response = authenticated_post(
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "create_my_prompt",
+                "arguments": {
+                    "title": "Informationsbrev",
+                    "content": "Skriv ett kort informationsbrev.",
+                    "confirmed": True,
+                    "request_id": "00000000-0000-0000-0000-000000000030",
+                },
+            },
+        }
+    )
+
+    assert response.json()["result"]["structuredContent"] == {
+        "prompt": {
+            "id": "00000000-0000-0000-0000-000000000031",
+            "title": "Informationsbrev",
+            "status": "draft",
+        }
+    }
+
+
+def test_search_open_catalog_returns_public_metadata():
+    response = authenticated_post(
+        {
+            "jsonrpc": "2.0",
+            "id": 31,
+            "method": "tools/call",
+            "params": {"name": "search_open_catalog", "arguments": {"query": "beslut", "kind": "prompt", "limit": 10}},
+        }
+    )
+
+    assert response.json()["result"]["structuredContent"] == {
+        "items": [{"id": "open-item", "kind": "prompt", "title": "Beslutsunderlag"}],
+        "next_cursor": None,
+    }
+
+
+def test_archive_my_prompt_returns_archived_status_after_confirmation():
+    response = authenticated_post(
+        {
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": "archive_my_prompt",
+                "arguments": {
+                    "prompt_id": "00000000-0000-0000-0000-000000000070",
+                    "confirmed": True,
+                    "request_id": "00000000-0000-0000-0000-000000000071",
+                },
+            },
+        }
+    )
+
+    assert response.json()["result"]["structuredContent"] == {
+        "prompt": {"id": "00000000-0000-0000-0000-000000000070", "status": "archived"}
+    }

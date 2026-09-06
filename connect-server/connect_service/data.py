@@ -148,6 +148,87 @@ class SupabaseConnectRepository:
             return shares
         return [share for share in shares if bool(share.get("is_active", False))]
 
+    def create_my_prompt(
+        self,
+        *,
+        access_token: str,
+        title: str,
+        content: str,
+        summary: str | None,
+        category: str | None,
+        request_id: str,
+    ) -> Mapping[str, object]:
+        return self._rpc_object(
+            access_token,
+            "connect_create_my_prompt",
+            {
+                "p_title": title,
+                "p_content": content,
+                "p_summary": summary,
+                "p_category": category,
+                "p_confirmed": True,
+                "p_request_id": request_id,
+            },
+        )
+
+    def search_open_catalog(
+        self,
+        *,
+        access_token: str,
+        query: str,
+        kind: str,
+        category: str | None,
+        limit: int,
+        cursor: int,
+    ) -> Mapping[str, object]:
+        items: list[dict[str, object]] = []
+        normalized_query = query.strip().casefold()
+        normalized_category = category.strip().casefold() if isinstance(category, str) and category.strip() else None
+        if kind in {"all", "prompt"}:
+            for row in self._rpc(access_token, "list_published_prompts", {"p_context_keys": ["generell"]}):
+                item = {"id": str(row["id"]), "kind": "prompt", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area")}
+                if self._matches_catalog_item(item, normalized_query, normalized_category):
+                    items.append(item)
+        if kind in {"all", "package"}:
+            for row in self._rpc(access_token, "list_published_packages", {"p_context_keys": ["generell"]}):
+                item = {"id": str(row["id"]), "kind": "package", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area"), "package_type": row.get("package_type")}
+                if self._matches_catalog_item(item, normalized_query, normalized_category):
+                    items.append(item)
+        items.sort(key=lambda item: (str(item.get("title") or "").casefold(), str(item["id"])))
+        page = items[cursor : cursor + limit]
+        next_cursor = str(cursor + limit) if cursor + limit < len(items) else None
+        return {"items": page, "next_cursor": next_cursor}
+
+    def update_my_prompt(self, *, access_token: str, prompt_id: str, title: str, content: str, summary: str | None, category: str | None, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_update_my_prompt", {"p_content_item_id": prompt_id, "p_title": title, "p_content": content, "p_summary": summary, "p_category": category, "p_request_id": request_id})
+
+    def archive_my_prompt(self, *, access_token: str, prompt_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_archive_my_prompt", {"p_content_item_id": prompt_id, "p_request_id": request_id})
+
+    def save_my_package(self, *, access_token: str, package_id: str | None, title: str, summary: str | None, package_type: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_save_my_package", {"p_draft_id": package_id, "p_title": title, "p_summary": summary, "p_package_type": package_type, "p_request_id": request_id})
+
+    def set_package_prompts(self, *, access_token: str, package_id: str, prompt_ids: list[str], request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_set_package_prompts", {"p_draft_id": package_id, "p_prompt_ids": prompt_ids, "p_request_id": request_id})
+
+    def archive_my_package(self, *, access_token: str, package_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_archive_my_package", {"p_draft_id": package_id, "p_request_id": request_id})
+
+    def add_open_prompt_to_library(self, *, access_token: str, prompt_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_add_catalog_prompt_to_library", {"p_prompt_id": prompt_id, "p_request_id": request_id})
+
+    def add_open_package_to_library(self, *, access_token: str, package_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_add_catalog_package_to_library", {"p_package_id": package_id, "p_request_id": request_id})
+
+    def create_my_share(self, *, access_token: str, subject_type: str, subject_id: str, pin_version: bool, expires_at: str | None, label: str | None, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_create_my_share", {"p_subject_type": subject_type, "p_subject_id": subject_id, "p_pin_version": pin_version, "p_expires_at": expires_at, "p_label": label, "p_request_id": request_id})
+
+    def revoke_my_share(self, *, access_token: str, share_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_revoke_my_share", {"p_share_id": share_id, "p_request_id": request_id})
+
+    def extend_my_share(self, *, access_token: str, share_id: str, expires_at: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "connect_extend_my_share", {"p_share_id": share_id, "p_expires_at": expires_at, "p_request_id": request_id})
+
     def _rpc(
         self,
         access_token: str,
@@ -168,6 +249,35 @@ class SupabaseConnectRepository:
         if not isinstance(result, list):
             raise ValueError("Supabase returnerade ett oväntat svar.")
         return [row for row in result if isinstance(row, Mapping)]
+
+    def _rpc_object(
+        self,
+        access_token: str,
+        function_name: str,
+        payload: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        response = self._http_client.post(
+            f"/rest/v1/rpc/{function_name}",
+            headers={
+                "apikey": self._publishable_key,
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+            json=dict(payload),
+        )
+        response.raise_for_status()
+        result = response.json()
+        if not isinstance(result, Mapping):
+            raise ValueError("Supabase returnerade ett oväntat svar.")
+        return result
+
+    def _connect_write(self, access_token: str, function_name: str, payload: Mapping[str, object]) -> Mapping[str, object]:
+        return self._rpc_object(access_token, function_name, {**payload, "p_confirmed": True})
+
+    @staticmethod
+    def _matches_catalog_item(item: Mapping[str, object], query: str, category: str | None) -> bool:
+        haystack = " ".join(str(item.get(key) or "") for key in ("title", "summary", "category")).casefold()
+        return (not query or query in haystack) and (category is None or str(item.get("category") or "").casefold() == category)
 
     @staticmethod
     def _is_uuid(value: str) -> bool:

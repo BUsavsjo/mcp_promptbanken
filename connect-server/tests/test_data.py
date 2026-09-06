@@ -1,3 +1,5 @@
+import pytest
+
 from connect_service.data import SupabaseConnectRepository
 
 
@@ -118,3 +120,84 @@ def test_list_shares_excludes_inactive_rows_by_default():
     client = RecordingHttpClient([[{"id": "active", "is_active": True}, {"id": "inactive", "is_active": False}]])
 
     assert repository(client).list_shares(access_token="oauth-access-token") == [{"id": "active", "is_active": True}]
+
+
+def test_create_my_prompt_sends_the_oauth_token_and_idempotency_key_to_connect_rpc():
+    request_id = "00000000-0000-0000-0000-000000000030"
+    client = RecordingHttpClient(
+        [{"id": "00000000-0000-0000-0000-000000000031", "title": "Informationsbrev", "status": "draft"}]
+    )
+
+    result = repository(client).create_my_prompt(
+        access_token="oauth-access-token",
+        title="Informationsbrev",
+        content="Skriv ett kort informationsbrev.",
+        summary="Ett kort brev",
+        category="Kommunikation",
+        request_id=request_id,
+    )
+
+    assert result == {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "title": "Informationsbrev",
+        "status": "draft",
+    }
+    assert client.calls == [
+        {
+            "path": "/rest/v1/rpc/connect_create_my_prompt",
+            "headers": headers(),
+            "json": {
+                "p_title": "Informationsbrev",
+                "p_content": "Skriv ett kort informationsbrev.",
+                "p_summary": "Ett kort brev",
+                "p_category": "Kommunikation",
+                "p_confirmed": True,
+                "p_request_id": request_id,
+            },
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("method_name", "arguments", "rpc_name", "rpc_arguments"),
+    [
+        ("update_my_prompt", {"prompt_id": "00000000-0000-0000-0000-000000000040", "title": "Ny titel", "content": "Ny text", "summary": None, "category": None, "request_id": "00000000-0000-0000-0000-000000000041"}, "connect_update_my_prompt", {"p_content_item_id": "00000000-0000-0000-0000-000000000040", "p_title": "Ny titel", "p_content": "Ny text", "p_summary": None, "p_category": None, "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000041"}),
+        ("archive_my_prompt", {"prompt_id": "00000000-0000-0000-0000-000000000042", "request_id": "00000000-0000-0000-0000-000000000043"}, "connect_archive_my_prompt", {"p_content_item_id": "00000000-0000-0000-0000-000000000042", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000043"}),
+        ("save_my_package", {"package_id": None, "title": "Mitt paket", "summary": None, "package_type": "workflow", "request_id": "00000000-0000-0000-0000-000000000044"}, "connect_save_my_package", {"p_draft_id": None, "p_title": "Mitt paket", "p_summary": None, "p_package_type": "workflow", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000044"}),
+        ("set_package_prompts", {"package_id": "00000000-0000-0000-0000-000000000045", "prompt_ids": ["00000000-0000-0000-0000-000000000046"], "request_id": "00000000-0000-0000-0000-000000000047"}, "connect_set_package_prompts", {"p_draft_id": "00000000-0000-0000-0000-000000000045", "p_prompt_ids": ["00000000-0000-0000-0000-000000000046"], "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000047"}),
+        ("archive_my_package", {"package_id": "00000000-0000-0000-0000-000000000048", "request_id": "00000000-0000-0000-0000-000000000049"}, "connect_archive_my_package", {"p_draft_id": "00000000-0000-0000-0000-000000000048", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000049"}),
+        ("add_open_prompt_to_library", {"prompt_id": "00000000-0000-0000-0000-000000000050", "request_id": "00000000-0000-0000-0000-000000000051"}, "connect_add_catalog_prompt_to_library", {"p_prompt_id": "00000000-0000-0000-0000-000000000050", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000051"}),
+        ("add_open_package_to_library", {"package_id": "00000000-0000-0000-0000-000000000052", "request_id": "00000000-0000-0000-0000-000000000053"}, "connect_add_catalog_package_to_library", {"p_package_id": "00000000-0000-0000-0000-000000000052", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000053"}),
+        ("create_my_share", {"subject_type": "prompt", "subject_id": "00000000-0000-0000-0000-000000000054", "pin_version": False, "expires_at": None, "label": None, "request_id": "00000000-0000-0000-0000-000000000055"}, "connect_create_my_share", {"p_subject_type": "prompt", "p_subject_id": "00000000-0000-0000-0000-000000000054", "p_pin_version": False, "p_expires_at": None, "p_label": None, "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000055"}),
+        ("revoke_my_share", {"share_id": "00000000-0000-0000-0000-000000000056", "request_id": "00000000-0000-0000-0000-000000000057"}, "connect_revoke_my_share", {"p_share_id": "00000000-0000-0000-0000-000000000056", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000057"}),
+        ("extend_my_share", {"share_id": "00000000-0000-0000-0000-000000000058", "expires_at": "2026-12-31T23:59:59Z", "request_id": "00000000-0000-0000-0000-000000000059"}, "connect_extend_my_share", {"p_share_id": "00000000-0000-0000-0000-000000000058", "p_expires_at": "2026-12-31T23:59:59Z", "p_confirmed": True, "p_request_id": "00000000-0000-0000-0000-000000000059"}),
+    ],
+)
+def test_write_methods_use_the_matching_idempotent_connect_rpc(method_name, arguments, rpc_name, rpc_arguments):
+    client = RecordingHttpClient([{"id": "00000000-0000-0000-0000-000000000060", "status": "draft"}])
+
+    result = getattr(repository(client), method_name)(access_token="oauth-access-token", **arguments)
+
+    assert result == {"id": "00000000-0000-0000-0000-000000000060", "status": "draft"}
+    assert client.calls == [{"path": f"/rest/v1/rpc/{rpc_name}", "headers": headers(), "json": rpc_arguments}]
+
+
+def test_search_open_catalog_filters_published_prompt_metadata_without_returning_prompt_text():
+    client = RecordingHttpClient([
+        [
+            {"id": "00000000-0000-0000-0000-000000000080", "title": "Beslutsunderlag", "summary": "Gör ett underlag", "area": "Ledning", "prompt_text": "hemlig malltext"},
+            {"id": "00000000-0000-0000-0000-000000000081", "title": "Pressmeddelande", "summary": "Kommunikation", "area": "Kommunikation", "prompt_text": "annan text"},
+        ],
+    ])
+
+    result = repository(client).search_open_catalog(
+        access_token="oauth-access-token", query="beslut", kind="prompt", category=None, limit=10, cursor=0
+    )
+
+    assert result == {
+        "items": [{"id": "00000000-0000-0000-0000-000000000080", "kind": "prompt", "title": "Beslutsunderlag", "summary": "Gör ett underlag", "category": "Ledning"}],
+        "next_cursor": None,
+    }
+    assert client.calls == [
+        {"path": "/rest/v1/rpc/list_published_prompts", "headers": headers(), "json": {"p_context_keys": ["generell"]}},
+    ]
