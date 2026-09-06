@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 import json
 from typing import Protocol
+from urllib.parse import urlparse
 from uuid import UUID
 
 from starlette.applications import Starlette
@@ -22,6 +23,8 @@ _WRITE_TOOL_NAMES = {
     "save_my_package",
     "set_package_prompts",
     "archive_my_package",
+    "unfollow_open_prompt",
+    "unfollow_open_package",
     "create_my_share",
     "revoke_my_share",
     "extend_my_share",
@@ -197,6 +200,11 @@ def _tool_definitions() -> list[dict[str, object]]:
             "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
         },
         {
+            "name": "unfollow_open_prompt",
+            "description": "Tar bort en följd Open-prompt från ditt bibliotek efter uttrycklig bekräftelse.",
+            "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
+        },
+        {
             "name": "save_my_package",
             "description": "Skapar eller uppdaterar ett eget paketutkast efter uttrycklig bekräftelse.",
             "inputSchema": {"type": "object", "properties": {"package_id": {"type": "string", "format": "uuid"}, "title": {"type": "string", "minLength": 1}, "summary": {"type": "string"}, "package_type": {"type": "string", "enum": ["collection", "workflow"]}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["title", "package_type", "confirmed", "request_id"]},
@@ -212,6 +220,11 @@ def _tool_definitions() -> list[dict[str, object]]:
             "inputSchema": {"type": "object", "properties": {"package_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["package_id", "confirmed", "request_id"]},
         },
         {
+            "name": "unfollow_open_package",
+            "description": "Tar bort ett följt Open-paket från ditt bibliotek efter uttrycklig bekräftelse.",
+            "inputSchema": {"type": "object", "properties": {"package_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["package_id", "confirmed", "request_id"]},
+        },
+        {
             "name": "add_open_prompt_to_library",
             "description": "Sparar en publicerad Open-prompt som en levande referens i ditt bibliotek efter uttrycklig bekräftelse.",
             "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
@@ -223,7 +236,7 @@ def _tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "create_my_share",
-            "description": "Skapar en delning av en egen prompt eller ett eget paket efter uttrycklig bekräftelse.",
+            "description": "Skapar en privat delningslänk för en egen prompt eller ett eget paket. Du skickar sedan länken till mottagaren.",
             "inputSchema": {"type": "object", "properties": {"subject_type": {"type": "string", "enum": ["prompt", "package"]}, "subject_id": {"type": "string", "format": "uuid"}, "pin_version": {"type": "boolean", "default": False}, "expires_at": {"type": "string", "format": "date-time"}, "label": {"type": "string"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["subject_type", "subject_id", "confirmed", "request_id"]},
         },
         {
@@ -247,6 +260,9 @@ def create_app(
     library: Library,
 ) -> Starlette:
     """Skapar en fristående Connect-app med uttryckliga OAuth-beroenden."""
+    parsed_resource = urlparse(resource_url)
+    app_host = parsed_resource.netloc.replace("connect-dev.", "dev.").replace("connect.", "app.")
+    share_base_url = f"{parsed_resource.scheme}://{app_host}/delning/?s="
 
     async def protected_resource_metadata(_: Request) -> JSONResponse:
         return JSONResponse({"resource": resource_url, "authorization_servers": [authorization_server]})
@@ -410,6 +426,13 @@ def create_app(
             )
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"prompt": prompt})})
 
+        if name == "unfollow_open_prompt":
+            prompt_id = arguments.get("prompt_id")
+            if not _valid_uuid(prompt_id):
+                return _error(request_id, -32602, "Ogiltiga verktygsargument.")
+            prompt = library.archive_my_prompt(access_token=token, prompt_id=prompt_id, request_id=str(arguments["request_id"]))
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"prompt": prompt})})
+
         if name == "update_my_prompt":
             prompt_id = arguments.get("prompt_id")
             title = arguments.get("title")
@@ -439,11 +462,12 @@ def create_app(
             package = getattr(library, name)(access_token=token, package_id=package_id, prompt_ids=prompt_ids, request_id=str(arguments["request_id"]))
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"package": package})})
 
-        if name in {"archive_my_package", "add_open_package_to_library"}:
+        if name in {"archive_my_package", "add_open_package_to_library", "unfollow_open_package"}:
             package_id = arguments.get("package_id")
             if not _valid_uuid(package_id):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")
-            package = getattr(library, name)(access_token=token, package_id=package_id, request_id=str(arguments["request_id"]))
+            method_name = "archive_my_package" if name == "unfollow_open_package" else name
+            package = getattr(library, method_name)(access_token=token, package_id=package_id, request_id=str(arguments["request_id"]))
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"package": package})})
 
         if name == "add_open_prompt_to_library":
@@ -462,6 +486,8 @@ def create_app(
             if (subject_type not in {"prompt", "package"} or not _valid_uuid(subject_id) or not isinstance(pin_version, bool) or (expires_at is not None and not isinstance(expires_at, str)) or (label is not None and not isinstance(label, str))):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")
             share = getattr(library, name)(access_token=token, subject_type=subject_type, subject_id=subject_id, pin_version=pin_version, expires_at=expires_at, label=label, request_id=str(arguments["request_id"]))
+            if isinstance(share.get("token"), str):
+                share = {**share, "share_url": share_base_url + share["token"]}
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"share": share})})
 
         if name == "revoke_my_share":
