@@ -271,3 +271,45 @@ def test_archive_my_prompt_returns_archived_status_after_confirmation():
     assert response.json()["result"]["structuredContent"] == {
         "prompt": {"id": "00000000-0000-0000-0000-000000000070", "status": "archived"}
     }
+
+class PromptQuotaLibrary(Library):
+    def create_my_prompt(self, **kwargs):
+        from connect_service.data import ConnectWriteError
+
+        raise ConnectWriteError("Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.")
+
+
+def test_write_limit_returns_a_structured_mcp_error_instead_of_an_upstream_failure():
+    quota_client = TestClient(
+        create_app(
+            resource_url="https://connect.promptbanken.se/mcp",
+            authorization_server="https://example.supabase.co/auth/v1",
+            token_verifier=AcceptingVerifier(),
+            library=PromptQuotaLibrary(),
+        )
+    )
+
+    response = quota_client.post(
+        "/mcp",
+        headers={"Authorization": "Bearer test-access-token"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "tools/call",
+            "params": {
+                "name": "create_my_prompt",
+                "arguments": {
+                    "title": "Ny prompt",
+                    "content": "Kort innehåll.",
+                    "confirmed": True,
+                    "request_id": "00000000-0000-0000-0000-000000000090",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["error"] == {
+        "code": -32020,
+        "message": "Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.",
+    }

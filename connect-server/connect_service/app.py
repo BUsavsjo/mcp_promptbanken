@@ -10,6 +10,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from connect_service.data import ConnectWriteError
+
 
 _WRITE_TOOL_NAMES = {
     "add_open_prompt_to_library",
@@ -252,6 +254,10 @@ def create_app(
     async def health_check(_: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "service": "promptbanken-connect"})
 
+    async def connect_write_error(request: Request, error: Exception) -> JSONResponse:
+        message = str(error) or "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
+        return _error(getattr(request.state, "jsonrpc_id", None), -32020, message)
+
     async def mcp(request: Request) -> Response:
         token = _bearer_token(request)
         if token is None:
@@ -267,6 +273,7 @@ def create_app(
 
         payload = await request.json()
         request_id = payload.get("id")
+        request.state.jsonrpc_id = request_id
         method = payload.get("method")
         params = payload.get("params", {})
 
@@ -479,5 +486,6 @@ def create_app(
             Route("/healthz", health_check),
             Route("/.well-known/oauth-protected-resource/mcp", protected_resource_metadata),
             Route("/mcp", mcp, methods=["POST"]),
-        ]
+        ],
+        exception_handlers={ConnectWriteError: connect_write_error},
     )

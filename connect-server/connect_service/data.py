@@ -7,6 +7,10 @@ from uuid import UUID
 import httpx
 
 
+class ConnectWriteError(Exception):
+    """Ett säkert, användbart fel från Connects skriv-RPC:er."""
+
+
 class HttpClient(Protocol):
     def post(
         self,
@@ -265,7 +269,10 @@ class SupabaseConnectRepository:
             },
             json=dict(payload),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            raise ConnectWriteError(self._write_error_message(error)) from error
         result = response.json()
         if not isinstance(result, Mapping):
             raise ValueError("Supabase returnerade ett oväntat svar.")
@@ -273,6 +280,21 @@ class SupabaseConnectRepository:
 
     def _connect_write(self, access_token: str, function_name: str, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self._rpc_object(access_token, function_name, {**payload, "p_confirmed": True})
+
+    @staticmethod
+    def _write_error_message(error: httpx.HTTPStatusError) -> str:
+        """Översätter kända affärsregler utan att läcka databasdetaljer."""
+        try:
+            payload = error.response.json()
+        except (ValueError, AttributeError):
+            payload = {}
+        message = payload.get("message") if isinstance(payload, Mapping) else None
+        if isinstance(message, str) and "nått gränsen på" in message:
+            return (
+                "Du har nått gränsen för privata prompts i Free-läget. "
+                "Arkivera en prompt eller uppgradera kontot."
+            )
+        return "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
 
     @staticmethod
     def _matches_catalog_item(item: Mapping[str, object], query: str, category: str | None) -> bool:

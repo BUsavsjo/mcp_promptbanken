@@ -201,3 +201,35 @@ def test_search_open_catalog_filters_published_prompt_metadata_without_returning
     assert client.calls == [
         {"path": "/rest/v1/rpc/list_published_prompts", "headers": headers(), "json": {"p_context_keys": ["generell"]}},
     ]
+
+
+def test_create_my_prompt_translates_the_free_prompt_limit_without_leaking_the_database_error():
+    import httpx
+
+    class RejectedResponse:
+        def raise_for_status(self):
+            response = httpx.Response(
+                400,
+                request=httpx.Request("POST", "https://example.supabase.co/rest/v1/rpc/connect_create_my_prompt"),
+                json={"message": "Du har nått gränsen på 3 prompts för free-planen."},
+            )
+            response.raise_for_status()
+
+        def json(self):
+            return {"message": "Du har nått gränsen på 3 prompts för free-planen."}
+
+    class RejectedClient:
+        def post(self, *args, **kwargs):
+            return RejectedResponse()
+
+    from connect_service.data import ConnectWriteError
+
+    with pytest.raises(ConnectWriteError, match="Arkivera en prompt eller uppgradera kontot"):
+        repository(RejectedClient()).create_my_prompt(
+            access_token="oauth-access-token",
+            title="Informationsbrev",
+            content="Skriv ett kort informationsbrev.",
+            summary=None,
+            category=None,
+            request_id="00000000-0000-0000-0000-000000000090",
+        )
