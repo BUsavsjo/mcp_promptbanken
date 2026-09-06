@@ -233,3 +233,36 @@ def test_create_my_prompt_translates_the_free_prompt_limit_without_leaking_the_d
             category=None,
             request_id="00000000-0000-0000-0000-000000000090",
         )
+
+
+def test_update_keeps_the_clear_open_reference_read_only_message():
+    import httpx
+
+    class RejectedResponse:
+        def raise_for_status(self):
+            response = httpx.Response(
+                400,
+                request=httpx.Request("POST", "https://example.supabase.co/rest/v1/rpc/connect_update_my_prompt"),
+                json={"message": "Open-referenser är skrivskyddade. Skapa en egen prompt om du vill ändra innehållet."},
+            )
+            response.raise_for_status()
+
+        def json(self):
+            return {"message": "Open-referenser är skrivskyddade. Skapa en egen prompt om du vill ändra innehållet."}
+
+    class RejectedClient:
+        def post(self, *args, **kwargs):
+            return RejectedResponse()
+
+    from connect_service.data import ConnectWriteError
+
+    with pytest.raises(ConnectWriteError, match="Open-referenser är skrivskyddade"):
+        repository(RejectedClient()).update_my_prompt(
+            access_token="oauth-access-token",
+            prompt_id="00000000-0000-0000-0000-000000000040",
+            title="Ny titel",
+            content="Ny text",
+            summary=None,
+            category=None,
+            request_id="00000000-0000-0000-0000-000000000041",
+        )

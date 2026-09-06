@@ -193,7 +193,7 @@ def _tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "archive_my_prompt",
-            "description": "Arkiverar ett eget promptutkast efter uttrycklig bekräftelse.",
+            "description": "Arkiverar ett eget promptutkast eller slutar följa en Open-prompt efter uttrycklig bekräftelse.",
             "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
         },
         {
@@ -208,7 +208,7 @@ def _tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "archive_my_package",
-            "description": "Arkiverar ett eget paketutkast efter uttrycklig bekräftelse.",
+            "description": "Arkiverar ett eget paketutkast eller slutar följa ett Open-paket efter uttrycklig bekräftelse.",
             "inputSchema": {"type": "object", "properties": {"package_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["package_id", "confirmed", "request_id"]},
         },
         {

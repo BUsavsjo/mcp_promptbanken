@@ -44,11 +44,16 @@ class SupabaseConnectRepository:
         entries: list[Mapping[str, object]] = []
         if kind in {"all", "prompt"}:
             for function_name in ("list_my_creator_prompts", "list_my_library_prompts"):
-                entries.extend(self._library_entry(row, "prompt") for row in self._rpc(access_token, function_name))
+                entries.extend(
+                    self._library_entry(row, "prompt")
+                    for row in self._rpc(access_token, function_name)
+                    if row.get("status") != "archived"
+                )
         if kind in {"all", "package"}:
             entries.extend(
                 self._library_entry(row, "package")
                 for row in self._rpc(access_token, "list_my_creator_package_drafts")
+                if row.get("status") != "archived"
             )
 
         return sorted(entries, key=lambda item: str(item.get("updated_at", "")), reverse=True)[:limit]
@@ -94,7 +99,11 @@ class SupabaseConnectRepository:
     def list_packages(self, *, access_token: str, limit: int = 50) -> list[Mapping[str, object]]:
         if not 1 <= limit <= 100:
             raise ValueError("Ogiltigt gränsvärde.")
-        packages = [self._package_summary(row) for row in self._rpc(access_token, "list_my_creator_package_drafts")]
+        packages = [
+            self._package_summary(row)
+            for row in self._rpc(access_token, "list_my_creator_package_drafts")
+            if row.get("status") != "archived"
+        ]
         return packages[:limit]
 
     def get_package(self, *, access_token: str, package_id: str) -> Mapping[str, object] | None:
@@ -294,6 +303,8 @@ class SupabaseConnectRepository:
                 "Du har nått gränsen för privata prompts i Free-läget. "
                 "Arkivera en prompt eller uppgradera kontot."
             )
+        if isinstance(message, str) and message.startswith("Open-referenser är skrivskyddade."):
+            return message
         return "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
 
     @staticmethod
