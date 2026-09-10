@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from server.package_recommendations import recommend, role_focus_areas
+from server.package_recommendations import _AREA_ROLES, recommend, role_focus_areas
 
 
 def _live_templates() -> list[dict[str, str]]:
@@ -140,6 +140,18 @@ class RoleVocabularyTests(unittest.TestCase):
 
         self.assertEqual(payload["matched_role"], "handlaggare")
 
+    def test_a_recognized_role_gets_a_short_list_not_half_the_catalog(self) -> None:
+        for role in ("HR", "lärare", "rektor", "chef"):
+            with self.subTest(role=role):
+                areas = recommend(role, _live_templates())["recommended_areas"]
+                universal = [a for a in areas if _AREA_ROLES.get(a) is None]
+                self.assertLessEqual(len(universal), 2, "universella paket ska inte dränka rollens egna")
+
+    def test_the_universal_packages_offered_are_the_two_broadest(self) -> None:
+        areas = recommend("HR", _live_templates())["recommended_areas"]
+
+        self.assertEqual(areas, ["hr", "vardagspaket", "arbetsbank"])
+
     def test_universal_packages_come_after_the_role_specific_ones(self) -> None:
         areas = recommend("lärare", _live_templates())["recommended_areas"]
 
@@ -148,8 +160,6 @@ class RoleVocabularyTests(unittest.TestCase):
 
     def test_every_published_area_is_accounted_for(self) -> None:
         """Ett nytt paket utan rollmappning ska synas här, inte i produktion."""
-        from server.package_recommendations import _AREA_ROLES
-
         published = {t["area"] for t in _live_templates()}
         self.assertEqual(published - set(_AREA_ROLES), set())
 
@@ -175,6 +185,39 @@ class UnknownRoleRankingTests(unittest.TestCase):
         payload = recommend("bibliotekarie", live)
 
         self.assertEqual(payload["recommended_areas"], [t["area"] for t in live])
+
+
+class NewlyPublishedPackageTests(unittest.TestCase):
+    """Kartan är handskriven. Ett paket som publiceras i morgon får inte
+    försvinna ur rekommendationerna bara för att ingen hunnit koda om den."""
+
+    def _live_plus(self, area: str, label: str) -> list[dict[str, str]]:
+        return _live_templates() + [{"area": area, "area_label": label}]
+
+    def test_unmapped_package_reaches_the_role_its_name_points_at(self) -> None:
+        templates = self._live_plus("socialtjanst-handlaggning", "Socialtjänst – handläggning")
+
+        areas = recommend("handläggare", templates)["recommended_areas"]
+
+        self.assertIn("socialtjanst-handlaggning", areas)
+
+    def test_unmapped_package_is_logged_so_the_gap_can_be_closed(self) -> None:
+        import server.package_recommendations as module
+
+        module._UNMAPPED_AREAS_LOGGED.clear()
+        templates = self._live_plus("nytt-paket", "Ett alldeles nytt paket")
+
+        with self.assertLogs("server.package_recommendations", level="WARNING") as captured:
+            recommend("chef", templates)
+
+        self.assertIn("nytt-paket", " ".join(captured.output))
+
+    def test_unmapped_package_still_reaches_unknown_roles(self) -> None:
+        templates = self._live_plus("nytt-paket", "Ett alldeles nytt paket")
+
+        areas = recommend("bibliotekarie", templates)["recommended_areas"]
+
+        self.assertIn("nytt-paket", areas)
 
 
 class RoleFocusAreaTests(unittest.TestCase):

@@ -696,10 +696,11 @@ def _search_templates_payload(
         recommendation = _recommend_packages(role, templates)
         recognized, focus_areas = _role_focus_areas(role, templates)
         role_bonus_areas = set(focus_areas)
-        # A role from the vocabulary is a statement; a lexical hit on slug and
-        # title is a guess. Both lift, but not equally -- and neither filters
-        # anything out, which is what the 1.2.2 description promises.
-        role_bonus = 5 if recognized else 3
+        # A role from the vocabulary is a statement and outranks the text; a
+        # lexical hit on slug and title is a guess and may only break a tie,
+        # never beat a real title match. Neither filters anything out, which
+        # is what the 1.2.2 description promises.
+        role_bonus = 5 if recognized else 1
 
     raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
     # Two characters, not three: "AI", "HR" and "IT" are exactly the terms

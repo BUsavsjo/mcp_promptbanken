@@ -10,9 +10,12 @@ rollvokabulären och ordningen får ändras utan ny granskning.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from .skill_router import SkillRouter
+
+logger = logging.getLogger(__name__)
 
 # None = universellt (matchar alltid, oavsett roll). Varje publicerat paket
 # ska finnas här -- ett paket som saknas kan aldrig rekommenderas till någon.
@@ -108,6 +111,31 @@ _MIN_COMPOUND_HEAD = 4
 # få matcha inuti en okänd rollterm ("upphandling" i "upphandlingsjurist").
 _MIN_LEXICAL_WORD = 4
 
+# Svensk böjning gör att ord som hör ihop sällan är delsträngar av varandra:
+# "handläggare" och "handläggning" delar bara stammen. Så här många lika
+# inledande tecken räknas som samma ord -- kort nog för att fånga stammen,
+# långt nog för att "bibliotekarie" inte ska matcha "beslutsberedning".
+_MIN_LEXICAL_PREFIX = 6
+
+# Universella paket är bra för alla och säger därför inget om rollen. Fler än
+# så här dränker rollens egna paket i svaret.
+_MAX_UNIVERSAL_SUGGESTIONS = 2
+
+# De två bredaste först: vardagsskrivande, sedan att bygga egna mallar.
+_UNIVERSAL_ORDER = [
+    "vardagspaket",
+    "arbetsbank",
+    "anti-slop",
+    "hall-traden",
+    "sag-emot-mig",
+    "bemot-argument",
+    "superplanlage",
+]
+
+# Ett publicerat paket som saknas i _AREA_ROLES loggas en gång per process.
+# Det är den enda signalen om att kartan halkat efter katalogen igen.
+_UNMAPPED_AREAS_LOGGED: set[str] = set()
+
 
 def _all_role_words() -> set[str]:
     return {SkillRouter._normalize(r) for roles in _AREA_ROLES.values() if roles for r in roles}
@@ -130,6 +158,16 @@ def _words(text: str) -> set[str]:
     return SkillRouter._terms(text.replace("-", " "))
 
 
+def _shared_stem(first: str, second: str) -> bool:
+    """Samma stam, olika böjning: handläggare/handläggning, process/processer."""
+    shared = 0
+    for a, b in zip(first, second):
+        if a != b:
+            break
+        shared += 1
+    return shared >= _MIN_LEXICAL_PREFIX
+
+
 def _lexical_score(role_terms: set[str], area: str, label: str) -> int:
     """Hur mycket en okänd rollterm liknar paketets slug och rubrik."""
     area_words = _words(area) | _words(label or "")
@@ -141,6 +179,8 @@ def _lexical_score(role_terms: set[str], area: str, label: str) -> int:
             elif len(word) >= _MIN_LEXICAL_WORD and word in term:
                 score += 1
             elif len(term) >= _MIN_LEXICAL_WORD and term in word:
+                score += 1
+            elif _shared_stem(term, word):
                 score += 1
     return score
 
@@ -163,6 +203,20 @@ def _match_role(role: str) -> tuple[set[str], str | None, str | None]:
     return matched, matched_role, source
 
 
+def _report_unmapped(areas: dict[str, str]) -> list[str]:
+    """Publicerade paket som ingen har rollmappat. Loggas, tappas aldrig tyst."""
+    unmapped = [area for area in areas if area not in _AREA_ROLES]
+    for area in unmapped:
+        if area not in _UNMAPPED_AREAS_LOGGED:
+            _UNMAPPED_AREAS_LOGGED.add(area)
+            logger.warning(
+                "area_missing_role_mapping area=%s -- lagg till den i _AREA_ROLES, "
+                "annars nas paketet bara av roller som rakar matcha dess slug",
+                area,
+            )
+    return unmapped
+
+
 def _ordered_areas(
     matched: set[str],
     matched_role: str | None,
@@ -175,7 +229,6 @@ def _ordered_areas(
         for area, roles in _AREA_ROLES.items()
         if area in areas and roles and matched & {SkillRouter._normalize(r) for r in roles}
     ]
-    universal = [area for area, roles in _AREA_ROLES.items() if area in areas and roles is None]
 
     priority = _ROLE_AREA_PRIORITY.get(matched_role or "")
     if priority:
@@ -185,7 +238,19 @@ def _ordered_areas(
         # Utan handplockad ordning: det område vars slug och rubrik ligger
         # närmast rollordet först, så "lärare" möts av skolpaketet.
         specific.sort(key=lambda area: -_lexical_score(role_terms, area, areas.get(area, "")))
-    return specific, universal
+
+    # Ett nyss publicerat paket finns inte i kartan. Utan det här steget vore
+    # det osynligt för varje igenkänd roll tills någon uppdaterar koden --
+    # exakt den drift som gjorde att lärare och HR slutade fungera. Liknar det
+    # rollordet får det följa med ändå.
+    for area in _report_unmapped(areas):
+        if _lexical_score(role_terms, area, areas.get(area, "")) > 0:
+            specific.append(area)
+
+    universal = [
+        area for area in _UNIVERSAL_ORDER if area in areas and _AREA_ROLES.get(area) is None
+    ]
+    return specific, universal[:_MAX_UNIVERSAL_SUGGESTIONS]
 
 
 def role_focus_areas(role: str, templates: list[dict[str, Any]]) -> tuple[bool, list[str]]:
@@ -232,6 +297,7 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
         # Okänd roll behåller hela katalogen -- det är vad verktygsbeskrivningen
         # lovar -- men sorteras så att det som liknar rollordet kommer först.
         # Utan träff faller sorteringen tillbaka på katalogens egen ordning.
+        _report_unmapped(areas)
         result_areas = sorted(
             areas.keys(),
             key=lambda area: -_lexical_score(role_terms, area, areas.get(area, "")),

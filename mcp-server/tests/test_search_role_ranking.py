@@ -55,6 +55,22 @@ class SearchRoleRankingTests(unittest.TestCase):
     def test_role_without_signal_leaves_the_ranking_alone(self) -> None:
         self.assertEqual(self._search("bibliotekarie"), self._search(""))
 
+    def test_a_real_title_match_beats_a_guessed_role(self) -> None:
+        """Gissningen får bryta lika, inte köra om en stark textträff."""
+        catalog = {
+            "templates": [
+                _template("kommunikation", "Kommunikation och publicering", "Skriv kravarbete tydligt"),
+                dict(
+                    _template("skarpare-funktionskrav", "Skarpare funktionskrav", "Planera arbetet"),
+                    syfte="Stöd i kravarbete inför upphandling.",
+                ),
+            ]
+        }
+        with patch("server.mcp_server._list_templates_payload", return_value=catalog):
+            payload = _search_templates_payload(query="kravarbete", role="upphandlingsjurist", limit=10)
+
+        self.assertEqual(payload["templates"][0]["area"], "kommunikation")
+
     def test_payload_still_reports_the_role_fields(self) -> None:
         with patch("server.mcp_server._list_templates_payload", return_value=_catalog()):
             payload = _search_templates_payload(query="planera", role="lärare", limit=10)
