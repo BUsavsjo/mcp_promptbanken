@@ -3,6 +3,10 @@ område -> roller, godkänd av Peter 2026-07-19 (se
 docs/superpowers/specs/2026-07-19-rollbaserade-rekommendationer-design.md
 i promptbanken-repot). Ingen nyckel, ingen lagrad roll -- ren funktion av
 en klient-skickad rollterm.
+
+Mappningen är data, inte kontrakt: `role` är en fri sträng i den granskade
+1.2.2-definitionen och `recommended_areas` är otypade strängar, så både
+rollvokabulären och ordningen får ändras utan ny granskning.
 """
 from __future__ import annotations
 
@@ -10,16 +14,66 @@ from typing import Any
 
 from .skill_router import SkillRouter
 
-# None = universellt (matchar alltid, oavsett roll).
+# None = universellt (matchar alltid, oavsett roll). Varje publicerat paket
+# ska finnas här -- ett paket som saknas kan aldrig rekommenderas till någon.
+# test_every_published_area_is_accounted_for vaktar den regeln.
 _AREA_ROLES: dict[str, set[str] | None] = {
-    "kommunikation": {"kommunikator", "handlaggare", "kundcenter", "samordnare", "rektor"},
+    "kommunikation": {"kommunikator", "handlaggare", "kundcenter", "samordnare", "rektor", "administrator"},
     "forandringsledning": {"samordnare", "verksamhetsutvecklare", "chef", "rektor"},
-    "processer": {"verksamhetsutvecklare", "utredare", "samordnare", "rektor"},
+    "processer": {"verksamhetsutvecklare", "utredare", "samordnare", "rektor", "analytiker"},
     "behov-till-effekt": {"verksamhetsutvecklare"},
-    "beslutsberedning": {"utredare", "handlaggare", "chef", "sekreterare", "rektor"},
-    "visuellt": {"kommunikator", "pedagog"},
+    "beslutsberedning": {"utredare", "handlaggare", "chef", "sekreterare", "rektor", "analytiker"},
+    "visuellt": {"kommunikator", "pedagog", "larare"},
     "ledarskap": {"chef", "samordnare", "rektor"},
+    "hr": {"hr", "chef", "rektor"},
+    "skola-undervisning-larare": {"larare", "pedagog", "rektor"},
+    "supportarenden": {"kundcenter", "handlaggare", "administrator"},
+    "skarpare-funktionskrav": {"upphandlare", "inkopare", "utredare", "verksamhetsutvecklare"},
+    "fran-ide-till-artikel": {"kommunikator", "journalist", "redaktor"},
+    "workshop-och-facilitering": {"facilitator", "samordnare", "chef", "pedagog", "larare", "verksamhetsutvecklare"},
+    # Universella: skrivstöd och arbetssätt som inte hör till en yrkesroll.
     "arbetsbank": None,
+    "vardagspaket": None,
+    "anti-slop": None,
+    "hall-traden": None,
+    "sag-emot-mig": None,
+    "bemot-argument": None,
+    "superplanlage": None,
+}
+
+# Ord folk faktiskt skriver -> rollordet katalogen är mappad på. Slår före
+# sammansättningsregeln nedan, så "socialsekreterare" blir handläggare och
+# inte sekreterare.
+_ROLE_SYNONYMS: dict[str, str] = {
+    "forskollarare": "larare",
+    "grundskollarare": "larare",
+    "gymnasielarare": "larare",
+    "speciallarare": "larare",
+    "specialpedagog": "pedagog",
+    "fritidspedagog": "pedagog",
+    "skolledare": "rektor",
+    "personal": "hr",
+    "personalchef": "hr",
+    "personalspecialist": "hr",
+    "personalvetare": "hr",
+    "personalhandlaggare": "hr",
+    "rekryterare": "hr",
+    "lonespecialist": "hr",
+    "hrbp": "hr",
+    "socialsekreterare": "handlaggare",
+    "kundtjanst": "kundcenter",
+    "support": "kundcenter",
+    "servicecenter": "kundcenter",
+    "kontaktcenter": "kundcenter",
+    "vaxel": "kundcenter",
+    "inkopschef": "inkopare",
+    "upphandlingsstrateg": "upphandlare",
+    "informator": "kommunikator",
+    "pressekreterare": "kommunikator",
+    "skribent": "journalist",
+    "webbredaktor": "redaktor",
+    "moteshandlaggare": "sekreterare",
+    "namndsekreterare": "sekreterare",
 }
 
 _ROLE_AREA_PRIORITY = {
@@ -46,6 +100,116 @@ _ROLE_AREA_PRIORITY = {
     ],
 }
 
+# Kortare rollord än så här får inte matcha som efterled: "hr" i slutet av ett
+# ord säger ingenting, medan "chef" i "enhetschef" gör det.
+_MIN_COMPOUND_HEAD = 4
+
+# Samma gräns åt andra hållet: ett områdesord måste vara så här långt för att
+# få matcha inuti en okänd rollterm ("upphandling" i "upphandlingsjurist").
+_MIN_LEXICAL_WORD = 4
+
+
+def _all_role_words() -> set[str]:
+    return {SkillRouter._normalize(r) for roles in _AREA_ROLES.values() if roles for r in roles}
+
+
+def _canonical_role(term: str, role_words: set[str]) -> str | None:
+    """Ett rollord i taget: exakt ord, känd synonym, eller sammansättning."""
+    if term in role_words:
+        return term
+    synonym = _ROLE_SYNONYMS.get(term)
+    if synonym:
+        return synonym
+    for word in role_words:
+        if len(word) >= _MIN_COMPOUND_HEAD and len(term) > len(word) and term.endswith(word):
+            return word
+    return None
+
+
+def _words(text: str) -> set[str]:
+    return SkillRouter._terms(text.replace("-", " "))
+
+
+def _lexical_score(role_terms: set[str], area: str, label: str) -> int:
+    """Hur mycket en okänd rollterm liknar paketets slug och rubrik."""
+    area_words = _words(area) | _words(label or "")
+    score = 0
+    for term in role_terms:
+        for word in area_words:
+            if term == word:
+                score += 2
+            elif len(word) >= _MIN_LEXICAL_WORD and word in term:
+                score += 1
+            elif len(term) >= _MIN_LEXICAL_WORD and term in word:
+                score += 1
+    return score
+
+
+def _match_role(role: str) -> tuple[set[str], str | None, str | None]:
+    """-> (kanoniska rollord, matchat rollord, matchningskälla)."""
+    role_words = _all_role_words()
+    normalized_whole = SkillRouter._normalize(role)
+    # SkillRouter._terms splits on non-word chars, drops stopwords/short terms --
+    # lets a compound role ("IT-samordnare barn och utbildning") match on any of
+    # its component words, not just an exact whole-string role name.
+    role_terms = SkillRouter._terms(role) | {normalized_whole}
+
+    matched = {canonical for term in role_terms if (canonical := _canonical_role(term, role_words))}
+    if not matched:
+        return set(), None, None
+
+    matched_role = sorted(matched)[0]
+    source = "exact" if normalized_whole in role_words else "compound"
+    return matched, matched_role, source
+
+
+def _ordered_areas(
+    matched: set[str],
+    matched_role: str | None,
+    role_terms: set[str],
+    areas: dict[str, str],
+) -> tuple[list[str], list[str]]:
+    """-> (rollens egna områden, universella områden) i visningsordning."""
+    specific = [
+        area
+        for area, roles in _AREA_ROLES.items()
+        if area in areas and roles and matched & {SkillRouter._normalize(r) for r in roles}
+    ]
+    universal = [area for area, roles in _AREA_ROLES.items() if area in areas and roles is None]
+
+    priority = _ROLE_AREA_PRIORITY.get(matched_role or "")
+    if priority:
+        rank = {area: index for index, area in enumerate(priority)}
+        specific.sort(key=lambda area: rank.get(area, len(rank)))
+    else:
+        # Utan handplockad ordning: det område vars slug och rubrik ligger
+        # närmast rollordet först, så "lärare" möts av skolpaketet.
+        specific.sort(key=lambda area: -_lexical_score(role_terms, area, areas.get(area, "")))
+    return specific, universal
+
+
+def role_focus_areas(role: str, templates: list[dict[str, Any]]) -> tuple[bool, list[str]]:
+    """Områden som search_templates ska ranka mot. Tom lista = ingen signal.
+
+    Igenkänd roll ger sina egna områden (inte de universella -- de säger
+    inget om rollen). Okänd roll ger de områden vars slug och rubrik faktiskt
+    överlappar rollordet, som mest tre stycken.
+    """
+    areas: dict[str, str] = {}
+    for t in templates:
+        areas.setdefault(t["area"], t["area_label"])
+
+    matched, matched_role, _ = _match_role(role)
+    role_terms = SkillRouter._terms(role) | {SkillRouter._normalize(role)}
+
+    if matched:
+        specific, _universal = _ordered_areas(matched, matched_role, role_terms, areas)
+        return True, specific
+
+    scored = [(area, _lexical_score(role_terms, area, label)) for area, label in areas.items()]
+    hits = sorted([pair for pair in scored if pair[1] > 0], key=lambda pair: -pair[1])
+    return False, [area for area, _score in hits[:3]]
+
 
 def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
     """templates: the full list_templates() payload (area/area_label per row)."""
@@ -57,43 +221,26 @@ def recommend(role: str, templates: list[dict[str, Any]]) -> dict[str, Any]:
     for t in templates:
         counts[t["area"]] = counts.get(t["area"], 0) + 1
 
-    # SkillRouter._terms splits on non-word chars, drops stopwords/short terms --
-    # lets a compound role ("IT-samordnare barn och utbildning") match on any of
-    # its component words, not just an exact whole-string role name.
-    normalized_whole = SkillRouter._normalize(role)
-    role_terms = SkillRouter._terms(role) | {normalized_whole}
-    matched_areas = [
-        area
-        for area, roles in _AREA_ROLES.items()
-        if area in areas and (roles is None or role_terms & {SkillRouter._normalize(r) for r in roles})
-    ]
+    matched, matched_role, role_match_source = _match_role(role)
+    role_terms = SkillRouter._terms(role) | {SkillRouter._normalize(role)}
+    role_recognized = bool(matched)
 
-    role_recognized = bool(matched_areas) and any(
-        _AREA_ROLES[area] is not None for area in matched_areas
-    )
-
-    all_role_words = {
-        SkillRouter._normalize(r) for roles in _AREA_ROLES.values() if roles for r in roles
-    }
-    matched_role_terms = role_terms & all_role_words
-    matched_role = sorted(matched_role_terms)[0] if matched_role_terms else None
-    result_areas = matched_areas if role_recognized else list(areas.keys())
-    priority = _ROLE_AREA_PRIORITY.get(matched_role or "")
-    if role_recognized and priority:
-        rank = {area: index for index, area in enumerate(priority)}
-        result_areas = sorted(result_areas, key=lambda area: rank.get(area, len(rank)))
+    if role_recognized:
+        specific, universal = _ordered_areas(matched, matched_role, role_terms, areas)
+        result_areas = specific + universal
+    else:
+        # Okänd roll behåller hela katalogen -- det är vad verktygsbeskrivningen
+        # lovar -- men sorteras så att det som liknar rollordet kommer först.
+        # Utan träff faller sorteringen tillbaka på katalogens egen ordning.
+        result_areas = sorted(
+            areas.keys(),
+            key=lambda area: -_lexical_score(role_terms, area, areas.get(area, "")),
+        )
 
     packages = [
         {"area": area, "area_label": areas[area], "template_count": counts.get(area, 0)}
         for area in result_areas
     ]
-
-    if matched_role is None:
-        role_match_source = None
-    elif normalized_whole in all_role_words:
-        role_match_source = "exact"
-    else:
-        role_match_source = "compound"
 
     return {
         "role_recognized": role_recognized,

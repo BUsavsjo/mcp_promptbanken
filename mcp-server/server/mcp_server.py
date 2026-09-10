@@ -43,6 +43,7 @@ from .vault import activate_package as _vault_activate_package
 from .vault import deactivate_package as _vault_deactivate_package
 from .vault import copy_template as _vault_copy_template
 from .package_recommendations import recommend as _recommend_packages
+from .package_recommendations import role_focus_areas as _role_focus_areas
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -689,11 +690,16 @@ def _search_templates_payload(
         return str(value)
 
     role_bonus_areas: set[str] = set()
+    role_bonus = 0
     recommendation: dict[str, Any] | None = None
     if role:
         recommendation = _recommend_packages(role, templates)
-        if recommendation["role_recognized"]:
-            role_bonus_areas = {p["area"] for p in recommendation["packages"]}
+        recognized, focus_areas = _role_focus_areas(role, templates)
+        role_bonus_areas = set(focus_areas)
+        # A role from the vocabulary is a statement; a lexical hit on slug and
+        # title is a guess. Both lift, but not equally -- and neither filters
+        # anything out, which is what the 1.2.2 description promises.
+        role_bonus = 5 if recognized else 3
 
     raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
     # Two characters, not three: "AI", "HR" and "IT" are exactly the terms
@@ -743,7 +749,7 @@ def _search_templates_payload(
         else:
             score = 0
         if t.get("area") in role_bonus_areas:
-            score += 5
+            score += role_bonus
         scored.append((score, t))
 
     matches = [t for _, t in sorted(scored, key=lambda pair: pair[0], reverse=True)]
