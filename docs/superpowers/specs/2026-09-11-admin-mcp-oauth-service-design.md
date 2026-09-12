@@ -1,7 +1,7 @@
 # Fristående Admin-MCP med Supabase OAuth
 
-**Status:** Sammanhållen version av designbeslut godkända 2026-09-11;
-inväntar specgranskning. Implementationsplan återstår.
+**Status:** Godkänd av Peter 2026-09-11. Implementationsplan finns i tre
+samordnade delar under `docs/superpowers/plans/`.
 
 ## Sammanfattning
 
