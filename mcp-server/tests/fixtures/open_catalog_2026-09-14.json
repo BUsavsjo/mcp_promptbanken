@@ -1,0 +1,2739 @@
+{
+ "captured": "2026-09-14",
+ "source": "https://mcp.promptbanken.se/mcp",
+ "templates": [
+  {
+   "id": "11cca3e6-674e-40d1-abbc-c1de63fbe30a",
+   "title": "Analysera argumentet",
+   "syfte": "Bryter ned ett argument rättvist i påståenden, fakta, antaganden och värderingar och visar möjliga svarslinjer utan att skriva svaret åt dig.",
+   "area": "bemot-argument",
+   "area_label": "Bemöt argument",
+   "output_format": "analys",
+   "tags": [
+    "argument",
+    "debatt",
+    "kritiskt-tankande",
+    "analys",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "402046c1-f670-4e63-8f72-e652ac3cc3c4",
+   "title": "Anpassa svaret till kanal och längd",
+   "syfte": "Gör om ett färdigt svar så att det passar vald kanal, rätt format och överenskommen teckengräns utan att tappa kärnan.",
+   "area": "bemot-argument",
+   "area_label": "Bemöt argument",
+   "output_format": "kanalanpassat_svar",
+   "tags": [
+    "sociala-medier",
+    "teckengrans",
+    "kanalanpassning",
+    "argument",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f9d32438-055f-4217-ab52-a462eed4334d",
+   "title": "Behåll min röst",
+   "syfte": "Tar bort generiska textmönster utan att göra texten neutral, stel eller opersonlig.",
+   "area": "anti-slop",
+   "area_label": "Anti-slop",
+   "output_format": "rewritten_text",
+   "tags": [
+    "anti-slop",
+    "personlig-ton",
+    "skrivrost",
+    "redigering",
+    "ai-text"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "fb7bc7a5-23bc-44c9-8e54-d03706302e35",
+   "title": "Kolla min text efter AI-slop",
+   "syfte": "Granskar en text efter generiska, upprepande, uppblåsta eller mekaniska mönster utan att skriva om mer än nödvändigt.",
+   "area": "anti-slop",
+   "area_label": "Anti-slop",
+   "output_format": "granskning",
+   "tags": [
+    "anti-slop",
+    "textgranskning",
+    "sprak",
+    "redigering",
+    "ai-text"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "fef187ac-f9c9-4f1e-b7b2-86c9b93ccc19",
+   "title": "Rensa AI-slop",
+   "syfte": "Skriver om texten med minsta möjliga ändring och tar bort generiska, upprepande och mekaniska partier.",
+   "area": "anti-slop",
+   "area_label": "Anti-slop",
+   "output_format": "rewritten_text",
+   "tags": [
+    "anti-slop",
+    "omskrivning",
+    "sprak",
+    "redigering",
+    "ai-text"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "7996ed6a-99ea-4048-a8ba-9431f63aabe4",
+   "title": "Argumentera emot mig",
+   "syfte": "Bygger det starkaste rimliga motargumentet mot användarens ståndpunkt utan halmgubbar.",
+   "area": "sag-emot-mig",
+   "area_label": "Säg emot mig",
+   "output_format": "analys",
+   "tags": [
+    "kritiskt-tankande",
+    "motargument",
+    "steelman",
+    "analys",
+    "beslut"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "fc9a9805-aaea-420a-aee7-0d8ea9c48c9a",
+   "title": "Gör en att-göra-lista av mina anteckningar",
+   "syfte": "Omvandla lösa anteckningar till en sorterad att-göra-lista.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "lista",
+   "tags": [
+    "planering",
+    "todo",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "8fb89c0c-d0e7-417c-8fe5-c753ae81a825",
+   "title": "Avgränsa analysfrågan",
+   "syfte": "Hjälper användaren formulera en tydlig fråga för verksamhetsdata och skilja mellan vad man vill veta, varför det spelar roll och vilket beslut eller förbättringsarbete analysen ska stödja.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "guidad_analys",
+   "tags": [
+    "dataanalys",
+    "analysfraga",
+    "verksamhetsutveckling",
+    "avgransning",
+    "beslutsstod"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "c2cf78b3-ba45-4094-9f8f-0cc359c6a5d4",
+   "title": "Avgränsa MVP:n",
+   "syfte": "Gör kärnflödet till en minsta testbar produkt och skiljer nödvändigt innehåll från differentierare, senare funktioner och sådant som ska bort.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "mvp_spec",
+   "tags": [
+    "produktutveckling",
+    "mvp",
+    "prioritering",
+    "scope",
+    "product-discovery"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b38a953d-bd0f-4745-a4d4-503482e78095",
+   "title": "Avgränsa researchfrågan",
+   "syfte": "Hjälper användaren formulera en tydlig researchfråga och avgöra vilken avgränsning som faktiskt behövs innan informationssökningen börjar.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "researchfraga",
+   "tags": [
+    "research",
+    "informationssokning",
+    "researchfraga",
+    "avgransning",
+    "kallor",
+    "omvarldsanalys"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e7f45be3-905d-4a07-993d-6dc4f7abd1b4",
+   "title": "Bedöm osäkerhet och kunskapsluckor",
+   "syfte": "Bedömer hur säkra de verifierat underbyggda huvudfynden är och gör kunskapsluckor synliga utan att ge sken av större säkerhet än evidensloggen tillåter.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "osakerhetsbedomning",
+   "tags": [
+    "research",
+    "osakerhet",
+    "kunskapsluckor",
+    "kallkritik",
+    "evidens",
+    "evidenslogg"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "120e1276-108d-41dd-bcca-60ad6ab5701d",
+   "title": "Beskriv nuläge och målbild",
+   "syfte": "Hjälper användaren beskriva nuläget, önskat läge och vilka effekter som ska märkas utan att blanda ihop mål med aktiviteter.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "guidad_analys",
+   "tags": [
+    "verksamhetsutveckling",
+    "nulage",
+    "malbild",
+    "effektmal",
+    "arbetsflode"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ef6c1b3d-385d-4aea-873c-760e4d98008e",
+   "title": "🎯 Beslutsunderlag",
+   "syfte": "Sammanfatta ett ärende eller förslag som presenteras för ett beslutande organ.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "decision_brief",
+   "tags": [
+    "decision_support",
+    "case_summary",
+    "formal_summary"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "cd6a7ac3-ca85-4d76-9c8d-25f1b60972d9",
+   "title": "Bestäm hur effekten ska följas upp",
+   "syfte": "Definierar hur genomförande, resultat och faktisk verksamhetseffekt ska följas upp med relevanta indikatorer och ansvar.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "uppfoljningsplan",
+   "tags": [
+    "verksamhetsutveckling",
+    "effekt",
+    "uppfoljning",
+    "indikatorer",
+    "nyttorealisering",
+    "arbetsflode"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "367d01d7-45e0-4de7-8be2-5acaacdd5081",
+   "title": "Byt perspektiv",
+   "syfte": "Analyserar samma fråga ur flera berörda perspektiv och visar var deras behov och bedömningar krockar.",
+   "area": "sag-emot-mig",
+   "area_label": "Säg emot mig",
+   "output_format": "perspektivanalys",
+   "tags": [
+    "perspektiv",
+    "intressenter",
+    "kritiskt-tankande",
+    "analys",
+    "beslut"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f303a6d0-40ee-47ff-8cb5-4ee97d4e242c",
+   "title": "Enkel infografik",
+   "syfte": "Skapa en enkel visuell struktur för information, siffror eller viktiga punkter.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "image_prompt",
+   "tags": [
+    "infographic",
+    "visual_summary",
+    "explain_information",
+    "public_communication"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "5a21ff68-b925-46e7-8659-7fe2e49333e8",
+   "title": "Facilitatorn",
+   "syfte": "Ger konkret stöd till den som leder en planerad eller pågående workshop, med formuleringar, övergångar, tidsstyrning och stöd för delaktighet.",
+   "area": "workshop-och-facilitering",
+   "area_label": "Workshop och facilitering",
+   "output_format": "facilitatorstod",
+   "tags": [
+    "workshop",
+    "facilitering",
+    "genomförande",
+    "möte",
+    "delaktighet"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9f82ab4a-4955-452e-92e9-306bcd1ada0b",
+   "title": "Skapa en familjechecklista",
+   "syfte": "Checklista för familjen inför t.ex. skolstart, semester eller storhelg.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "lista",
+   "tags": [
+    "familj",
+    "checklista",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "924f7a3d-7287-4ead-8290-5560d14ae0cb",
+   "title": "❓ Gör en FAQ",
+   "syfte": "Skapa 8–12 frågor och svar baserat på ett dokument eller policy.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "faq",
+   "tags": [
+    "faq",
+    "questions_answers",
+    "explain_document"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "14ceb9a3-837e-42d5-9926-32335fe653d0",
+   "title": "Hjälp mig fatta beslut – utan att hålla med mig",
+   "syfte": "Strukturerar fakta, antaganden, osäkerheter och motargument innan en rekommendation ges.",
+   "area": "sag-emot-mig",
+   "area_label": "Säg emot mig",
+   "output_format": "beslutsanalys",
+   "tags": [
+    "beslut",
+    "kritiskt-tankande",
+    "antaganden",
+    "motargument",
+    "analys"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f55439f5-6f3e-4e40-8834-d9e2f4b9c2bd",
+   "title": "Författa färdiga krav",
+   "syfte": "Gör en granskad kravbild till korta, lösningsneutrala och verifierbara kravformuleringar och hanterar SKA, BÖR, mervärde, användningsfall och sådant som inte bör vara krav.",
+   "area": "skarpare-funktionskrav",
+   "area_label": "Skarpare funktionskrav – kravställning i upphandling",
+   "output_format": "fardiga_krav",
+   "tags": [
+    "kravstallning",
+    "funktionskrav",
+    "ska-krav",
+    "bor-krav",
+    "mervarde",
+    "utvarderingskriterium",
+    "upphandling",
+    "verifiering",
+    "losningsneutralitet"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "7196c667-d585-4c84-81eb-57b4995fe1dd",
+   "title": "Formulera funktionskrav från behov och målbild",
+   "syfte": "Översätter ett tydligt verksamhetsbehov, målbild och önskade effekter till lösningsneutrala funktionskrav utan att utgå från ett befintligt kravdokument.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "funktionskrav_fran_behov",
+   "tags": [
+    "digitalisering",
+    "funktionskrav",
+    "kravstallning",
+    "verksamhetsbehov",
+    "målbild",
+    "upphandling",
+    "acceptans"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b1d4c714-5dd8-459f-9cec-b401c085c07f",
+   "title": "Formulera mitt svar",
+   "syfte": "Hjälper dig välja svarslinje och skriva ett sakligt, tydligt och proportionerligt bemötande av ett argument.",
+   "area": "bemot-argument",
+   "area_label": "Bemöt argument",
+   "output_format": "svarsforslag",
+   "tags": [
+    "argument",
+    "svar",
+    "debatt",
+    "bemotande",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "3028265e-f11d-40d8-9dd7-f6b4572c1634",
+   "title": "Formulera produktlöftet",
+   "syfte": "Gör behov och målgrupp till ett tydligt produktlöfte och en positionering som förklarar vilket värde produkten skapar och varför den ska väljas.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "produktlofte",
+   "tags": [
+    "produktutveckling",
+    "produktlofte",
+    "positionering",
+    "vardeerbjudande",
+    "product-discovery"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b21005ce-5843-4498-8ea4-e8781bd7022f",
+   "title": "Formulera prövbara hypoteser",
+   "syfte": "Hjälper användaren gå från observerade mönster till rimliga, prövbara förklaringar utan att behandla samband som bevisade orsaker.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "hypotesanalys",
+   "tags": [
+    "dataanalys",
+    "hypotes",
+    "orsakssamband",
+    "verksamhetsutveckling",
+    "forbattring"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b51629cb-9649-462b-a46e-1e5ab5e01277",
+   "title": "Förstå behovet",
+   "syfte": "Hjälper användaren att skilja symptom, orsaker, fakta och antaganden och låsa en tydlig problem- eller behovsformulering innan lösningar diskuteras.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "guidad_analys",
+   "tags": [
+    "verksamhetsutveckling",
+    "behovsanalys",
+    "problemformulering",
+    "arbetsflode"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f00793fa-0116-4939-9843-b5ce3292dcb6",
+   "title": "Från styrning till vardag",
+   "syfte": "Översätter styrdokument, beslut, riktlinjer och annan styrande information till vad verksamheten behöver förstå, besluta och göra i praktiken.",
+   "area": "processer",
+   "area_label": "Chef, verksamhetsutvecklare, samordnare, handläggare och strateg",
+   "output_format": "analys",
+   "tags": [
+    "styrdokument",
+    "styrning",
+    "verksamhetsutveckling",
+    "implementering",
+    "riktlinjer",
+    "beslut",
+    "ansvar",
+    "processer",
+    "förändring"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "00b59b58-5d4e-46e7-86f3-6159961b4664",
+   "title": "Från workshop till nästa steg",
+   "syfte": "Gör workshopens anteckningar och resultat handlingsbara utan att hitta på beslut, ansvariga eller deadlines.",
+   "area": "workshop-och-facilitering",
+   "area_label": "Workshop och facilitering",
+   "output_format": "uppfoljning",
+   "tags": [
+    "workshop",
+    "facilitering",
+    "uppföljning",
+    "åtgärder",
+    "möte"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "3124c870-6ab2-48ed-9669-d32aa93c3f08",
+   "title": "Gör förändringen genomförbar",
+   "syfte": "Kontrollerar ansvar, mandat, resurser, risker och beroenden innan förändringen går vidare till införande.",
+   "area": "behov-till-effekt",
+   "area_label": "Från behov till effekt",
+   "output_format": "bedomning",
+   "tags": [
+    "verksamhetsutveckling",
+    "genomforbarhet",
+    "risk",
+    "ansvar",
+    "arbetsflode"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "8929218e-759a-4634-a4e0-7afc144d28b5",
+   "title": "Gör om till funktionskrav",
+   "syfte": "Skriver om detaljerade systemkrav till tydliga funktionskrav genom att identifiera verksamhetsbehov, lösningslåsningar och onödiga detaljer.",
+   "area": "skarpare-funktionskrav",
+   "area_label": "Skarpare funktionskrav – kravställning i upphandling",
+   "output_format": "kravanalys",
+   "tags": [
+    "funktionskrav",
+    "kravstallning",
+    "upphandling",
+    "ska-krav",
+    "bor-krav",
+    "systemkrav",
+    "detaljkrav"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ac0ddd75-e494-470e-bca9-b44fbf4af62e",
+   "title": "Granska datans kvalitet",
+   "syfte": "Bedömer om verksamhetsdata är tillräckligt tydlig, jämförbar och komplett för den analysfråga som ska besvaras.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "databedomning",
+   "tags": [
+    "dataanalys",
+    "datakvalitet",
+    "verksamhetsutveckling",
+    "kvalitet",
+    "beslutsstod"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4681705a-5208-4217-b180-4dc9018c0d14",
+   "title": "Granska och vässa artikeln",
+   "syfte": "Granskar artikelns vinkel, röda tråd, läsvärde, trovärdighet, rubrik och ingress och prioriterar vad som bör förbättras.",
+   "area": "fran-ide-till-artikel",
+   "area_label": "Från idé till artikel",
+   "output_format": "artikelgranskning",
+   "tags": [
+    "artikel",
+    "granskning",
+    "redigering",
+    "rubrik",
+    "ingress",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "d8d7857a-5e54-423e-8e35-8e866f275511",
+   "title": "Hitta mönster och avvikelser",
+   "syfte": "Hjälper användaren beskriva relevanta mönster, skillnader och avvikelser i verksamhetsdata med tydligt numeriskt stöd när underlaget medger det, utan att blanda ihop observation med förklaring.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "analys",
+   "tags": [
+    "dataanalys",
+    "monster",
+    "avvikelser",
+    "verksamhetsutveckling",
+    "observation",
+    "kvantifiering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "a9d2edc7-6be4-4b08-a0c1-3854fd79a462",
+   "title": "Hitta rätt workshopövning",
+   "syfte": "Rekommenderar 3–5 workshopövningar utifrån gruppens mål, deltagare och tillgängliga tid och förklarar vilken övning som passar bäst.",
+   "area": "workshop-och-facilitering",
+   "area_label": "Workshop och facilitering",
+   "output_format": "rekommendation",
+   "tags": [
+    "workshop",
+    "facilitering",
+    "övningar",
+    "planering",
+    "möte"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "5dd61183-834e-4590-ba1a-0118135f89e8",
+   "title": "Hitta vinkeln",
+   "syfte": "Hjälper dig att hitta artikelns kärna, målgrupp och starkaste vinkel innan du börjar skriva.",
+   "area": "fran-ide-till-artikel",
+   "area_label": "Från idé till artikel",
+   "output_format": "vinkelanalys",
+   "tags": [
+    "artikel",
+    "vinkel",
+    "ideutveckling",
+    "malgrupp",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ad07188b-24e9-4021-b59d-6ac0b551c384",
+   "title": "Hjälp mig vidare med artikeln",
+   "syfte": "Skrivcoach för när du har kört fast i en artikel och vill ha konkreta vägar vidare utan att AI:n tar över eller skriver om mer än nödvändigt.",
+   "area": "kommunikation",
+   "area_label": "Skribenter och kommunikatörer",
+   "output_format": "skrivcoachning",
+   "tags": [
+    "artikel",
+    "skrivcoach",
+    "skrivstod",
+    "redigering",
+    "skrivkramp",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "1511eeb2-2aa8-4311-a917-3bc058d38b8e",
+   "title": "Kan jag använda AI till detta HR-arbete?",
+   "syfte": "Gör en enkel grön/gul/röd förhandsbedömning av ett HR-arbetssätt innan användaren delar själva ärendematerialet.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "riskbedomning",
+   "tags": [
+    "hr",
+    "ai-sakerhet",
+    "dataskydd",
+    "personuppgifter",
+    "riskbedomning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "f166e296-413a-4225-ac0c-a1c7eac66abb",
+   "title": "Planera en bra introduktion",
+   "syfte": "Skapar en tydlig introduktionsplan för en ny medarbetare med mål, aktiviteter, ansvar och avstämningar över tid.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "introduktionsplan",
+   "tags": [
+    "hr",
+    "onboarding",
+    "introduktion",
+    "nyanstalld",
+    "planering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "633dde9f-5f26-4e84-b31a-7bedd05164e6",
+   "title": "Från kompetensbehov till kravprofil",
+   "syfte": "Gör verksamhetens kompetensbehov till en tydlig kravprofil utan att lägga till onödiga eller osakliga krav.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "kravprofil",
+   "tags": [
+    "hr",
+    "rekrytering",
+    "kravprofil",
+    "kompetensbehov",
+    "likabehandling"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "e733afc1-a016-42fb-aa77-61ff6ef50c78",
+   "title": "Från kravprofil till jobbannons",
+   "syfte": "Gör en beslutad kravprofil till en tydlig, inkluderande jobbannons utan att hitta på villkor eller urvalskriterier.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "jobbannons",
+   "tags": [
+    "hr",
+    "rekrytering",
+    "jobbannons",
+    "kravprofil",
+    "inkluderande-sprak"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4d668eaf-bea2-41bf-9aab-ed19c8af7110",
+   "title": "Från HR-policy till praktiskt arbetssätt",
+   "syfte": "Översätter en HR-policy, riktlinje eller anvisning till tydliga arbetssätt, ansvar och frågor som behöver beslutas lokalt utan att hitta på nya regler.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "praktiskt_arbetssatt",
+   "tags": [
+    "hr",
+    "policy",
+    "riktlinjer",
+    "arbetsgivarstod",
+    "implementering",
+    "ansvar"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "85bbda2a-6148-4cb8-af33-278d4897be5c",
+   "title": "Förbered ett svårt HR-samtal",
+   "syfte": "Hjälper chef eller HR förbereda ett känsligt samtal med tydligt syfte, fakta, frågor, formuleringar och uppföljning utan att AI gör personbedömningar eller juridiska slutsatser.",
+   "area": "hr",
+   "area_label": "HR – tryggt AI-stöd i arbetsvardagen",
+   "output_format": "samtalsforberedelse",
+   "tags": [
+    "hr",
+    "svart-samtal",
+    "chefstod",
+    "personal",
+    "arbetsgivarstod",
+    "samtalsforberedelse"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "5bac4add-3956-4ba5-bb7f-67d2f6d4f415",
+   "title": "Gör ett enkelt hushållsschema",
+   "syfte": "Fördela hushållssysslor rättvist över veckan.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "tabell",
+   "tags": [
+    "hushall",
+    "schema",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "a01714bc-419e-43fe-891d-c6d536e44e96",
+   "title": "Illustration till informationsutskick",
+   "syfte": "Skapa en trygg och neutral bildidé till kommunalt informationsutskick.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "image_prompt",
+   "tags": [
+    "image_prompt",
+    "information_notice",
+    "public_communication",
+    "illustration"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "fab9ece6-6b46-4f5b-be67-bea307f2e402",
+   "title": "📣 Skapa informationsutskick",
+   "syfte": "Skriv ett tydligt informationsmeddelande med rubrik, sammanfattning och nästa steg.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "announcement",
+   "tags": [
+    "information_notice",
+    "announcement",
+    "citizen_communication"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "5aded741-7d2e-4a5e-8872-3da298efb627",
+   "title": "Jämför alternativ inför ett köp",
+   "syfte": "Ställ upp för- och nackdelar mellan alternativ inför ett köp.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "tabell",
+   "tags": [
+    "kop",
+    "jamforelse",
+    "beslut"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "790d36f7-75f0-4cc9-9e33-3d518e4b67dc",
+   "title": "Jämför och syntetisera",
+   "syfte": "Jämför endast verifierade källor från evidensloggen, identifierar samsyn och motsägelser och bygger en spårbar syntes med tydlig returloop om nytt källstöd behövs.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "researchsyntes",
+   "tags": [
+    "research",
+    "syntes",
+    "jamforelse",
+    "kallstod",
+    "spårbarhet",
+    "evidenslogg"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b086dcd4-029f-46e1-808e-9be23263dae8",
+   "title": "📋 Skriva kallelse",
+   "syfte": "Skriv en formell men vänlig kallelse till möte, event eller träff.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "notice",
+   "tags": [
+    "invitation",
+    "meeting_notice",
+    "event_notice"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9703224c-0271-45cd-a06a-4a7b27ae9b6e",
+   "title": "Banta utan att tappa",
+   "syfte": "Kortar texten hårt utan att tappa resonemang, källstöd eller egen röst.",
+   "area": "anti-slop",
+   "area_label": null,
+   "output_format": "rewritten_text",
+   "tags": [
+    "korta-ner",
+    "redigering",
+    "komprimering",
+    "källor",
+    "skrivande",
+    "akademiskt-skrivande",
+    "anti-slop"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4a326dd1-09d6-4812-87a0-4b8fabe907da",
+   "title": "📝 Skriv om till klarspråk",
+   "syfte": "Gör text kortare och lättare att förstå för invånare.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "rewritten_text",
+   "tags": [
+    "rewrite",
+    "plain_language",
+    "citizen_communication",
+    "simplify"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "6b6d95ae-ef05-4418-acb0-bd655cce9ffe",
+   "title": "Krossa min plan",
+   "syfte": "Gör en pre-mortem av en plan för att hitta sannolika orsaker till misslyckande innan de inträffar.",
+   "area": "sag-emot-mig",
+   "area_label": "Säg emot mig",
+   "output_format": "riskanalys",
+   "tags": [
+    "premortem",
+    "riskanalys",
+    "planering",
+    "kritiskt-tankande",
+    "beslut"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4797ab2f-cf73-455d-bda5-851d54198725",
+   "title": "Lär och prioritera nästa version",
+   "syfte": "Samlar vad valideringen faktiskt visat, skiljer signal från önskemål och väljer nästa produktsteg utifrån lärande, effekt och risk.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "produktprioritering",
+   "tags": [
+    "produktutveckling",
+    "feedback",
+    "prioritering",
+    "roadmap",
+    "produktlarande"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "15821efe-5cfa-4317-9619-1c0cd3a2e4a3",
+   "title": "Skapa egen AI-mall",
+   "syfte": "Gör ett behov till komplett Promptbanken-mall.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "mall",
+   "tags": [
+    "mallbygge",
+    "arbetsbank"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "d546f05d-1772-4ed0-8ddf-c0f304c403a4",
+   "title": "Förbättra prompt",
+   "syfte": "Gör en befintlig prompt tydligare och säkrare.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "mall",
+   "tags": [
+    "promptgranskning",
+    "arbetsbank"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "63fdded3-ce6c-46e5-847b-1febe36a755b",
+   "title": "Gör prompten kommunal",
+   "syfte": "Anpassar en generell prompt från nätet till offentlig verksamhet.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "mall",
+   "tags": [
+    "promptanpassning",
+    "arbetsbank"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "5c18f588-5a2c-45bc-840a-f51097fd2ef6",
+   "title": "Paketera som mall",
+   "syfte": "Sparar ett lyckat flöde som återanvändbar mall.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "mall",
+   "tags": [
+    "mallbygge",
+    "arbetsbank"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "68a8195a-8711-460a-b420-bd68aba61a5c",
+   "title": "Kontroll före användning",
+   "syfte": "Sista kvalitetsgranskning innan text, process eller underlag används.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "granskning",
+   "tags": [
+    "kvalitetskontroll",
+    "arbetsbank"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "3b7417f3-9ff6-403e-ae48-14e9d2458e1b",
+   "title": "Bygg arbetsflöde",
+   "syfte": "Sätter ihop flera mallar till ett guidat arbetsflöde.",
+   "area": "arbetsbank",
+   "area_label": "Egen AI-arbetsbank",
+   "output_format": "plan",
+   "tags": [
+    "arbetsflode",
+    "arbetsbank"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e8772653-aa6e-45c0-b038-ad04d7f9e64b",
+   "title": "Beslutsmognad",
+   "syfte": "Bedömer om ett ärende är redo att gå vidare.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "bedomning",
+   "tags": [
+    "beslutsstod",
+    "beslutsberedning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "d88ff146-ab61-4d2d-b94d-ad7c1e650152",
+   "title": "Saknade delar i underlag",
+   "syfte": "Hittar luckor i PM, tjänsteskrivelse eller förslag.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "tabell",
+   "tags": [
+    "underlagsgranskning",
+    "beslutsberedning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "2cdfcc75-cc0c-4d1d-99b7-45081520b16a",
+   "title": "Risk- och konsekvensanalys",
+   "syfte": "Breddar analysen inför beslut eller förändring.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "analys",
+   "tags": [
+    "riskanalys",
+    "beslutsberedning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "426374c9-09e0-4505-9301-2041c49e3425",
+   "title": "Alternativanalys",
+   "syfte": "Jämför alternativ på ett beslutsbart sätt.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "tabell",
+   "tags": [
+    "alternativanalys",
+    "beslutsberedning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "6afb3538-03b9-4561-a500-5f6962caa069",
+   "title": "Förslag till beslut",
+   "syfte": "Formulerar en tydlig beslutsmening utan att överta ansvar.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "forslag",
+   "tags": [
+    "beslutsformulering",
+    "beslutsberedning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "2d5e66c8-3bf1-4153-b170-1da444416a30",
+   "title": "Genomförandeplan efter beslut",
+   "syfte": "Gör beslut till aktiviteter och ansvar.",
+   "area": "beslutsberedning",
+   "area_label": "Tjänstemannastöd och beslutsberedning",
+   "output_format": "plan",
+   "tags": [
+    "genomforandeplan",
+    "beslutsberedning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "372a2821-be87-44e9-a2eb-e6747aa26703",
+   "title": "Införandeplan",
+   "syfte": "Går från beslut eller idé till genomförbar plan.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "plan",
+   "tags": [
+    "inforandeplan",
+    "forandringsledning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "3ca9318f-5c1f-456c-b241-5551f0ce5bfe",
+   "title": "Intressentkarta",
+   "syfte": "Synliggör vilka som påverkas och hur de behöver involveras.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "tabell",
+   "tags": [
+    "intressentanalys",
+    "forandringsledning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ff884b6b-4c41-4e91-afeb-170cab06931f",
+   "title": "Pilotdesign",
+   "syfte": "Utformar en avgränsad testperiod innan brett införande.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "plan",
+   "tags": [
+    "pilotdesign",
+    "forandringsledning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "3744d7e7-86eb-45f8-bc5f-2e88a0cdf774",
+   "title": "Pilot eller skarp drift?",
+   "syfte": "Bedömer om en förändring bör testas eller införas direkt.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "rekommendation",
+   "tags": [
+    "beslutsstod",
+    "forandringsledning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f3dc3f44-f622-453d-83ed-6e6be5447cfb",
+   "title": "Förankringsplan",
+   "syfte": "Planerar hur förändringen ska bli förstådd och accepterad.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "plan",
+   "tags": [
+    "forankring",
+    "forandringsledning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9729652a-b314-448f-bd68-38693c7c40a8",
+   "title": "Risk inför driftsättning",
+   "syfte": "Kontrollerar vad som måste vara klart före start.",
+   "area": "forandringsledning",
+   "area_label": "Förändringsledning och införande",
+   "output_format": "bedomning",
+   "tags": [
+    "driftsattning",
+    "forandringsledning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "aabd463e-021c-4251-aff7-4933badbb3e1",
+   "title": "Kommunikationspaket",
+   "syfte": "Gör ett underlag till flera publicerbara format.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "paket",
+   "tags": [
+    "kommunikationspaket",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ad1321f9-08a9-49bb-a5eb-51c7fbb6cb81",
+   "title": "Kommunikationsrisk",
+   "syfte": "Granskar en text innan den skickas eller publiceras.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "granskning",
+   "tags": [
+    "kommunikationsgranskning",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9969270c-0e78-4b2d-a932-d614c5ee86b8",
+   "title": "Målgruppsväxlare",
+   "syfte": "Skapar samma budskap för olika målgrupper.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "textversioner",
+   "tags": [
+    "malgruppsanpassning",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b59eddd5-c691-4474-b18e-b9cc5dd85ee6",
+   "title": "Svårt medborgarsvar",
+   "syfte": "Hjälper till att svara sakligt, respektfullt och utan att lova för mycket.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "svarsforslag",
+   "tags": [
+    "medborgarsvar",
+    "kommunikation"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "1221debc-650d-42f2-8680-c901353c3c6c",
+   "title": "Driftstörningsinformation",
+   "syfte": "Skapar tydlig information vid störning, avbrott eller ändrad service.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "information",
+   "tags": [
+    "driftstorning",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "b70ddb7c-ae77-4099-a1cf-a8013820a5c1",
+   "title": "Publiceringscheck",
+   "syfte": "Kontrollerar att text är redo för webb, intranät eller utskick.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "checklista",
+   "tags": [
+    "publiceringscheck",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ac93a553-80bc-4647-b5dd-30c436caa71a",
+   "title": "Från möte till uppföljning",
+   "syfte": "Gör mötesanteckningar till ansvar och nästa steg.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "uppfoljning",
+   "tags": [
+    "motesuppfoljning",
+    "ledarskap"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "9152c6ba-d387-46e3-9169-247bd2a9d2aa",
+   "title": "Tydlig uppdragsformulering",
+   "syfte": "Hjälper chef eller samordnare formulera tydligt uppdrag.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "uppdrag",
+   "tags": [
+    "uppdragsformulering",
+    "ledarskap"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "64e4b9db-0f4f-48c2-b285-ff025ab817e3",
+   "title": "Prioriteringsstöd",
+   "syfte": "Sorterar initiativ utifrån nytta, risk och genomförbarhet.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "matris",
+   "tags": [
+    "prioritering",
+    "ledarskap"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "d0822a84-0135-4855-a586-a735a55052b8",
+   "title": "Svårt samtal-förberedare",
+   "syfte": "Ger struktur inför ett svårt eller känsligt samtal.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "forberedelse",
+   "tags": [
+    "svartsamtal",
+    "ledarskap"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "db5ab87f-7b20-43f4-8a62-639fc25360b5",
+   "title": "Ledningsgruppsförberedare",
+   "syfte": "Förbereder en fråga inför ledningsgrupp.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "underlag",
+   "tags": [
+    "ledningsgrupp",
+    "ledarskap"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "bd7c689e-27ba-452d-b0dd-47a48dc7970f",
+   "title": "Lägesbild",
+   "syfte": "Sammanfattar nuläge, risker och nästa steg.",
+   "area": "ledarskap",
+   "area_label": "Ledarskap och styrning",
+   "output_format": "sammanfattning",
+   "tags": [
+    "lagesbild",
+    "ledarskap"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "451cb5b5-0c67-4981-b401-6268b234b334",
+   "title": "Rutin till processpaket",
+   "syfte": "Gör en rutin användbar som process och förbättringsunderlag.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "paket",
+   "tags": [
+    "processpaket",
+    "processer"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "0d0c25c2-ec63-4d9c-9198-e2f8b30fc673",
+   "title": "Processkarta i Mermaid",
+   "syfte": "Visualiserar en process i Mermaid.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "diagram",
+   "tags": [
+    "processkarta",
+    "processer"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "febb9bd5-7fdc-4c56-809c-105ccff26369",
+   "title": "RACI-matris",
+   "syfte": "Tydliggör ansvar i ett uppdrag eller en process.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "matris",
+   "tags": [
+    "raci",
+    "processer"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "725d0e07-4fb8-499b-8c9f-7711a8a8df44",
+   "title": "Nuläge-börläge-gap",
+   "syfte": "Gör en förbättringsanalys av ett arbetssätt.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "analys",
+   "tags": [
+    "gapanalys",
+    "processer"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9314a5ad-3921-4b3e-ae3e-f97f84c2ac24",
+   "title": "Årshjul",
+   "syfte": "Skapar struktur för återkommande arbete.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "plan",
+   "tags": [
+    "arshjul",
+    "processer"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "6520056f-b500-4e6e-b1a9-393644826709",
+   "title": "5 varför",
+   "syfte": "Gör en enkel rotorsaksanalys.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "analys",
+   "tags": [
+    "rotorsaksanalys",
+    "processer"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e7a7b6c8-2eb6-4d86-a933-eef1a81f80ce",
+   "title": "Gör detta visuellt",
+   "syfte": "Väljer lämplig visuell form för ett underlag.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "rekommendation",
+   "tags": [
+    "visuell-rekommendation",
+    "visuellt"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "bc6712db-d3b4-45ec-9dd8-fcc20c232c48",
+   "title": "Infografik-generator",
+   "syfte": "Gör fakta eller process till en enkel informationsgrafik.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "bildprompt",
+   "tags": [
+    "infografik",
+    "visuellt"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "248223f8-0e14-4fe9-b59c-83bd0bd58572",
+   "title": "Process till bild",
+   "syfte": "Gör en process mer begriplig visuellt.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "bildprompt",
+   "tags": [
+    "processbild",
+    "visuellt"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "d7ad5323-6a82-4e2d-9f56-ca973df14dd4",
+   "title": "Ikon- och symbolbild",
+   "syfte": "Skapar neutrala visuella idéer för kommunala ämnen.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "bildprompt",
+   "tags": [
+    "ikon",
+    "visuellt"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "396e2673-7c30-449d-8e91-9f54778a7d0e",
+   "title": "Bildprompt-granskare",
+   "syfte": "Kvalitetssäkrar bildprompts innan användning.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "granskning",
+   "tags": [
+    "bildgranskning",
+    "visuellt"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "a956184c-6a9c-4d7f-af53-459871384822",
+   "title": "Alt-text Pro",
+   "syfte": "Skapar tillgänglig bildbeskrivning och publiceringsråd.",
+   "area": "visuellt",
+   "area_label": "Visuellt stöd och informationsbilder",
+   "output_format": "alttext",
+   "tags": [
+    "alttext",
+    "visuellt"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "987a12cf-9679-419a-8d15-0f3be011b742",
+   "title": "📧 Svar på medborgarmejl",
+   "syfte": "Skriv ett vänligt och sakligt svar på mejl från invånare.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "email_draft",
+   "tags": [
+    "email_reply",
+    "citizen_communication",
+    "tone_improvement"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "c5520837-7389-4464-b0ce-c254d6135112",
+   "title": "Gör en packlista",
+   "syfte": "Skapa en packlista grupperad i kategorier utifrån resmål och syfte.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "lista",
+   "tags": [
+    "packlista",
+    "resa",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "260d767a-af55-4f7b-8c86-4e3e26e14bd8",
+   "title": "Planera ett evenemang",
+   "syfte": "Ta fram checklista, tidslinje och ansvarsfördelning för ett evenemang.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "evenemang",
+    "planering",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "eab381ed-856c-49fa-bdfc-f87cd8b5c628",
+   "title": "Planera införandet",
+   "syfte": "Gör den valda förändringen genomförbar i praktiken med aktiviteter, ansvar, beslutspunkter, förankring och eventuell pilot.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "plan",
+   "tags": [
+    "verksamhetsutveckling",
+    "inforande",
+    "forankring",
+    "pilot",
+    "arbetsflode"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "a9343c2e-3323-49ae-9dfc-0392bcdacc7b",
+   "title": "Planera ett kalas",
+   "syfte": "Tema, checklista och tidslinje för ett kalas eller en fest.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "kalas",
+    "fest",
+    "planering"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "5e1b434e-c5dd-470c-bf01-27242c2b7a6a",
+   "title": "Planera verifiering, pilot och acceptanstest",
+   "syfte": "Planerar rätt verifieringsform i rätt fas och fungerar som gate: workflowet går inte vidare till införande förrän faktiska verifieringsresultat och blockerande öppna frågor har bedömts.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "verifieringsgate",
+   "tags": [
+    "digitalisering",
+    "pilot",
+    "acceptanstest",
+    "verifiering",
+    "demonstration",
+    "funktionskrav",
+    "inforande",
+    "testplan",
+    "go-no-go",
+    "dataskydd",
+    "informationssakerhet"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ff768ae2-115c-4f4b-998d-31cc57c5ca34",
+   "title": "Planera produktvalideringen",
+   "syfte": "Gör produktens viktigaste antaganden testbara med rätt metod, målgrupp, signaler och beslutskriterier innan mer byggs.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "valideringsplan",
+   "tags": [
+    "produktutveckling",
+    "validering",
+    "produktintervju",
+    "prototyp",
+    "pilot"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "3e8ee085-3bbe-45be-bd5e-c8c68ce86e88",
+   "title": "Planera en resa",
+   "syfte": "Ta fram upplägg dag för dag och bokningsordning för en resa.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "resa",
+    "planering",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "0d87a780-ec24-4120-af23-4a82e5086488",
+   "title": "Planera researchen",
+   "syfte": "Skapar en proportionerlig sök- och källplan utifrån researchfrågan, tillgängliga verktyg och vilken typ av underlag som behövs.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "researchplan",
+   "tags": [
+    "research",
+    "sokstrategi",
+    "kallplan",
+    "informationssokning",
+    "kallor"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f95e2087-b1be-4da5-bd89-0593c677cda0",
+   "title": "Gör en säker överlämning",
+   "syfte": "Skapar en koncentrerad och återanvändbar överlämning till en kollega, en ny chatt eller ett annat AI-verktyg.",
+   "area": "hall-traden",
+   "area_label": "Håll tråden",
+   "output_format": "Åtta avsnitt samt en färdig och anonymiserad fortsättningsinstruktion.",
+   "tags": [
+    "överlämning",
+    "sammanfattning",
+    "samarbete",
+    "ny chatt",
+    "dataskydd",
+    "kontinuitet"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "7930d21a-cc86-4af9-b18a-59bd209df192",
+   "title": "Samla beslut och öppna frågor",
+   "syfte": "Skiljer tydligt mellan fattade beslut, diskuterade förslag och frågor som fortfarande behöver avgöras.",
+   "area": "hall-traden",
+   "area_label": "Håll tråden",
+   "output_format": "Fyra avsnitt samt en avslutande prioriterad öppen fråga.",
+   "tags": [
+    "beslut",
+    "öppna frågor",
+    "ansvar",
+    "projektledning",
+    "uppföljning",
+    "dokumentation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "a049f94f-0794-4295-80bd-8f0878693a03",
+   "title": "Var är jag nu?",
+   "syfte": "Ger en snabb lägesbild av vad som pågår, vad som är klart och vilket nästa steg är.",
+   "area": "hall-traden",
+   "area_label": "Håll tråden",
+   "output_format": "Exakt tre korta meningar utan rubriker eller punktlista.",
+   "tags": [
+    "produktivitet",
+    "överblick",
+    "nästa steg",
+    "ai-chattar",
+    "sammanfattning"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "a9b44e46-c9e7-402c-84e9-c39ea963cd9f",
+   "title": "Planera ett mindre projekt hemma",
+   "syfte": "Dela upp ett hemmaprojekt i delmoment med tidsuppskattning.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "projekt",
+    "planering",
+    "hemma"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "bae6c4d4-c8b6-49ac-853d-0f1ff71fef0b",
+   "title": "Pröva affärsmodellen",
+   "syfte": "Prövar hur produkten kan skapa intäkt, var betalpunkten bör ligga och vilka antaganden om pris, gratisvärde och kundtyp som behöver valideras.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "affarsmodell_hypotes",
+   "tags": [
+    "produktutveckling",
+    "affarsmodell",
+    "prissattning",
+    "freemium",
+    "saas"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e30d4b38-2dcf-4960-92cc-38f15e478fbc",
+   "title": "Pröva kravbilden",
+   "syfte": "Granskar och reviderar en kravbild utifrån behov, proportionalitet, testbarhet och lösningsneutralitet och anpassar granskningen efter om lösningen ska upphandlas, redan är vald eller utvecklas internt.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "reviderad_kravbild",
+   "tags": [
+    "digitalisering",
+    "kravgranskning",
+    "funktionskrav",
+    "losningsneutralitet",
+    "testbarhet",
+    "verifiering",
+    "upphandling",
+    "inforande"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "26f01916-de7c-4de4-bb70-7a9e454c9ec9",
+   "title": "Punktlistekollen – granska kolon och punktlistor",
+   "syfte": "Granskar punktlistor enligt svenska skrivregler och klarspråk, med särskilt fokus på kolon, grammatisk koppling, parallell struktur och konsekvent interpunktion.",
+   "area": "kommunikation",
+   "area_label": null,
+   "output_format": "rewritten_text",
+   "tags": [
+    "punktlistor",
+    "skrivregler",
+    "klarspråk",
+    "språkgranskning",
+    "interpunktion"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "0fc152bc-51cb-4d6d-82f4-7a6e91e58ed0",
+   "title": "Rädda workshopen",
+   "syfte": "Ger snabb hjälp när en workshop har fastnat, tappat energi, tiden rinner iväg eller gruppen inte fungerar som tänkt.",
+   "area": "workshop-och-facilitering",
+   "area_label": "Workshop och facilitering",
+   "output_format": "akutstod",
+   "tags": [
+    "workshop",
+    "facilitering",
+    "problemlösning",
+    "möte",
+    "konflikthantering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "8cc8b965-4a26-4dd6-b610-11c1bb016dec",
+   "title": "Rita kärnflödet",
+   "syfte": "Beskriver produktens viktigaste användarflöde från start till uppnått resultat och skiljer kärnresan från stödjande funktioner.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "karnflode",
+   "tags": [
+    "produktutveckling",
+    "anvandarflode",
+    "kundresa",
+    "karnflode",
+    "product-discovery"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "6dcd7d9c-b9fe-48b9-b361-6984193e3c02",
+   "title": "⚙️ Rutiner & anvisningar",
+   "syfte": "Gör instruktioner tydliga för anställda eller kollegor.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "procedure",
+   "tags": [
+    "procedure",
+    "routine",
+    "work_instruction"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "26d10a6a-8a7a-4af2-af09-3d137d56ae31",
+   "title": "Samla underlag",
+   "syfte": "Samlar relevanta webbkällor och egna underlag för researchfrågan med en obligatorisk evidenslogg, hård käll-gate och en tydlig stoppregel för när researchen är tillräcklig.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "kallunderlag",
+   "tags": [
+    "research",
+    "kallinsamling",
+    "webbresearch",
+    "dokumentanalys",
+    "kallor",
+    "evidenslogg",
+    "verifiering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4a03632b-c85b-48e3-bfce-3fa6f42f3e14",
+   "title": "Sammanfatta en lång text",
+   "syfte": "Sammanfatta en längre text till huvudpunkter, snabbt och begripligt.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "sammanfattning",
+    "text",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "60008156-254d-491b-a2de-6de031c953a7",
+   "title": "SKA, mervärde eller användningsfall?",
+   "syfte": "Bedömer vilka behov som bör vara obligatoriska kärnkrav och vilka som passar bättre som mervärde, användningsfall eller kan tas bort.",
+   "area": "skarpare-funktionskrav",
+   "area_label": "Skarpare funktionskrav – kravställning i upphandling",
+   "output_format": "kravniva",
+   "tags": [
+    "ska-krav",
+    "bor-krav",
+    "mervarde",
+    "utvarderingskriterium",
+    "anvandningsfall",
+    "obligatoriska-krav",
+    "upphandling"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "bc014add-9a26-4507-a779-ea91ea9c9cb9",
+   "title": "Skapa verifierbara testfall",
+   "syfte": "Översätter verksamhetsbehov och den reviderade kravbilden till spårbara, lösningsneutrala testfall för demonstration, acceptans eller verksamhetsverifiering beroende på processläge.",
+   "area": "behov-till-verifierad-digital-losning",
+   "area_label": "Från behov till verifierad digital lösning",
+   "output_format": "losningsneutrala_testfall",
+   "tags": [
+    "digitalisering",
+    "funktionskrav",
+    "anvandningsfall",
+    "acceptanstest",
+    "demonstration",
+    "verifiering",
+    "upphandling",
+    "verksamhetstest"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "9a745ddb-88a6-45d3-9b39-05a5a016516d",
+   "title": "Skapa spårbart researchunderlag",
+   "syfte": "Omsätter endast verifierad research till ett tydligt underlag där huvudfynd, källstöd, motstridiga uppgifter, osäkerheter och kunskapsluckor är spårbara till evidensloggen.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "researchunderlag",
+   "tags": [
+    "research",
+    "researchunderlag",
+    "kallstod",
+    "spårbarhet",
+    "syntes",
+    "evidenslogg",
+    "verifiering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "70661200-cb48-4573-bfad-cb9704a2fd1c",
+   "title": "Planera återkoppling som leder vidare",
+   "syfte": "Hjälper lärare skapa framåtsyftande återkoppling och självskattningsfrågor utan att AI bedömer eller betygsätter enskilda elever.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "återkopplingsplan",
+   "tags": [
+    "skola",
+    "lärare",
+    "återkoppling",
+    "formativt",
+    "självskattning",
+    "bedömningsstöd"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "6ba9c4f0-4212-49fe-957a-b6fc1ed657a1",
+   "title": "Efter lektionen – vad behöver jag justera?",
+   "syfte": "Hjälper lärare skilja observationer från tolkningar efter en lektion och välja små, konkreta justeringar inför nästa undervisningstillfälle.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "reflektionsanalys",
+   "tags": [
+    "skola",
+    "lärare",
+    "lektionsreflektion",
+    "didaktik",
+    "observation",
+    "uppföljning"
+   ],
+   "risk_level": "high",
+   "tone_hint": null
+  },
+  {
+   "id": "a8c70fbb-9e3c-45e1-b104-8041cb4b5892",
+   "title": "Skapa frågor som får elever att tänka",
+   "syfte": "Skapar frågor med tydlig progression från förståelse till resonemang, tillämpning och jämförelse utifrån lärarens eget underlag.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "frågebank",
+   "tags": [
+    "skola",
+    "lärare",
+    "frågor",
+    "didaktik",
+    "resonemang",
+    "formativt"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "10f56556-ad21-4f67-895b-3f55eb2a2ea7",
+   "title": "Gör instruktionen begriplig för elever",
+   "syfte": "Gör en uppgift eller instruktion tydligare för elever utan att förenkla bort det viktiga innehållet.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "elevinstruktion",
+   "tags": [
+    "skola",
+    "lärare",
+    "elevinstruktion",
+    "klarspråk",
+    "uppgift",
+    "tillgänglighet"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "0facb880-90de-40a7-b7fa-f36d800c7bcc",
+   "title": "Gör uppgiften AI-robust",
+   "syfte": "Granskar en elevuppgift och föreslår hur den kan utformas så att elevens eget tänkande och arbetsprocess blir synliga även när generativ AI finns tillgänglig.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "uppgiftsanalys",
+   "tags": [
+    "skola",
+    "lärare",
+    "generativ-ai",
+    "uppgiftsdesign",
+    "ai-robust",
+    "didaktik"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "bb826922-8b51-4a23-a9b8-51ee7fe4647d",
+   "title": "Planera ett undervisningsområde",
+   "syfte": "Hjälper lärare gå från syfte och mål till en sammanhängande undervisningssekvens med aktiviteter, avstämningar och uppföljning.",
+   "area": "skola-undervisning-larare",
+   "area_label": "Skola och undervisning – för lärare",
+   "output_format": "undervisningsplan",
+   "tags": [
+    "skola",
+    "lärare",
+    "undervisningsplanering",
+    "didaktik",
+    "lektion",
+    "uppföljning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "6c80110f-1177-406f-9264-9e6e672ad460",
+   "title": "Skriv en artikel",
+   "syfte": "Hjälper användaren att utveckla en idé, stödord eller ett utkast till en sammanhängande och läsvärd artikel med tydlig målgrupp, tonalitet och syfte.",
+   "area": "fran-ide-till-artikel",
+   "area_label": "Från idé till artikel",
+   "output_format": "article",
+   "tags": [
+    "artikel",
+    "skrivande",
+    "redigering",
+    "malgrupp",
+    "tonalitet",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "98968081-4c6f-442c-bb58-febdad8e534b",
+   "title": "🛠️ Hjälp mig skriva ett supportärende",
+   "syfte": "Gör en rå problembeskrivning till ett tydligt och komplett supportärende som är lätt att felsöka.",
+   "area": "supportarenden",
+   "area_label": "Supportärenden",
+   "output_format": "supportarende",
+   "tags": [
+    "support",
+    "supportarende",
+    "felanmalan",
+    "felsokning",
+    "kommunikation"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "781e01c2-45d5-4d8a-a6d3-c1e135a7005f",
+   "title": "Slå ihop och förenkla krav",
+   "syfte": "Identifierar dubbletter, överlapp och detaljkrav och föreslår en kortare kravstruktur byggd på verksamhetsförmågor.",
+   "area": "skarpare-funktionskrav",
+   "area_label": "Skarpare funktionskrav – kravställning i upphandling",
+   "output_format": "kravstruktur",
+   "tags": [
+    "sla-ihop-krav",
+    "forenkla-krav",
+    "dubbletter",
+    "overlapp",
+    "kravspecifikation",
+    "funktionskrav",
+    "upphandling"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e985e54a-8506-458a-bb58-dfddbd7336eb",
+   "title": "Slutredigera för publicering",
+   "syfte": "Bearbetar en granskad artikel till en publiceringsklar version med bibehållen röst, rätt tonalitet och utan onödigt AI-språk.",
+   "area": "fran-ide-till-artikel",
+   "area_label": "Från idé till artikel",
+   "output_format": "publiceringsklar_artikel",
+   "tags": [
+    "artikel",
+    "slutredigering",
+    "publicering",
+    "anti-slop",
+    "kommunikation"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "1a06355b-5b98-4b6d-9570-28a8cdb82864",
+   "title": "Specificera resultatet",
+   "syfte": "Gör den godkända riktningen till en konkret specifikation som användaren granskar och godkänner innan något utförs eller routas vidare.",
+   "area": "superplanlage",
+   "area_label": "Superplanläge",
+   "output_format": "specifikation",
+   "tags": [
+    "arbetsflode",
+    "specifikation",
+    "krav",
+    "avgransning",
+    "leverans",
+    "kvalitetskriterier"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e223b297-87aa-4413-8d81-9f9e0ba41600",
+   "title": "Strukturera en flytt",
+   "syfte": "Tidslinje med deluppgifter för en flytt, grupperat efter brådska.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "flytt",
+    "planering",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "db52b451-1d49-4109-ad9e-d74f372febc1",
+   "title": "💬 Svara på ett supportärende",
+   "syfte": "Gör ett inkommet supportärende till ett kort, tydligt och hjälpsamt svar med ett konkret nästa steg.",
+   "area": "supportarenden",
+   "area_label": "Supportärenden",
+   "output_format": "svarsforslag",
+   "tags": [
+    "support",
+    "supportarende",
+    "svar",
+    "kommunikation",
+    "felsokning"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "85aee9de-faab-464c-9839-5246889260f9",
+   "title": "🔀 Två versioner",
+   "syfte": "Omvandla mellan kommuniceringsmönster – t.ex. från formell till vardaglig.",
+   "area": "kommunikation",
+   "area_label": "Kommunikation och publicering",
+   "output_format": "text_variants",
+   "tags": [
+    "tone_variants",
+    "formal_informal",
+    "rewrite"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "cdb68eec-b040-466a-bb16-eaf8273e6d74",
+   "title": "Utför och routa",
+   "syfte": "Genomför den godkända specifikationen och kan använda publika Promptbanken-prompts, användarens egna sparade prompts eller installerade körbara skills som specialister, alltid efter användarens godkännande.",
+   "area": "superplanlage",
+   "area_label": "Superplanläge",
+   "output_format": "orkestrerat_resultat",
+   "tags": [
+    "arbetsflode",
+    "routing",
+    "genomforande",
+    "specialistprompt",
+    "skills",
+    "specifikation",
+    "leverans"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "1290d2c9-c57a-41c5-88b6-b308e476c086",
+   "title": "Utforma förändringen",
+   "syfte": "Hjälper användaren identifiera och jämföra möjliga förändringar utan att låsa en lösning för tidigt.",
+   "area": "behov-till-effekt",
+   "area_label": "Från behov till effekt",
+   "output_format": "rekommendation",
+   "tags": [
+    "verksamhetsutveckling",
+    "alternativanalys",
+    "prioritering",
+    "forandring",
+    "arbetsflode"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "67d60128-141c-44d8-9a2a-e0e53ddc3707",
+   "title": "Utforma ett förbättringstest",
+   "syfte": "Omsätter en prioriterad hypotes till ett avgränsat och lärande förbättringstest med tydligt syfte, målgrupp, förväntad effekt, mätning och stoppkriterier.",
+   "area": "data-till-forbattring",
+   "area_label": "Från data till förbättring",
+   "output_format": "testplan",
+   "tags": [
+    "forbattringstest",
+    "pilot",
+    "hypotes",
+    "verksamhetsutveckling",
+    "uppfoljning"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "4c82fc20-5666-4ae4-baff-86bc1f411d8d",
+   "title": "Utforska och lås riktningen",
+   "syfte": "Hjälper användaren att fatta de viktigaste vägvalen med A/B/C/D-frågor, rekommendationer och ett tydligt godkännande innan arbetet går vidare.",
+   "area": "superplanlage",
+   "area_label": "Superplanläge",
+   "output_format": "guidad_inriktning",
+   "tags": [
+    "arbetsflode",
+    "ideutveckling",
+    "vagval",
+    "krav",
+    "planering",
+    "beslut"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "27bd5bac-f6c0-424e-9249-1803c837d982",
+   "title": "Utforska produktspåret",
+   "syfte": "Tar fram och jämför möjliga produktspår utan att låsa funktioner eller teknik för tidigt och väljer en riktning att arbeta vidare med.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "produktspår",
+   "tags": [
+    "produktutveckling",
+    "produktstrategi",
+    "alternativanalys",
+    "product-discovery"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "e2e6d242-7fea-46ff-b6cb-595595903bd7",
+   "title": "Utmana våra krav",
+   "syfte": "Granskar krav kritiskt för att hitta överkrav, lösningslåsningar, onödiga obligatoriska krav och sådant som riskerar att begränsa konkurrensen.",
+   "area": "skarpare-funktionskrav",
+   "area_label": "Skarpare funktionskrav – kravställning i upphandling",
+   "output_format": "kritisk-kravgranskning",
+   "tags": [
+    "granska-krav",
+    "utmana-krav",
+    "overkrav",
+    "proportionalitet",
+    "konkurrens",
+    "kravstallning",
+    "upphandling"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "964e8fb8-378d-46fb-83cb-6aeeed29e544",
+   "title": "Utvärdera och justera",
+   "syfte": "Jämför utfallet med målbild och förväntade effekter och hjälper användaren avgöra vad som ska behållas, justeras eller omprövas.",
+   "area": "processer",
+   "area_label": "Verksamhetsutveckling och processer",
+   "output_format": "utvardering",
+   "tags": [
+    "verksamhetsutveckling",
+    "utvardering",
+    "effekt",
+    "larande",
+    "forbattring"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "f32fa400-0c1e-468a-bcd1-59388503109f",
+   "title": "Vad missar jag?",
+   "syfte": "Granskar en idé, plan eller slutsats efter dolda antaganden, kunskapsluckor och blinda fläckar.",
+   "area": "sag-emot-mig",
+   "area_label": "Säg emot mig",
+   "output_format": "analys",
+   "tags": [
+    "kritiskt-tankande",
+    "antaganden",
+    "analys",
+    "perspektiv",
+    "beslut"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "687c313b-bdb8-4f3a-be77-f54c25a3b357",
+   "title": "Välj målgrupp och köpare",
+   "syfte": "Avgränsar vem produkten främst ska hjälpa, vem som betalar och i vilken situation behovet är tillräckligt viktigt för att motivera ett byte eller köp.",
+   "area": "fran-behov-till-validerad-produkt",
+   "area_label": "Från behov till validerad produkt",
+   "output_format": "malgruppsbeslut",
+   "tags": [
+    "produktutveckling",
+    "malgrupp",
+    "kund",
+    "buyer",
+    "product-discovery"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "ae3bcc9b-3b75-4c03-b5c6-b996bf19e517",
+   "title": "Skriv ett tydligt vardagsmejl",
+   "syfte": "Skriv ett kort, tydligt och vänligt mejl utifrån några stödord.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "mejl",
+    "vardagsspråk",
+    "kommunikation"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "4052fcc8-ff00-481b-9eba-9c21475a2c21",
+   "title": "Värdera källorna",
+   "syfte": "Bedömer endast verifierade researchkällor från evidensloggen och väger deras relevans, aktualitet, transparens, oberoende och styrka.",
+   "area": "fran-fraga-till-researchunderlag",
+   "area_label": "Från fråga till researchunderlag",
+   "output_format": "kallbedomning",
+   "tags": [
+    "research",
+    "kallkritik",
+    "kallvardering",
+    "aktualitet",
+    "oberoende",
+    "evidenslogg"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "508720d1-f756-48e2-b11b-700400bc1462",
+   "title": "Skapa veckomeny från mina råvaror",
+   "syfte": "Föreslå enkla middagar utifrån vad som redan finns hemma.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "lista",
+   "tags": [
+    "mat",
+    "meny",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "eb597968-a66b-4630-9e86-5783af355171",
+   "title": "Gör en realistisk veckoplan",
+   "syfte": "Fördela åtaganden över veckan med rimlig marginal.",
+   "area": "vardagspaket",
+   "area_label": "Vardagspaket",
+   "output_format": "text",
+   "tags": [
+    "veckoplan",
+    "planering",
+    "vardag"
+   ],
+   "risk_level": "low",
+   "tone_hint": null
+  },
+  {
+   "id": "4658a3ec-aeb6-412e-aa6e-04f6f8f0afef",
+   "title": "Verifiera resultatet",
+   "syfte": "Verifierar helheten mot den godkända specifikationen och kan vid behov använda publika Promptbanken-prompts, användarens egna sparade prompts eller installerade körbara skills som granskningsspecialister efter användarens godkännande.",
+   "area": "superplanlage",
+   "area_label": "Superplanläge",
+   "output_format": "orkestrerad_verifiering",
+   "tags": [
+    "arbetsflode",
+    "verifiering",
+    "routing",
+    "skills",
+    "kvalitetskontroll",
+    "specialistprompt",
+    "korrigering"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  },
+  {
+   "id": "31f94104-19d1-4ac1-9708-6e63e1283a0e",
+   "title": "Workshopplaneraren",
+   "syfte": "Planerar en workshop genom fyra klargörande frågor och rekommenderar sedan agenda, övningar och facilitatorstöd.",
+   "area": "workshop-och-facilitering",
+   "area_label": "Workshop och facilitering",
+   "output_format": "workshopplan",
+   "tags": [
+    "workshop",
+    "facilitering",
+    "planering",
+    "agenda",
+    "övningar",
+    "möte"
+   ],
+   "risk_level": "medium",
+   "tone_hint": null
+  }
+ ],
+ "packages": [
+  {
+   "slug": "anti-slop",
+   "title": "Anti-slop",
+   "summary": "Tre mallar som hjälper användaren att hitta och ta bort generiska, uppblåsta och mekaniska textmönster utan att förlora innehåll eller personlig röst.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "fb7bc7a5-23bc-44c9-8e54-d03706302e35",
+    "fef187ac-f9c9-4f1e-b7b2-86c9b93ccc19",
+    "f9d32438-055f-4217-ab52-a462eed4334d"
+   ]
+  },
+  {
+   "slug": "arbetsbank",
+   "title": "Egen AI-arbetsbank",
+   "summary": "Samlade mallar för att bygga, förbättra och kvalitetssäkra egna AI-mallar.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "15821efe-5cfa-4317-9619-1c0cd3a2e4a3",
+    "d546f05d-1772-4ed0-8ddf-c0f304c403a4",
+    "63fdded3-ce6c-46e5-847b-1febe36a755b",
+    "5c18f588-5a2c-45bc-840a-f51097fd2ef6",
+    "68a8195a-8711-460a-b420-bd68aba61a5c",
+    "3b7417f3-9ff6-403e-ae48-14e9d2458e1b"
+   ]
+  },
+  {
+   "slug": "behov-till-effekt",
+   "title": "Från behov till effekt",
+   "summary": "Ett guidat arbetsflöde för verksamhetsutveckling – från behov och målbild till genomförande, uppföljning och faktisk effekt.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "b51629cb-9649-462b-a46e-1e5ab5e01277",
+    "120e1276-108d-41dd-bcca-60ad6ab5701d",
+    "1290d2c9-c57a-41c5-88b6-b308e476c086",
+    "3124c870-6ab2-48ed-9669-d32aa93c3f08",
+    "eab381ed-856c-49fa-bdfc-f87cd8b5c628",
+    "cd6a7ac3-ca85-4d76-9c8d-25f1b60972d9"
+   ]
+  },
+  {
+   "slug": "behov-till-verifierad-digital-losning",
+   "title": "Från behov till verifierad digital lösning",
+   "summary": "Ett sammanhållet arbetsflöde från verksamhetsbehov och önskad effekt till funktionskrav, verifiering, införande och planerad uppföljning av verksamhetsnytta.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "b51629cb-9649-462b-a46e-1e5ab5e01277",
+    "120e1276-108d-41dd-bcca-60ad6ab5701d",
+    "7196c667-d585-4c84-81eb-57b4995fe1dd",
+    "e30d4b38-2dcf-4960-92cc-38f15e478fbc",
+    "bc014add-9a26-4507-a779-ea91ea9c9cb9",
+    "5e1b434e-c5dd-470c-bf01-27242c2b7a6a",
+    "eab381ed-856c-49fa-bdfc-f87cd8b5c628",
+    "cd6a7ac3-ca85-4d76-9c8d-25f1b60972d9"
+   ]
+  },
+  {
+   "slug": "bemot-argument",
+   "title": "Bemöt argument",
+   "summary": "Fyra prompts för att förstå ett argument, pröva den egna ståndpunkten och formulera ett sakligt svar som passar rätt kanal och längd.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "11cca3e6-674e-40d1-abbc-c1de63fbe30a",
+    "7996ed6a-99ea-4048-a8ba-9431f63aabe4",
+    "b1d4c714-5dd8-459f-9cec-b401c085c07f",
+    "402046c1-f670-4e63-8f72-e652ac3cc3c4"
+   ]
+  },
+  {
+   "slug": "beslutsberedning",
+   "title": "Tjänstemannastöd och beslutsberedning",
+   "summary": "Samlade mallar för beslutsunderlag, konsekvensanalys och genomförandeplanering.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "e8772653-aa6e-45c0-b038-ad04d7f9e64b",
+    "d88ff146-ab61-4d2d-b94d-ad7c1e650152",
+    "2cdfcc75-cc0c-4d1d-99b7-45081520b16a",
+    "426374c9-09e0-4505-9301-2041c49e3425",
+    "6afb3538-03b9-4561-a500-5f6962caa069",
+    "2d5e66c8-3bf1-4153-b170-1da444416a30",
+    "ef6c1b3d-385d-4aea-873c-760e4d98008e"
+   ]
+  },
+  {
+   "slug": "data-till-forbattring",
+   "title": "Från data till förbättring",
+   "summary": "Ett guidat arbetsflöde som hjälper användaren gå från verksamhetsdata till välgrundade förbättringshypoteser, test och uppföljning utan att dra starkare slutsatser än underlaget tillåter.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "8fb89c0c-d0e7-417c-8fe5-c753ae81a825",
+    "ac0ddd75-e494-470e-bca9-b44fbf4af62e",
+    "d8d7857a-5e54-423e-8e35-8e866f275511",
+    "b21005ce-5843-4498-8ea4-e8781bd7022f",
+    "67d60128-141c-44d8-9a2a-e0e53ddc3707",
+    "cd6a7ac3-ca85-4d76-9c8d-25f1b60972d9",
+    "964e8fb8-378d-46fb-83cb-6aeeed29e544"
+   ]
+  },
+  {
+   "slug": "forandringsledning",
+   "title": "Förändringsledning och införande",
+   "summary": "Samlade mallar för införande, förankring och förändringsarbete.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "372a2821-be87-44e9-a2eb-e6747aa26703",
+    "3ca9318f-5c1f-456c-b241-5551f0ce5bfe",
+    "ff884b6b-4c41-4e91-afeb-170cab06931f",
+    "3744d7e7-86eb-45f8-bc5f-2e88a0cdf774",
+    "f3dc3f44-f622-453d-83ed-6e6be5447cfb",
+    "9729652a-b314-448f-bd68-38693c7c40a8"
+   ]
+  },
+  {
+   "slug": "fran-behov-till-validerad-produkt",
+   "title": "Från behov till validerad produkt",
+   "summary": "Ett guidat arbetsflöde för produktutveckling – från verkligt problem och målgrupp till produktlöfte, kärnflöde, MVP, affärsmodell, validering och nästa produktsteg.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "b51629cb-9649-462b-a46e-1e5ab5e01277",
+    "687c313b-bdb8-4f3a-be77-f54c25a3b357",
+    "3028265e-f11d-40d8-9dd7-f6b4572c1634",
+    "27bd5bac-f6c0-424e-9249-1803c837d982",
+    "8cc8b965-4a26-4dd6-b610-11c1bb016dec",
+    "c2cf78b3-ba45-4094-9f8f-0cc359c6a5d4",
+    "bae6c4d4-c8b6-49ac-853d-0f1ff71fef0b",
+    "ff768ae2-115c-4f4b-998d-31cc57c5ca34",
+    "4797ab2f-cf73-455d-bda5-851d54198725"
+   ]
+  },
+  {
+   "slug": "fran-fraga-till-researchunderlag",
+   "title": "Från fråga till researchunderlag",
+   "summary": "Ett guidat researchworkflow som hjälper användaren gå från en konkret fråga till ett spårbart researchunderlag med relevanta källor, källvärdering, syntes, osäkerheter och kunskapsluckor.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "b38a953d-bd0f-4745-a4d4-503482e78095",
+    "0d87a780-ec24-4120-af23-4a82e5086488",
+    "26d10a6a-8a7a-4af2-af09-3d137d56ae31",
+    "4052fcc8-ff00-481b-9eba-9c21475a2c21",
+    "790d36f7-75f0-4cc9-9e33-3d518e4b67dc",
+    "e7f45be3-905d-4a07-993d-6dc4f7abd1b4",
+    "9a745ddb-88a6-45d3-9b39-05a5a016516d"
+   ]
+  },
+  {
+   "slug": "fran-ide-till-artikel",
+   "title": "Från idé till artikel",
+   "summary": "Ett guidat arbetsflöde från artikelidé och vinkel till skriven, granskad och publiceringsklar artikel.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "5dd61183-834e-4590-ba1a-0118135f89e8",
+    "6c80110f-1177-406f-9264-9e6e672ad460",
+    "4681705a-5208-4217-b180-4dc9018c0d14",
+    "e985e54a-8506-458a-bb58-dfddbd7336eb"
+   ]
+  },
+  {
+   "slug": "hall-traden",
+   "title": "Håll tråden",
+   "summary": "Tre genomarbetade promptar som hjälper användaren att behålla överblicken, skilja beslut från diskussion och föra ett pågående arbete vidare i längre AI-chattar.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "a049f94f-0794-4295-80bd-8f0878693a03",
+    "7930d21a-cc86-4af9-b18a-59bd209df192",
+    "f95e2087-b1be-4da5-bd89-0593c677cda0"
+   ]
+  },
+  {
+   "slug": "hr",
+   "title": "HR – tryggt AI-stöd i arbetsvardagen",
+   "summary": "Sex AI-mallar för HR-arbete med säker förberedelse, kravprofiler, rekryteringskommunikation, introduktion, riktlinjer och svåra samtal – utan att AI bedömer människor.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "1511eeb2-2aa8-4311-a917-3bc058d38b8e",
+    "633dde9f-5f26-4e84-b31a-7bedd05164e6",
+    "e733afc1-a016-42fb-aa77-61ff6ef50c78",
+    "f166e296-413a-4225-ac0c-a1c7eac66abb",
+    "4d668eaf-bea2-41bf-9aab-ed19c8af7110",
+    "85bbda2a-6148-4cb8-af33-278d4897be5c"
+   ]
+  },
+  {
+   "slug": "kommunikation",
+   "title": "Kommunikation och publicering",
+   "summary": "Samlade mallar för kommunikation, publicering och målgruppsanpassning.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "aabd463e-021c-4251-aff7-4933badbb3e1",
+    "ad1321f9-08a9-49bb-a5eb-51c7fbb6cb81",
+    "9969270c-0e78-4b2d-a932-d614c5ee86b8",
+    "b59eddd5-c691-4474-b18e-b9cc5dd85ee6",
+    "1221debc-650d-42f2-8680-c901353c3c6c",
+    "b70ddb7c-ae77-4099-a1cf-a8013820a5c1",
+    "4a326dd1-09d6-4812-87a0-4b8fabe907da",
+    "987a12cf-9679-419a-8d15-0f3be011b742",
+    "924f7a3d-7287-4ead-8290-5560d14ae0cb",
+    "b086dcd4-029f-46e1-808e-9be23263dae8",
+    "85aee9de-faab-464c-9839-5246889260f9",
+    "fab9ece6-6b46-4f5b-be67-bea307f2e402"
+   ]
+  },
+  {
+   "slug": "ledarskap",
+   "title": "Ledarskap och styrning",
+   "summary": "Samlade mallar för ledning, prioritering och uppföljning.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "ac93a553-80bc-4647-b5dd-30c436caa71a",
+    "9152c6ba-d387-46e3-9169-247bd2a9d2aa",
+    "64e4b9db-0f4f-48c2-b285-ff025ab817e3",
+    "d0822a84-0135-4855-a586-a735a55052b8",
+    "db5ab87f-7b20-43f4-8a62-639fc25360b5",
+    "bd7c689e-27ba-452d-b0dd-47a48dc7970f"
+   ]
+  },
+  {
+   "slug": "processer",
+   "title": "Verksamhetsutveckling och processer",
+   "summary": "Samlade mallar för rutiner, processer och strukturerat förbättringsarbete.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "451cb5b5-0c67-4981-b401-6268b234b334",
+    "0d0c25c2-ec63-4d9c-9198-e2f8b30fc673",
+    "febb9bd5-7fdc-4c56-809c-105ccff26369",
+    "725d0e07-4fb8-499b-8c9f-7711a8a8df44",
+    "9314a5ad-3921-4b3e-ae3e-f97f84c2ac24",
+    "6520056f-b500-4e6e-b1a9-393644826709",
+    "6dcd7d9c-b9fe-48b9-b361-6984193e3c02",
+    "964e8fb8-378d-46fb-83cb-6aeeed29e544"
+   ]
+  },
+  {
+   "slug": "sag-emot-mig",
+   "title": "Säg emot mig",
+   "summary": "Fem prompts som gör AI till en kritisk kollega och hjälper användaren att hitta svaga antaganden, motargument, risker och alternativa perspektiv innan beslut.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "f32fa400-0c1e-468a-bcd1-59388503109f",
+    "7996ed6a-99ea-4048-a8ba-9431f63aabe4",
+    "6b6d95ae-ef05-4418-acb0-bd655cce9ffe",
+    "367d01d7-45e0-4de7-8be2-5acaacdd5081",
+    "14ceb9a3-837e-42d5-9926-32335fe653d0"
+   ]
+  },
+  {
+   "slug": "skarpare-funktionskrav",
+   "title": "Skarpare funktionskrav – kravställning i upphandling",
+   "summary": "Granska, förenkla och formulera funktionskrav inför upphandling. Hjälper dig att göra om detaljerade ska- och börkrav, hitta överkrav och överlapp samt bedöma vad som bör vara obligatoriskt, mervärde eller användningsfall.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "8929218e-759a-4634-a4e0-7afc144d28b5",
+    "e2e6d242-7fea-46ff-b6cb-595595903bd7",
+    "781e01c2-45d5-4d8a-a6d3-c1e135a7005f",
+    "60008156-254d-491b-a2de-6de031c953a7",
+    "f55439f5-6f3e-4e40-8834-d9e2f4b9c2bd"
+   ]
+  },
+  {
+   "slug": "skola-undervisning-larare",
+   "title": "Skola och undervisning – för lärare",
+   "summary": "Sex genomarbetade AI-mallar för lärare som stödjer planering, tydliga instruktioner, tänkande frågor, AI-robust uppgiftsdesign, återkoppling och reflektion efter undervisningen.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "bb826922-8b51-4a23-a9b8-51ee7fe4647d",
+    "10f56556-ad21-4f67-895b-3f55eb2a2ea7",
+    "a8c70fbb-9e3c-45e1-b104-8041cb4b5892",
+    "0facb880-90de-40a7-b7fa-f36d800c7bcc",
+    "70661200-cb48-4573-bfad-cb9704a2fd1c",
+    "6ba9c4f0-4212-49fe-957a-b6fc1ed657a1"
+   ]
+  },
+  {
+   "slug": "superplanlage",
+   "title": "Superplanläge",
+   "summary": "Ett guidat AI-arbetsflöde från idé till utfört och verifierat resultat. Låser riktning, skapar spec, routar vid behov till relevanta Promptbanken-prompts och verifierar helheten.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "4c82fc20-5666-4ae4-baff-86bc1f411d8d",
+    "1a06355b-5b98-4b6d-9570-28a8cdb82864",
+    "cdb68eec-b040-466a-bb16-eaf8273e6d74",
+    "4658a3ec-aeb6-412e-aa6e-04f6f8f0afef"
+   ]
+  },
+  {
+   "slug": "supportarenden",
+   "title": "Supportärenden",
+   "summary": "Praktiska AI-mallar för att skriva tydliga supportärenden och svara på inkomna supportfrågor.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "98968081-4c6f-442c-bb58-febdad8e534b",
+    "db52b451-1d49-4109-ad9e-d74f372febc1"
+   ]
+  },
+  {
+   "slug": "vardagspaket",
+   "title": "Vardagspaket",
+   "summary": "Enkla mallar för vardagliga skrivuppgifter – för alla, oavsett roll eller bransch.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "ae3bcc9b-3b75-4c03-b5c6-b996bf19e517",
+    "4a03632b-c85b-48e3-bfce-3fa6f42f3e14",
+    "fc9a9805-aaea-420a-aee7-0d8ea9c48c9a",
+    "260d767a-af55-4f7b-8c86-4e3e26e14bd8",
+    "c5520837-7389-4464-b0ce-c254d6135112",
+    "508720d1-f756-48e2-b11b-700400bc1462",
+    "a9b44e46-c9e7-402c-84e9-c39ea963cd9f",
+    "5aded741-7d2e-4a5e-8872-3da298efb627",
+    "9f82ab4a-4955-452e-92e9-306bcd1ada0b",
+    "3e8ee085-3bbe-45be-bd5e-c8c68ce86e88",
+    "e223b297-87aa-4413-8d81-9f9e0ba41600",
+    "5bac4add-3956-4ba5-bb7f-67d2f6d4f415",
+    "a9343c2e-3323-49ae-9dfc-0392bcdacc7b",
+    "eb597968-a66b-4630-9e86-5783af355171"
+   ]
+  },
+  {
+   "slug": "visuellt",
+   "title": "Visuellt stöd och informationsbilder",
+   "summary": "Samlade mallar för infografik, bildidéer och tillgängliga visuella förklaringar.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "e7a7b6c8-2eb6-4d86-a933-eef1a81f80ce",
+    "bc6712db-d3b4-45ec-9dd8-fcc20c232c48",
+    "248223f8-0e14-4fe9-b59c-83bd0bd58572",
+    "d7ad5323-6a82-4e2d-9f56-ca973df14dd4",
+    "396e2673-7c30-449d-8e91-9f54778a7d0e",
+    "a956184c-6a9c-4d7f-af53-459871384822",
+    "f303a6d0-40ee-47ff-8cb5-4ee97d4e242c",
+    "a01714bc-419e-43fe-891d-c6d536e44e96"
+   ]
+  },
+  {
+   "slug": "workshop-och-facilitering",
+   "title": "Workshop och facilitering",
+   "summary": "Planera workshop med AI: fem mallar för workshopagenda, workshopövningar, facilitering, problemlösning och tydlig uppföljning.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "31f94104-19d1-4ac1-9708-6e63e1283a0e",
+    "a9d2edc7-6be4-4b08-a0c1-3854fd79a462",
+    "5a21ff68-b925-46e7-8659-7fe2e49333e8",
+    "0fc152bc-51cb-4d6d-82f4-7a6e91e58ed0",
+    "00b59b58-5d4e-46e7-86f3-6159961b4664"
+   ]
+  }
+ ]
+}
