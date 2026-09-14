@@ -1,5 +1,40 @@
 # Beslut
 
+## 2026-09-14 - Uppgiften routas före rollen, och roller kan sättas som innehåll
+
+### Beslut
+Routingen utgår från användarens uppgift. Rollen används när uppgiften är
+oklar eller användaren utforskar ("vad finns för min roll?"), och annars bara
+som sekundär rankingsignal. `get_client_routing_instructions` säger nu det,
+och att workflows hittas som hela paket via
+`list_packages(package_type='workflow')` och `list_package_prompts`.
+
+Banken är bred för yrkespersoner. Workflowen mappas därför till många yrken,
+och vokabulären utökas med bland annat projektledare, systemförvaltare,
+produktägare och entreprenör. Ovanpå den statiska kartan läses roller ur
+paketets målgrupp (`audience_label`, "Vem det är för" på webben), som sätts
+med admin-MCP. Nya paket och nya yrken når då rätt person utan kodändring.
+Målgruppen lägger bara till roller; universella paket förblir universella.
+
+### Varför
+Routingtestet 2026-09-14 visade att `recommend_packages(role="samordnare")`
+aldrig hittade researchworkflowet, och att fyra publicerade workflows saknades
+i rollkartan och inte kunde rekommenderas alls. Bootstrapen sa "börja med
+recommend_packages(role) om rollen är känd", vilket styrde klienten fel även
+när uppgiften var tydlig.
+
+Målgruppen valdes framför paketets `tags`, eftersom taggarna visas som länkar
+på de publika paketsidorna och tekniska rolltaggar skulle synas för besökare.
+`audience_label` är redan en läsbar målgruppstext och kräver ingen migration.
+
+### Release-gate
+OpenAI tillåter buggfixar utan ny version om verktygen matchar sina
+publicerade definitioner och sitt beteende. Inget av detta ändrar
+tool-definitionerna; `test_open_1_2_2_contract_snapshot.py` jämför dem fält
+för fält mot 1.2.2-snapshoten. Ordningen för `chef` hålls så att
+submissionens testfall 1 (förändringsledning, beslutsberedning, ledarskap)
+fortfarande leder.
+
 ## 2026-09-08 - Promptbanken Open 1.2.2 låser hela tool-definitionen
 
 ### Beslut

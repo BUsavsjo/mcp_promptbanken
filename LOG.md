@@ -1,5 +1,37 @@
 # Logg
 
+## 2026-09-14 - Routing: uppgift före roll, bred rollkarta, roller ur målgrupp
+
+### Gjort
+- Committade 1.2.2-kontraktsåterställningen på `main` (`68c12d5`), samma
+  ändring som `fb29a7e`, samt admin-token-skriptets CRLF-fix (`105edde`).
+- Lade till `test_open_1_2_2_contract_snapshot.py`: den publika tool-ytan
+  jämförs fält för fält mot `contracts/promptbanken-open-1.2.2.tools.json`.
+  Verifierat att den blir röd om en workflow-slug läggs till i area-enumen.
+- Hämtade en metadata-ögonblicksbild av den öppna katalogen till
+  `tests/fixtures/open_catalog_2026-09-14.json` (147 mallar, 17 collections,
+  7 workflows, 4 fristående) och byggde `test_routing_baseline.py` med
+  testrapportens fall.
+- På grenen `routing-task-intent`: skrev om `client_flow` så att uppgiften
+  routas först (`ae92637`); utökade rollkartan och läser roller ur paketens
+  `audience_label` med 5 minuters cache (`a2f8b49`).
+
+### Verifierat
+- 170 tester gröna, 6 förväntade fel. Kontraktssnapshoten oförändrad.
+- `list_packages(package_type='workflow')` i produktion ger de sju workflowen.
+- Baseline visar att nyckelordstäta frågor redan hittar rätt workflow. Korta
+  naturliga frågor gör det inte: vanliga ord väger lika tungt som ovanliga,
+  böjningar matchar dåligt och workflowets titel/sammanfattning är inte
+  sökbar. `behov-till-effekt` har bara två av sex steg med sin egen area.
+- Rollbonusen (+5) kan fortfarande lyfta en roll förbi en tydlig uppgift
+  (baselinefallet med `rektor`).
+
+### Kvarstår
+- Steg 4: ranking i `search_templates` (ordvikt, workflowmedlemskap,
+  rollbonus som inte slår en stark textträff).
+- Deploy av grenen efter granskning. Hämtningen av fixturen gav cirka 30
+  läsanrop mot produktionen, synliga i usage-statistiken.
+
 ## 2026-09-08 - Devmiljön inventerad
 
 ### Verifierat
