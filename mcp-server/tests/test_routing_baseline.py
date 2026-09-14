@@ -85,11 +85,16 @@ class KeywordQueryRoutingTests(RoutingBaselineCase):
     def test_research(self) -> None:
         self.assertRoutesToWorkflow("research omvärldsanalys flera aktuella källor jämförelse", "fran-fraga-till-researchunderlag")
 
-    @unittest.expectedFailure
-    def test_research_with_role_is_not_overtaken_by_the_role(self) -> None:
-        # Baseline: rollbonusen (+5) lyfter Kommunikationspaket till plats 1.
+    def test_research_with_a_role_that_uses_research(self) -> None:
         self.assertRoutesToWorkflow(
             "research omvärldsanalys flera aktuella källor jämförelse", "fran-fraga-till-researchunderlag", role="samordnare"
+        )
+
+    @unittest.expectedFailure
+    def test_research_is_not_overtaken_by_an_unrelated_role(self) -> None:
+        # Baseline: rollbonusen (+5) lyfter rektorns paket förbi researchstegen.
+        self.assertRoutesToWorkflow(
+            "research omvärldsanalys flera aktuella källor jämförelse", "fran-fraga-till-researchunderlag", role="rektor"
         )
 
     def test_product(self) -> None:
@@ -162,9 +167,7 @@ class RoleExplorationTests(unittest.TestCase):
         self.assertTrue(result["role_recognized"])
         self.assertTrue(result["packages"])
 
-    @unittest.expectedFailure
     def test_every_published_package_has_a_role_mapping(self) -> None:
-        # Baseline: de fyra nya workflowen saknas i _AREA_ROLES och kan aldrig rekommenderas.
         published = {p["slug"] for p in _CATALOG["packages"]}
         self.assertEqual(published - set(_AREA_ROLES), set())
 

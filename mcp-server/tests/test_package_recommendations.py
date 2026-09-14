@@ -97,6 +97,7 @@ class PackageRecommendationTests(unittest.TestCase):
             [
                 "forandringsledning",
                 "processer",
+                "behov-till-effekt",
                 "ledarskap",
                 "kommunikation",
                 "arbetsbank",
@@ -218,6 +219,131 @@ class NewlyPublishedPackageTests(unittest.TestCase):
         areas = recommend("bibliotekarie", templates)["recommended_areas"]
 
         self.assertIn("nytt-paket", areas)
+
+
+def _catalog_with_workflows() -> list[dict[str, str]]:
+    """Katalogen 2026-09-14: de 20 ovan plus de fyra nyaste workflowen."""
+    return _live_templates() + [
+        {"area": area, "area_label": label}
+        for area, label in (
+            ("behov-till-verifierad-digital-losning", "Från behov till verifierad digital lösning"),
+            ("data-till-forbattring", "Från data till förbättring"),
+            ("fran-behov-till-validerad-produkt", "Från behov till validerad produkt"),
+            ("fran-fraga-till-researchunderlag", "Från fråga till researchunderlag"),
+        )
+    ]
+
+
+class WorkflowRoleTests(unittest.TestCase):
+    """Banken är bred: varje workflow ska nå de yrkesroller som har nytta av det."""
+
+    def _areas(self, role: str) -> list[str]:
+        return recommend(role, _catalog_with_workflows())["recommended_areas"]
+
+    def test_every_workflow_reaches_several_roles(self) -> None:
+        for workflow, roles in (
+            ("fran-fraga-till-researchunderlag", ("utredare", "analytiker", "samordnare", "handläggare", "kommunikatör")),
+            ("data-till-forbattring", ("analytiker", "verksamhetsutvecklare", "utredare", "chef")),
+            ("behov-till-verifierad-digital-losning", ("verksamhetsutvecklare", "upphandlare", "systemförvaltare")),
+            ("fran-behov-till-validerad-produkt", ("verksamhetsutvecklare", "produktägare", "entreprenör")),
+            ("behov-till-effekt", ("verksamhetsutvecklare", "utredare", "samordnare", "chef", "projektledare")),
+        ):
+            for role in roles:
+                with self.subTest(workflow=workflow, role=role):
+                    self.assertIn(workflow, self._areas(role))
+
+    def test_new_professional_roles_are_recognized(self) -> None:
+        for role, expected in (
+            ("projektledare", "projektledare"),
+            ("systemförvaltare", "systemforvaltare"),
+            ("produktägare", "produktagare"),
+            ("entreprenör", "entreprenor"),
+            ("statistiker", "analytiker"),
+            ("controller", "analytiker"),
+            ("forskare", "utredare"),
+            ("kvalitetsutvecklare", "verksamhetsutvecklare"),
+            ("produktchef", "produktagare"),
+            ("företagare", "entreprenor"),
+            ("projektchef", "projektledare"),
+        ):
+            with self.subTest(role=role):
+                payload = recommend(role, _catalog_with_workflows())
+                self.assertTrue(payload["role_recognized"])
+                self.assertEqual(payload["matched_role"], expected)
+
+    def test_chef_still_leads_with_the_packages_in_the_reviewed_test_case(self) -> None:
+        """chatgpt-app-submission.json, testfall 1: förändringsledning,
+        beslutsberedning och ledarskap för rollen chef."""
+        self.assertEqual(self._areas("chef")[:3], ["forandringsledning", "beslutsberedning", "ledarskap"])
+
+    def test_kommunikator_still_leads_with_kommunikation(self) -> None:
+        self.assertEqual(self._areas("kommunikatör")[0], "kommunikation")
+
+    def test_investigators_and_analysts_meet_research_and_data_early(self) -> None:
+        self.assertEqual(self._areas("utredare")[:2], ["beslutsberedning", "fran-fraga-till-researchunderlag"])
+        self.assertEqual(self._areas("analytiker")[:2], ["data-till-forbattring", "fran-fraga-till-researchunderlag"])
+
+    def test_projektledare_leads_with_the_change_workflow(self) -> None:
+        self.assertEqual(self._areas("projektledare")[0], "behov-till-effekt")
+
+    def test_samordnare_gets_research(self) -> None:
+        self.assertIn("fran-fraga-till-researchunderlag", self._areas("samordnare"))
+
+
+class AudienceRoleTests(unittest.TestCase):
+    """Roller från paketets målgrupp ("Vem det är för"), som sätts med
+    admin-MCP. Nya paket och nya yrkesroller ska nå rätt person utan kodändring."""
+
+    def _new_package(self, area: str = "arkiv-och-diarium", label: str = "Arkiv och diarium") -> list[dict[str, str]]:
+        return _catalog_with_workflows() + [{"area": area, "area_label": label}]
+
+    def test_a_role_only_named_in_the_audience_is_recognized(self) -> None:
+        payload = recommend(
+            "bibliotekarie", self._new_package(), audiences={"arkiv-och-diarium": "För bibliotekarier och arkivarier"}
+        )
+
+        self.assertTrue(payload["role_recognized"])
+        self.assertEqual(payload["recommended_areas"][0], "arkiv-och-diarium")
+
+    def test_plural_audience_words_reach_the_singular_role(self) -> None:
+        audiences = {"arkiv-och-diarium": "För chefer, HR-specialister och registratorer"}
+        for role in ("chef", "HR", "registrator"):
+            with self.subTest(role=role):
+                self.assertIn("arkiv-och-diarium", recommend(role, self._new_package(), audiences=audiences)["recommended_areas"])
+
+    def test_audience_adds_roles_and_never_removes_mapped_ones(self) -> None:
+        audiences = {"fran-fraga-till-researchunderlag": "För bibliotekarier"}
+
+        self.assertIn("fran-fraga-till-researchunderlag", recommend("bibliotekarie", _catalog_with_workflows(), audiences=audiences)["recommended_areas"])
+        self.assertIn("fran-fraga-till-researchunderlag", recommend("utredare", _catalog_with_workflows(), audiences=audiences)["recommended_areas"])
+
+    def test_universal_packages_stay_universal(self) -> None:
+        audiences = {"vardagspaket": "För bibliotekarier"}
+
+        payload = recommend("bibliotekarie", _catalog_with_workflows(), audiences=audiences)
+
+        self.assertFalse(payload["role_recognized"])
+
+    def test_filler_words_in_the_audience_are_not_roles(self) -> None:
+        audiences = {"arkiv-och-diarium": "För alla som arbetar med dokument i verksamheten"}
+        for role in ("alla", "arbetar"):
+            with self.subTest(role=role):
+                self.assertFalse(recommend(role, self._new_package(), audiences=audiences)["role_recognized"])
+
+    def test_package_with_an_audience_is_not_reported_as_unmapped(self) -> None:
+        import server.package_recommendations as module
+
+        module._UNMAPPED_AREAS_LOGGED.clear()
+        with self.assertNoLogs("server.package_recommendations", level="WARNING"):
+            recommend("chef", self._new_package(), audiences={"arkiv-och-diarium": "För chefer"})
+
+    def test_role_focus_areas_follow_the_audience(self) -> None:
+        recognized, areas = role_focus_areas(
+            "bibliotekarie", self._new_package(), audiences={"arkiv-och-diarium": "För bibliotekarier"}
+        )
+
+        self.assertTrue(recognized)
+        self.assertEqual(areas, ["arkiv-och-diarium"])
 
 
 class RoleFocusAreaTests(unittest.TestCase):

@@ -367,6 +367,9 @@ _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
 _catalog_prompt_count_cache: tuple[float, int] | None = None
 
+_CATALOG_AUDIENCE_CACHE_TTL_SECONDS = 300
+_catalog_audience_cache: tuple[float, dict[str, str]] | None = None
+
 _PROMPTBANKEN_OPEN_1_2_2_AREAS = (
     "anti-slop",
     "arbetsbank",
@@ -409,6 +412,36 @@ def _open_catalog_prompt_count() -> int | None:
 
     _catalog_prompt_count_cache = (now, count)
     return count
+
+
+def _catalog_package_audiences() -> dict[str, str]:
+    """Paketens målgrupp ("Vem det är för") per slug, cachat 5 min.
+
+    Rollrekommendationerna läser roller ur målgruppen ovanpå den statiska
+    kartan, så ett paket som publiceras med admin-MCP når rätt yrken utan
+    kodändring. Kan katalogen inte nås gäller bara kartan -- rekommendationer
+    får aldrig gå sönder på detta.
+    """
+    global _catalog_audience_cache
+    now = time.monotonic()
+    if _catalog_audience_cache and now - _catalog_audience_cache[0] < _CATALOG_AUDIENCE_CACHE_TTL_SECONDS:
+        return _catalog_audience_cache[1]
+
+    try:
+        packages = _catalog.list_published_packages()
+    except _catalog.CatalogNotConfigured:
+        return {}
+    except Exception:  # noqa: BLE001 - rekommendationer får aldrig krascha på detta
+        logger.warning("catalog_package_audiences_failed", exc_info=True)
+        return _catalog_audience_cache[1] if _catalog_audience_cache else {}
+
+    audiences = {
+        package["slug"]: str(package["audience_label"])
+        for package in packages
+        if isinstance(package.get("slug"), str) and package.get("audience_label")
+    }
+    _catalog_audience_cache = (now, audiences)
+    return audiences
 
 
 def _open_catalog_areas() -> list[str]:
@@ -672,8 +705,9 @@ def _search_templates_payload(
     role_bonus = 0
     recommendation: dict[str, Any] | None = None
     if role:
-        recommendation = _recommend_packages(role, templates)
-        recognized, focus_areas = _role_focus_areas(role, templates)
+        audiences = _catalog_package_audiences()
+        recommendation = _recommend_packages(role, templates, audiences)
+        recognized, focus_areas = _role_focus_areas(role, templates, audiences)
         role_bonus_areas = set(focus_areas)
         # A role from the vocabulary is a statement and outranks the text; a
         # lexical hit on slug and title is a guess and may only break a tie,
@@ -1336,7 +1370,7 @@ def _recommend_packages_payload(role: str) -> dict[str, Any]:
     prompts = _catalog.list_published_prompts(context_keys=context_keys)
     area_index = _catalog_area_index(context_keys)
     templates = [_catalog_prompt_to_template_summary(p, area_index=area_index) for p in prompts]
-    return _recommend_packages(role, templates)
+    return _recommend_packages(role, templates, _catalog_package_audiences())
 
 
 def _save_workspace_prompt_payload(

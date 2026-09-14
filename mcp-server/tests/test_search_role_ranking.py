@@ -10,7 +10,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from server.mcp_server import _search_templates_payload
+import server.mcp_server as server_mcp
+from server.mcp_server import _catalog_package_audiences, _recommend_packages_payload, _search_templates_payload
 
 
 def _template(area: str, area_label: str, title: str) -> dict[str, object]:
@@ -78,6 +79,74 @@ class SearchRoleRankingTests(unittest.TestCase):
         self.assertTrue(payload["role_recognized"])
         self.assertEqual(payload["matched_role"], "larare")
         self.assertIn("recommended_areas", payload)
+
+
+class AudienceRoleWiringTests(unittest.TestCase):
+    """Målgruppen som sätts med admin-MCP ska nå både search_templates och
+    recommend_packages, och katalogfel får aldrig fälla rekommendationerna."""
+
+    def setUp(self) -> None:
+        server_mcp._catalog_audience_cache = None
+
+    def tearDown(self) -> None:
+        server_mcp._catalog_audience_cache = None
+
+    def test_search_ranks_toward_a_role_named_only_in_the_audience(self) -> None:
+        catalog = {"templates": _catalog()["templates"] + [_template("arkiv-och-diarium", "Arkiv och diarium", "Planera gallringen")]}
+        with (
+            patch("server.mcp_server._list_templates_payload", return_value=catalog),
+            patch("server.mcp_server._catalog_package_audiences", return_value={"arkiv-och-diarium": "För arkivarier"}),
+        ):
+            payload = _search_templates_payload(query="planera", role="arkivarie", limit=10)
+
+        self.assertEqual(payload["templates"][0]["area"], "arkiv-och-diarium")
+        self.assertTrue(payload["role_recognized"])
+
+    def test_recommend_packages_uses_the_audience(self) -> None:
+        prompts = [{"id": "p1"}]
+        with (
+            patch("server.mcp_server._catalog.list_published_prompts", return_value=prompts),
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+            patch(
+                "server.mcp_server._catalog_prompt_to_template_summary",
+                return_value={"area": "arkiv-och-diarium", "area_label": "Arkiv och diarium"},
+            ),
+            patch("server.mcp_server._catalog_package_audiences", return_value={"arkiv-och-diarium": "För arkivarier"}),
+        ):
+            payload = _recommend_packages_payload("arkivarie")
+
+        self.assertTrue(payload["role_recognized"])
+        self.assertEqual(payload["recommended_areas"], ["arkiv-och-diarium"])
+
+    def test_audiences_are_read_from_published_packages_and_cached(self) -> None:
+        packages = [
+            {"slug": "arkiv-och-diarium", "audience_label": "För arkivarier"},
+            {"slug": "vardagspaket", "audience_label": None},
+        ]
+        with patch("server.mcp_server._catalog.list_published_packages", return_value=packages) as rpc:
+            first = _catalog_package_audiences()
+            second = _catalog_package_audiences()
+
+        self.assertEqual(first, {"arkiv-och-diarium": "För arkivarier"})
+        self.assertEqual(second, first)
+        self.assertEqual(rpc.call_count, 1)
+
+    def test_a_catalog_failure_falls_back_to_the_static_map(self) -> None:
+        with (
+            patch("server.mcp_server._catalog.list_published_packages", side_effect=RuntimeError("nere")),
+            self.assertLogs("promptbanken_mcp", level="WARNING"),
+        ):
+            self.assertEqual(_catalog_package_audiences(), {})
+
+    def test_an_unconfigured_catalog_is_quiet(self) -> None:
+        with (
+            patch(
+                "server.mcp_server._catalog.list_published_packages",
+                side_effect=server_mcp._catalog.CatalogNotConfigured("saknas"),
+            ),
+            self.assertNoLogs("promptbanken_mcp", level="WARNING"),
+        ):
+            self.assertEqual(_catalog_package_audiences(), {})
 
 
 if __name__ == "__main__":
