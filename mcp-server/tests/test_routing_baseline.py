@@ -10,8 +10,9 @@ att workflowet står för minst tre av de fem översta. Medlemskap räknas från
 paketen, inte från mallens `area`: återanvända steg bär bara ett område, och
 `behov-till-effekt` har bara två av sex steg med sin egen slug som area.
 
-Fall markerade expectedFailure fungerar inte i dagens ranking. När rankingen
-förbättras blir de "unexpected success" -- ta då bort markeringen.
+Fall markerade expectedFailure fungerar inte ännu. Blir de "unexpected
+success" -- ta då bort markeringen. Sökningen ser samma paketmedlemskap som
+servern i produktion.
 """
 import json
 import logging
@@ -30,14 +31,23 @@ _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "open_catalog_2026-09-
 _CATALOG = json.loads(_FIXTURE.read_text(encoding="utf-8"))
 _WORKFLOWS = {p["slug"] for p in _CATALOG["packages"] if p["package_type"] == "workflow"}
 _MEMBERSHIP: dict[str, set[str]] = {}
+_TEMPLATE_PACKAGES: dict[str, list[dict[str, object]]] = {}
 for _package in _CATALOG["packages"]:
     for _prompt_id in _package["prompt_ids"]:
         _MEMBERSHIP.setdefault(_prompt_id, set()).add(_package["slug"])
+        _TEMPLATE_PACKAGES.setdefault(_prompt_id, []).append(
+            {k: _package[k] for k in ("slug", "package_type", "title", "summary")}
+        )
 
 
-def _search(query: str, role: str = "") -> list[dict[str, object]]:
-    with patch("server.mcp_server._list_templates_payload", return_value={"templates": _CATALOG["templates"]}):
-        return _search_templates_payload(query=query, role=role, limit=8)["templates"]
+def _search(query: str, role: str = "", limit: int = 8) -> list[dict[str, object]]:
+    """Som servern i produktion: katalogen plus paketmedlemskapet."""
+    with (
+        patch("server.mcp_server._list_templates_payload", return_value={"templates": _CATALOG["templates"]}),
+        patch("server.mcp_server._catalog_template_packages", return_value=_TEMPLATE_PACKAGES),
+        patch("server.mcp_server._catalog_package_audiences", return_value={}),
+    ):
+        return _search_templates_payload(query=query, role=role, limit=limit)["templates"]
 
 
 def _workflow_counts(templates: list[dict[str, object]]) -> Counter[str]:
@@ -90,9 +100,7 @@ class KeywordQueryRoutingTests(RoutingBaselineCase):
             "research omvärldsanalys flera aktuella källor jämförelse", "fran-fraga-till-researchunderlag", role="samordnare"
         )
 
-    @unittest.expectedFailure
     def test_research_is_not_overtaken_by_an_unrelated_role(self) -> None:
-        # Baseline: rollbonusen (+5) lyfter rektorns paket förbi researchstegen.
         self.assertRoutesToWorkflow(
             "research omvärldsanalys flera aktuella källor jämförelse", "fran-fraga-till-researchunderlag", role="rektor"
         )
@@ -108,9 +116,7 @@ class KeywordQueryRoutingTests(RoutingBaselineCase):
             "verksamhetsbehov digital lösning funktionskrav verifiering acceptanstest införande", "behov-till-verifierad-digital-losning"
         )
 
-    @unittest.expectedFailure
     def test_business_development(self) -> None:
-        # Baseline: plats 2 är ett krav-steg från digital lösning.
         self.assertRoutesToWorkflow("problem i arbetssättet nuläge målbild förändring effekt", "behov-till-effekt")
 
     def test_article(self) -> None:
@@ -129,14 +135,10 @@ class NaturalQueryRoutingTests(RoutingBaselineCase):
     def test_research_with_role(self) -> None:
         self.assertRoutesToWorkflow("research kommuner systemstöd skolval", "fran-fraga-till-researchunderlag", role="samordnare")
 
-    @unittest.expectedFailure
     def test_product(self) -> None:
-        # Baseline: en enda träff -- "produktutveckla" matchar inga stegtitlar.
         self.assertRoutesToWorkflow("produktutveckla SaaS", "fran-behov-till-validerad-produkt")
 
-    @unittest.expectedFailure
     def test_data(self) -> None:
-        # Baseline: "Analysera argumentet" på plats 2 -- vanliga ord väger lika tungt som ovanliga.
         self.assertRoutesToWorkflow("analysera verksamhetsdata hitta vad vi bör testa", "data-till-forbattring")
 
     def test_digital_solution(self) -> None:
@@ -144,16 +146,33 @@ class NaturalQueryRoutingTests(RoutingBaselineCase):
 
     @unittest.expectedFailure
     def test_business_development(self) -> None:
-        # Baseline: tre träffar, inget steg ur behov-till-effekt.
+        # Innehållsgap, inte rankingfel: inget av orden återkommande, supportproblem,
+        # förbättra eller arbetssätt finns i stegen eller sammanfattningen för
+        # behov-till-effekt. Löses med taggar eller sammanfattning via admin-MCP.
         self.assertRoutesToWorkflow("återkommande supportproblem förbättra arbetssättet", "behov-till-effekt")
 
     def test_article(self) -> None:
         self.assertRoutesToWorkflow("skriva artikel från idé", "fran-ide-till-artikel")
 
-    @unittest.expectedFailure
     def test_simple_email(self) -> None:
-        # Baseline: "Kan jag använda AI till detta HR-arbete?" på plats 1 -- "detta" räknas som titelträff.
         self.assertRoutesToSinglePrompt("skriv om detta mejl", "mejl")
+
+
+class SubmissionSearchCaseTests(RoutingBaselineCase):
+    """Sökfallen i chatgpt-app-submission.json är publicerat beteende och får
+    inte försämras av rankingändringar."""
+
+    def test_case_0_information_mailing_about_a_school_change(self) -> None:
+        top = _search("informationsutskick förändring skola")
+        self.assertIn("📣 Skapa informationsutskick", [t["title"] for t in top[:5]])
+
+    def test_case_4_system_requirements_to_functional_requirements(self) -> None:
+        top = _search("göra om systemkrav till funktionskrav inför upphandling", limit=10)
+        titles = [t["title"] for t in top]
+        self.assertEqual(titles[0], "Gör om till funktionskrav", titles)
+        for title in ("Slå ihop och förenkla krav", "SKA, mervärde eller användningsfall?", "Utmana våra krav"):
+            with self.subTest(title=title):
+                self.assertIn(title, titles)
 
 
 class RoleExplorationTests(unittest.TestCase):

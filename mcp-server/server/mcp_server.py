@@ -44,6 +44,7 @@ from .vault import deactivate_package as _vault_deactivate_package
 from .vault import copy_template as _vault_copy_template
 from .package_recommendations import recommend as _recommend_packages
 from .package_recommendations import role_focus_areas as _role_focus_areas
+from .search_ranking import rank as _rank_templates
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -362,6 +363,9 @@ _TOOLS_WITH_OUTPUT_SCHEMA = frozenset(_PUBLIC_OPEN_TOOL_NAMES)
 
 _CATALOG_AREA_CACHE_TTL_SECONDS = 60
 _catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
+# Byggs i samma varv som områdesindexet: varje mall kan ingå i flera paket,
+# medan områdesindexet bara behåller ett område per mall.
+_catalog_template_packages_cache: dict[tuple[str, ...], dict[str, list[dict[str, Any]]]] = {}
 _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 
 _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
@@ -545,6 +549,7 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
         return cached[1]
 
     index: dict[str, dict[str, str | None]] = {}
+    memberships: dict[str, list[dict[str, Any]]] = {}
     packages = _catalog.list_published_packages(context_keys=list(normalized_contexts))
     for package in packages:
         area = package.get("slug")
@@ -552,6 +557,12 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
             continue
         area_label = package.get("title") or package.get("audience_label") or area
         package_context = package.get("context_key")
+        membership = {
+            "slug": area,
+            "package_type": package.get("package_type"),
+            "title": package.get("title"),
+            "summary": package.get("summary"),
+        }
         for prompt in _catalog.list_published_package_prompts(area, context_keys=list(normalized_contexts)):
             meta = {
                 "area": area,
@@ -560,13 +571,28 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
             }
             prompt_id = _catalog_prompt_identifier(prompt)
             prompt_slug = _catalog_prompt_slug(prompt)
-            if prompt_id:
-                index[prompt_id] = meta
-            if prompt_slug:
-                index[prompt_slug] = meta
+            for key in {prompt_id, prompt_slug} - {None}:
+                index[key] = meta
+                memberships.setdefault(key, []).append(membership)
 
     _catalog_area_cache[normalized_contexts] = (now, index)
+    _catalog_template_packages_cache[normalized_contexts] = memberships
     return index
+
+
+def _catalog_template_packages(context_keys: list[str] | None = None) -> dict[str, list[dict[str, Any]]]:
+    """Paketen varje mall ingår i, per mall-id -- för att search_templates ska
+    kunna se när flera träffar är steg i samma workflow. Kan katalogen inte nås
+    rankas sökningen utan paketkontext i stället för att fallera."""
+    normalized_contexts = tuple(_normalize_context_keys(context_keys))
+    try:
+        _catalog_area_index(list(normalized_contexts))
+    except _catalog.CatalogNotConfigured:
+        return {}
+    except Exception:  # noqa: BLE001 - sökningen får aldrig krascha på detta
+        logger.warning("catalog_template_packages_failed", exc_info=True)
+        return {}
+    return _catalog_template_packages_cache.get(normalized_contexts, {})
 
 
 def _catalog_prompt_area_meta(
@@ -694,79 +720,27 @@ def _search_templates_payload(
         return catalog_payload
     templates = catalog_payload["templates"]
 
-    def _search_text(value: Any) -> str:
-        if isinstance(value, list):
-            return " ".join(_search_text(item) for item in value)
-        if value is None:
-            return ""
-        return str(value)
-
-    role_bonus_areas: set[str] = set()
-    role_bonus = 0
+    role_areas: set[str] = set()
+    recognized = False
     recommendation: dict[str, Any] | None = None
     if role:
         audiences = _catalog_package_audiences()
         recommendation = _recommend_packages(role, templates, audiences)
         recognized, focus_areas = _role_focus_areas(role, templates, audiences)
-        role_bonus_areas = set(focus_areas)
-        # A role from the vocabulary is a statement and outranks the text; a
-        # lexical hit on slug and title is a guess and may only break a tie,
-        # never beat a real title match. Neither filters anything out, which
-        # is what the 1.2.2 description promises.
-        role_bonus = 5 if recognized else 1
+        role_areas = set(focus_areas)
 
-    raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
-    # Two characters, not three: "AI", "HR" and "IT" are exactly the terms
-    # people search this catalogue for. The two-letter Swedish function words
-    # are handled by STOPWORDS instead of by a blunt length cut.
-    tokens = [tok for tok in raw_tokens if len(tok) >= 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
-
-    # A query the tokenizer discarded entirely -- a single letter, or nothing
-    # but stopwords -- carries no signal. Report nothing rather than falling
-    # through to "no filter", which used to return the whole catalogue.
-    if raw_tokens and not tokens:
-        return {"total_matches": 0, "returned": 0, "templates": []}
-
-    # Short tokens have to match a whole word. Plain substring matching is
-    # what makes "IT" hit "politik" and "kvalitet"; longer tokens keep it, so
-    # Swedish compounds and inflections ("mall" -> "mallar") still match.
-    matchers = [
-        (re.compile(rf"\b{re.escape(tok)}\b", flags=re.UNICODE).search if len(tok) <= 3 else None, tok)
-        for tok in tokens
-    ]
-
-    def _hits(needle_matcher: Any, tok: str, haystack: str) -> bool:
-        return bool(needle_matcher(haystack)) if needle_matcher else tok in haystack
-
-    scored: list[tuple[int, dict[str, Any]]] = []
-    for t in templates:
-        if area and t.get("area") != area:
-            continue
-        if risk_level and t.get("risk_level") != risk_level:
-            continue
-        if tokens:
-            strong = (_search_text(t.get("title")) + " " + _search_text(t.get("tags"))).lower()
-            weak = " ".join(
-                [
-                    _search_text(t.get("syfte")),
-                    _search_text(t.get("output_format")),
-                    _search_text(t.get("area_label")),
-                    _search_text(t.get("tone_hint")),
-                ]
-            ).lower()
-            score = sum(
-                2 if _hits(matcher, tok, strong) else 1 if _hits(matcher, tok, weak) else 0
-                for matcher, tok in matchers
-            )
-            if score <= 0:
-                continue
-        else:
-            score = 0
-        if t.get("area") in role_bonus_areas:
-            score += role_bonus
-        scored.append((score, t))
-
-    matches = [t for _, t in sorted(scored, key=lambda pair: pair[0], reverse=True)]
+    # Rollen rankar, den filtrerar aldrig -- det är vad 1.2.2-beskrivningen
+    # lovar. En fråga som bara består av funktionsord ger inga träffar hellre
+    # än hela katalogen.
+    matches = _rank_templates(
+        templates,
+        query,
+        area=area,
+        risk_level=risk_level,
+        role_areas=role_areas,
+        role_recognized=recognized,
+        template_packages=_catalog_template_packages(context_keys) if query.strip() else None,
+    )
     clamped_limit = max(1, min(limit, len(templates) or 1))
     limited = matches[:clamped_limit]
 
