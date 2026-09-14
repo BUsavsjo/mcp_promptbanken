@@ -99,8 +99,16 @@ sleep 8
 docker ps --format '{{.Names}}\t{{.Status}}' | grep $ComposeService
 "@
 
+# PowerShell here-strings use CRLF; bash on the VPS chokes on the stray \r
+# ("cd: '/home/...\r': No such file or directory"). Send LF-only.
+$remoteScript = $remoteScript -replace "`r", ""
+
 ssh $VpsHost $remoteScript
-if ($LASTEXITCODE -ne 0) { throw "Remote deploy step failed -- check output above." }
+if ($LASTEXITCODE -ne 0) {
+    # Surface the token so a failed deploy doesn't force a re-login.
+    Write-Host "Minted but NOT deployed -- SUPABASE_ADMIN_REFRESH_TOKEN=$refreshToken" -ForegroundColor Yellow
+    throw "Remote deploy step failed -- check output above."
+}
 
 Step "Done. Verify from Claude Code with: admin_list_draft_prompts"
 Write-Host "New SUPABASE_ADMIN_REFRESH_TOKEN=$refreshToken" -ForegroundColor DarkGray
