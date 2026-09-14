@@ -367,18 +367,24 @@ _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
 _catalog_prompt_count_cache: tuple[float, int] | None = None
 
-_CATALOG_AREA_SLUG_CACHE_TTL_SECONDS = 300
-_catalog_area_slug_cache: tuple[float, list[str]] | None = None
-
-# Used only when the catalog cannot be reached -- see _open_catalog_areas.
-_FALLBACK_CATALOG_AREAS = (
+_PROMPTBANKEN_OPEN_1_2_2_AREAS = (
+    "anti-slop",
     "arbetsbank",
+    "bemot-argument",
     "beslutsberedning",
     "forandringsledning",
+    "hall-traden",
     "kommunikation",
     "ledarskap",
     "processer",
+    "sag-emot-mig",
+    "skarpare-funktionskrav",
+    "skola-undervisning-larare",
+    "superplanlage",
+    "supportarenden",
+    "vardagspaket",
     "visuellt",
+    "workshop-och-facilitering",
 )
 
 
@@ -406,39 +412,12 @@ def _open_catalog_prompt_count() -> int | None:
 
 
 def _open_catalog_areas() -> list[str]:
-    """Områdena i den öppna katalogen, som search_templates faktiskt filtrerar
-    på. Cachat 5 min.
+    """Det granskade area-filtret i Promptbanken Open 1.2.2.
 
-    Områdena är paketens slugs och växer när nya paket publiceras. Den
-    hårdkodade listan i tool-schemat hade sju värden medan katalogen hade
-    sjutton, så tio områden gick inte att filtrera på alls. Faller tillbaka på
-    den kända listan om katalogen inte kan nås -- tools/list får aldrig gå
-    sönder för att katalogen är nere.
+    Tool-schemat är ett versionslåst externt kontrakt. Nya publicerade paket
+    får därför inte automatiskt lägga till enumvärden i ``tools/list``.
     """
-    global _catalog_area_slug_cache
-    now = time.monotonic()
-    if _catalog_area_slug_cache and now - _catalog_area_slug_cache[0] < _CATALOG_AREA_SLUG_CACHE_TTL_SECONDS:
-        return _catalog_area_slug_cache[1]
-
-    try:
-        areas = sorted(
-            {
-                str(package["slug"])
-                for package in _catalog.list_published_packages()
-                if isinstance(package.get("slug"), str) and package.get("slug")
-            }
-        )
-    except Exception:  # noqa: BLE001 - tools/list får aldrig krascha på detta
-        logger.warning("open_catalog_areas_failed", exc_info=True)
-        if _catalog_area_slug_cache:
-            return _catalog_area_slug_cache[1]
-        return list(_FALLBACK_CATALOG_AREAS)
-
-    if not areas:
-        return list(_FALLBACK_CATALOG_AREAS)
-
-    _catalog_area_slug_cache = (now, areas)
-    return areas
+    return list(_PROMPTBANKEN_OPEN_1_2_2_AREAS)
 
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:

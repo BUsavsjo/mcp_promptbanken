@@ -1,5 +1,68 @@
 # Logg
 
+## 2026-09-08 - Devmiljön inventerad
+
+### Verifierat
+- En separat Promptbanken Open-devcontainer kör på VPS:en som
+  `promptbanken-open-dev_promptbanken-mcp_1`, bunden till
+  `127.0.0.1:8001`. `https://mcp-dev.promptbanken.se/healthz` svarade 200 med
+  version 1.2.2 och 52 publicerade stagingmallar.
+- Devcontainern och produktionscontainern kör samma image-id
+  (`sha256:afdc8afd...`), byggd 2026-08-30. Den kör alltså inte den lokala
+  1.2.2-kontraktsåterställningen på commit `fb29a7e`.
+- Produktion på port 8000 svarade 200 med 121 publicerade mallar.
+- `promptbanken-connect-dev_connect_1` kör också på VPS:en, bunden till port
+  8011.
+- `dev.promptbanken.se` har Basic Auth i Caddy-konfigurationen, men DNS pekar
+  via Cloudflare och den externa health-kontrollen gav 404. Den fungerande
+  adressen `mcp-dev.promptbanken.se` pekar direkt på VPS:en och svarar utan
+  Basic Auth.
+- VPS:ens rotpartition hade bara 4,2 MB ledigt (100 procent använd). Ingen
+  build, deploy, omstart eller städning gjordes under kontrollen.
+
+### Kvarstår
+- Frigör och verifiera tillräckligt diskutrymme innan nästa build eller deploy.
+- Besluta om Open-devcontainern ska fortsätta köras och om
+  `mcp-dev.promptbanken.se` ska vara publik eller skyddas.
+- Om kontraktsåterställningen ska testas i dev krävs en ny, uttrycklig
+  testbuild; den nuvarande devcontainern är samma äldre image som produktion.
+
+## 2026-09-08 - Promptbanken Open 1.2.2-kontraktet versionslåst
+
+### Gjort
+- Jämförde produktionens nio publika `tools/list`-definitioner med den faktiskt
+  godkända 1.2.2-submissionen. Åtta verktyg matchade exakt; `search_templates`
+  hade tre extra area-enumvärden (`hr`, `behov-till-effekt`,
+  `fran-ide-till-artikel`).
+- Reproducerade testluckan: det gamla kontraktstestet gav 53/53 PASS mot samma
+  produktion eftersom det inte jämförde fullständiga scheman.
+- Lade till den oföränderliga snapshoten
+  `mcp-server/contracts/promptbanken-open-1.2.2.tools.json` och kopplade den från
+  `mcp-server/mcp-contract.json`.
+- Utökade `promptbanken-mcp-contract-test` så hela `description`, `inputSchema`,
+  `outputSchema`, `annotations` och `_meta` jämförs och avvikande JSON-sökväg
+  rapporteras. Samma produktionskörning ger nu korrekt 61/62 FAIL på
+  `search_templates.inputSchema.properties.area.enum`.
+- Ersatte den dynamiska, katalogstyrda area-enumen i `mcp_server.py` med de 17
+  granskade 1.2.2-värdena. Ett regressionstest bekräftar att publicering av ett
+  nytt paket inte längre ändrar tool-schemat.
+
+### Verifierat
+- RED: strikt kontraktstest mot produktion — 61/62, exakt förväntad area-drift.
+- RED→GREEN: riktat area-enumtest föll med katalogstyrd lista och går grönt med
+  den frysta listan.
+- Hela testsviten: 99 tester gröna.
+- `npm run check:python` grönt.
+- Lokal `/mcp` matchade alla nio versionslåsta tool-definitioner exakt. Den
+  lokala CORS-kontrollen gav 405 eftersom CORS hanteras av produktionsproxyn;
+  produktionens CORS-kontroller är fortsatt gröna.
+- Skillens `quick_validate.py` grönt.
+
+### Kvarstår
+- Ingen produktionsdeploy gjord i detta pass. Den strikta livekontrollen ska
+  fortsätta vara röd tills den granskade 17-värdesdefinitionen är återställd på
+  VPS:en.
+
 ## 2026-08-30 - Workflowet "Från behov till effekt" färdigställt: admin-MCP 18 → 20 verktyg, steg 7 utkopplat, rollrekommendation fixad
 
 ### Gjort

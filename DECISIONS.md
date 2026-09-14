@@ -1,5 +1,33 @@
 # Beslut
 
+## 2026-09-08 - Promptbanken Open 1.2.2 låser hela tool-definitionen
+
+### Beslut
+De nio publika verktygens godkända 1.2.2-definitioner är ett versionslåst
+kontrakt. `mcp-contract.json` pekar därför på en lokal snapshot som jämför
+exakt `description`, `inputSchema`, `outputSchema`, `annotations` och `_meta`
+mot `tools/list`.
+
+`search_templates.area` behåller de 17 enumvärden som ingick i OpenAI-
+granskningen av 1.2.2. Publicering av nya katalogpaket får inte längre ändra
+tool-schemat automatiskt. Nya områden är fortfarande sökbara som innehåll, men
+läggs inte till i area-enumen förrän en medveten ny appversion granskas.
+
+En liveavvikelse ska rättas i servern eller hanteras som en ny gransknings-
+version. Den godkända snapshoten får aldrig skrivas om från live-serverns svar
+bara för att göra testet grönt.
+
+### Varför
+Det tidigare kontraktstestet rapporterade 53/53 grönt trots att produktionens
+`search_templates.area.enum` hade vuxit från 17 till 20 värden när `hr`,
+`behov-till-effekt` och `fran-ide-till-artikel` publicerades. Testet låste bara
+verktygsnamn, titlar och några metadatafält. Det nya testet fångar samma drift
+som `search_templates.inputSchema.properties.area.enum`.
+
+Beslutet 2026-08-30 att katalogens `area` härleds från paketets slug gäller
+fortsatt svarsdata och intern routing, men inte vilka värden den frysta
+1.2.2-definitionen annonserar i `tools/list`.
+
 ## 2026-08-30 - `area` är paketets slug, inte en egen kategori — och workflow slutar vid effektuppföljning
 
 ### Beslut 1: ingen separat områdestaxonomi
