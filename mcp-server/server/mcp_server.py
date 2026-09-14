@@ -1812,13 +1812,17 @@ def get_client_routing_instructions() -> dict[str, Any]:
         "klienten fyller i och sammanfogar prompt_text/intro_text, parameter_schema, "
         "default_bindings och binding_overrides själv, lokalt."
     )
+    # Uppgiften routas före rollen. Att börja i recommend_packages(role) så fort
+    # rollen var känd gav rollpaket i stället för researchworkflowet i
+    # routingtestet 2026-09-14, trots att uppgiften var tydlig.
     catalog_client_flow = [
-        "Börja med recommend_packages(role) om användarens roll är känd; annars fråga efter roll eller visa alla paket med list_packages.",
-        "Använd search_templates(query, role, area, risk_level, context_keys) för att hitta relevanta publika mallar utan att hämta allt innehåll.",
-        "Använd area från list_packages eller recommend_packages för områdesfilter, till exempel kommunikation eller beslutsberedning.",
-        "När användaren valt mall: hämta full text med get_template(template_id, context_keys).",
+        "Utgå från uppgiften, inte rollen. Är uppgiften tydlig: sök direkt med search_templates(query) och några allmänna, anonymiserade ord om typen av uppgift. Skicka inte role när uppgiften redan är tydlig -- rollen kan då lyfta fel paket.",
+        "Välj omfång efter uppgiften: en smal, konkret leverans (till exempel skriva om ett mejl) ger en enskild mall; flera relaterade specialistbehov ger en collection; ett sammanhängande arbete i flera steg ger ett workflow; en mycket bred eller oklar större uppgift ger workflowet Superplanläge.",
+        "För flerstegsarbete: hämta list_packages(package_type='workflow') och jämför uppgiften med titel och sammanfattning. Är flera toppträffar från search_templates steg i samma workflow, föreslå hela workflowet i stället för ett enskilt steg. Stegen visas med list_package_prompts(slug), paketets introduktion med get_package(slug).",
+        "Är uppgiften oklar, eller frågar användaren vad som finns för deras roll: använd recommend_packages(role), eller list_packages om rollen är okänd.",
+        "Filtret area i search_templates tar bara de värden schemat listar. Nyare paket nås via query eller list_packages, inte via area.",
+        "När användaren valt mall eller steg: hämta full text med get_template(template_id, context_keys) först när den ska användas.",
         "list_templates är för bläddring och är sidindelad (limit/offset). search_templates är normalvägen in.",
-        "För arbetsflöden: visa paket med list_packages, hämta paketinfo med get_package och stegen med list_package_prompts. Stegen innehåller id och titel -- hämta varje stegs prompttext med get_template(id) när steget ska användas.",
         "Servern levererar bara rådata -- prompt_text/intro_text, parameter_schema, default_bindings och binding_overrides. Klienten gör all ifyllning, tolkning och sammanfogning lokalt; servern renderar aldrig en färdig prompt.",
         "Om klienten behöver användarens faktiska ärendetext ska den infogas lokalt efter riskkontroll. Skicka inte personuppgifter eller sekretess till den öppna MCP-servern.",
         "Valvet-, personliga workspace- och skrivverktyg kräver autentiserad MCP-nyckel och ska inte förväntas i den öppna connectorn.",
