@@ -27,6 +27,18 @@ Målgruppen valdes framför paketets `tags`, eftersom taggarna visas som länkar
 på de publika paketsidorna och tekniska rolltaggar skulle synas för besökare.
 `audience_label` är redan en läsbar målgruppstext och kräver ingen migration.
 
+### Sökrankingen
+`search_templates` rankar på uppgiften: sällsynta ord väger tyngst, å/ä/ö
+vikas, långa ord matchar sin stam och paketens titel/sammanfattning räknas
+svagt. Ett workflow lyfts som helhet när flera av dess steg dominerar
+träffarna, men bara om inget annat paket väger mer — en specialistcollection
+som bär svaret behåller ledningen. Rollen är en faktor, inte ett tillägg, så
+den bryter jämna lägen men kör aldrig om en tydlig textträff.
+
+Rankingen ligger i en egen modul (`server/search_ranking.py`) för att kunna
+testas mot en katalogfixture utan servern. Ett fall som saknar gemensamma ord
+med rätt workflow löses med innehåll via admin-MCP, inte med bredare matchning.
+
 ### Release-gate
 OpenAI tillåter buggfixar utan ny version om verktygen matchar sina
 publicerade definitioner och sitt beteende. Inget av detta ändrar

@@ -26,9 +26,28 @@
 - Rollbonusen (+5) kan fortfarande lyfta en roll förbi en tydlig uppgift
   (baselinefallet med `rektor`).
 
+- Steg 4 (`97426d5`): rankingen flyttad till `server/search_ranking.py` —
+  vikade å/ä/ö på båda sidor (taggarna är ASCII), funktionsord bort,
+  ordvikt efter hur sällsynt ordet är, stamträff för långa ord,
+  paketens titel/sammanfattning som svag kontext, lyft av ett workflow när
+  minst tre steg bär minst 40 procent av toppträffarna och inget annat paket
+  väger mer, rollen som faktor 1,25 i stället för +5.
+- Lade till submissionens sökfall 0 och 4 som skydd i baselinen. Båda låg
+  redan närmare gränsen än submissionen beskriver (katalogen har vuxit):
+  "Skapa informationsutskick" var fyra, "Utmana våra krav" nia.
+
+### Verifierat (steg 4)
+- 190 tester gröna, 1 förväntat fel. Snapshot oförändrad.
+- 5 av 6 baselinefel lösta. Kvar: "återkommande supportproblem förbättra
+  arbetssättet" — innehållsgap, se TODO.
+- Stabilt för klusterandel 0,25–0,45, rollfaktor 1,1–1,5, stamvikt 0,4–0,8.
+  Utan collectionregeln bröt klusterandel 0,35 submissionfall 4.
+- Jämförelse gammal/ny ranking på 20 vanliga frågor utanför testerna: ingen
+  tydlig försämring; bättre för bl.a. "svara medborgare",
+  "kommunikationsplan" och "bemöta kritik".
+- Områdesindexets cache är 60 s (inte 5 min); målgruppscachen är 5 min.
+
 ### Kvarstår
-- Steg 4: ranking i `search_templates` (ordvikt, workflowmedlemskap,
-  rollbonus som inte slår en stark textträff).
 - Deploy av grenen efter granskning. Hämtningen av fixturen gav cirka 30
   läsanrop mot produktionen, synliga i usage-statistiken.
 
