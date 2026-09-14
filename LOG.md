@@ -64,6 +64,10 @@
 - Hämtade en ny ögonblicksbild av den publika katalogen (`list_templates` + `list_packages` + `list_package_prompts` per paket) och skrev om `tests/fixtures/open_catalog_2026-09-14.json`: 159 mallar (var 147), 26 paket (var 24, 18 collections/8 workflows, var 17/7), 7 mallar utan paket (var 4).
 - `FixtureTests` uppdaterad med de nya talen. 190 tester gröna, inga xfail.
 
+### Merge klar, deploy misslyckades (samma dag)
+- `routing-task-intent` mergad till `main` (fast-forward `1eadbe4..e1e11b9`) och pushad till GitHub.
+- Försökte deploya till VPS:en via `claude-ssh`-verktyget: `MCP error -32603: SSH connection error: All configured authentication methods failed`. Ingen `git pull`/omstart kördes. Produktionen kör fortfarande föregående version.
+
 ### Kvarstår
 - Deploy av grenen efter granskning. Hämtningen av fixturen gav cirka 30
   läsanrop mot produktionen, synliga i usage-statistiken.
