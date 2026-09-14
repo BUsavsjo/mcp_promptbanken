@@ -16,8 +16,7 @@
     "analys",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "402046c1-f670-4e63-8f72-e652ac3cc3c4",
@@ -33,8 +32,7 @@
     "argument",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "f9d32438-055f-4217-ab52-a462eed4334d",
@@ -50,8 +48,7 @@
     "redigering",
     "ai-text"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "fb7bc7a5-23bc-44c9-8e54-d03706302e35",
@@ -67,8 +64,7 @@
     "redigering",
     "ai-text"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "fef187ac-f9c9-4f1e-b7b2-86c9b93ccc19",
@@ -84,8 +80,7 @@
     "redigering",
     "ai-text"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "7996ed6a-99ea-4048-a8ba-9431f63aabe4",
@@ -101,8 +96,7 @@
     "analys",
     "beslut"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "fc9a9805-aaea-420a-aee7-0d8ea9c48c9a",
@@ -116,8 +110,7 @@
     "todo",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "8fb89c0c-d0e7-417c-8fe5-c753ae81a825",
@@ -133,8 +126,7 @@
     "avgransning",
     "beslutsstod"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "c2cf78b3-ba45-4094-9f8f-0cc359c6a5d4",
@@ -150,8 +142,7 @@
     "scope",
     "product-discovery"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b38a953d-bd0f-4745-a4d4-503482e78095",
@@ -168,8 +159,23 @@
     "kallor",
     "omvarldsanalys"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "4bd5ae15-538a-4120-bec0-0fbb9610c90a",
+   "title": "Banta presentationen",
+   "syfte": "Hjälper dig korta en presentation utan att tappa kärnbudskap, nödvändiga fakta eller det publiken behöver för att förstå och agera.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "nedkortningsplan",
+   "tags": [
+    "presentation",
+    "forenkling",
+    "prioritering",
+    "tid",
+    "komprimering"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "e7f45be3-905d-4a07-993d-6dc4f7abd1b4",
@@ -186,8 +192,7 @@
     "evidens",
     "evidenslogg"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "120e1276-108d-41dd-bcca-60ad6ab5701d",
@@ -203,8 +208,7 @@
     "effektmal",
     "arbetsflode"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ef6c1b3d-385d-4aea-873c-760e4d98008e",
@@ -218,8 +222,7 @@
     "case_summary",
     "formal_summary"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "cd6a7ac3-ca85-4d76-9c8d-25f1b60972d9",
@@ -236,8 +239,25 @@
     "nyttorealisering",
     "arbetsflode"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "6ca4c278-a1be-4898-b86b-0fc25ae15af9",
+   "title": "Bygg kostnads- och nyttobilden",
+   "syfte": "Strukturerar kostnader, ekonomiska nyttor, kapacitetsvinster och övriga nyttor utan att blanda ihop pengar, tid och verksamhetseffekt.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "kostnads_och_nyttobild",
+   "tags": [
+    "business-case",
+    "kostnader",
+    "nyttor",
+    "roi",
+    "kapacitet",
+    "kalkyl",
+    "beslutsstod"
+   ],
+   "risk_level": "high"
   },
   {
    "id": "367d01d7-45e0-4de7-8be2-5acaacdd5081",
@@ -253,24 +273,7 @@
     "analys",
     "beslut"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
-  },
-  {
-   "id": "f303a6d0-40ee-47ff-8cb5-4ee97d4e242c",
-   "title": "Enkel infografik",
-   "syfte": "Skapa en enkel visuell struktur för information, siffror eller viktiga punkter.",
-   "area": "visuellt",
-   "area_label": "Visuellt stöd och informationsbilder",
-   "output_format": "image_prompt",
-   "tags": [
-    "infographic",
-    "visual_summary",
-    "explain_information",
-    "public_communication"
-   ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "5a21ff68-b925-46e7-8659-7fe2e49333e8",
@@ -286,8 +289,7 @@
     "möte",
     "delaktighet"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9f82ab4a-4955-452e-92e9-306bcd1ada0b",
@@ -301,8 +303,7 @@
     "checklista",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "924f7a3d-7287-4ead-8290-5560d14ae0cb",
@@ -316,8 +317,7 @@
     "questions_answers",
     "explain_document"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "14ceb9a3-837e-42d5-9926-32335fe653d0",
@@ -333,8 +333,7 @@
     "motargument",
     "analys"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "f55439f5-6f3e-4e40-8834-d9e2f4b9c2bd",
@@ -354,8 +353,23 @@
     "verifiering",
     "losningsneutralitet"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "6afa9f93-4889-4636-b354-e39a239bc50c",
+   "title": "Förfina en befintlig bild",
+   "syfte": "Skapar en kort redigeringsinstruktion för att ändra en befintlig bild utan att oavsiktligt förändra resten.",
+   "area": "visuellt",
+   "area_label": null,
+   "output_format": "image_edit_prompt",
+   "tags": [
+    "bildredigering",
+    "bildprompt",
+    "iteration",
+    "referensbild",
+    "visuellt"
+   ],
+   "risk_level": "low"
   },
   {
    "id": "7196c667-d585-4c84-81eb-57b4995fe1dd",
@@ -373,8 +387,7 @@
     "upphandling",
     "acceptans"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b1d4c714-5dd8-459f-9cec-b401c085c07f",
@@ -390,8 +403,7 @@
     "bemotande",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "3028265e-f11d-40d8-9dd7-f6b4572c1634",
@@ -407,8 +419,7 @@
     "vardeerbjudande",
     "product-discovery"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b21005ce-5843-4498-8ea4-e8781bd7022f",
@@ -424,8 +435,7 @@
     "verksamhetsutveckling",
     "forbattring"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b51629cb-9649-462b-a46e-1e5ab5e01277",
@@ -440,8 +450,23 @@
     "problemformulering",
     "arbetsflode"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "3c35b477-9dd2-4934-a05f-3cd84252aaa7",
+   "title": "Från röd tråd till slidebrief",
+   "syfte": "Översätter en tydlig presentationsstruktur till en slide-för-slide-brief som kan byggas vidare i valfritt presentationsverktyg.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "slidebrief",
+   "tags": [
+    "presentation",
+    "slidebrief",
+    "struktur",
+    "budskap",
+    "visuellt-stod"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "f00793fa-0116-4939-9843-b5ce3292dcb6",
@@ -461,8 +486,23 @@
     "processer",
     "förändring"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "25de33e9-9e7b-4ead-939c-3be8f42d4302",
+   "title": "Från underlag till röd tråd",
+   "syfte": "Gör ett underlag till en tydlig presentationsstruktur med logisk ordning, prioriterade budskap och ett starkt avslut.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "presentationsstruktur",
+   "tags": [
+    "presentation",
+    "rod-trad",
+    "struktur",
+    "underlag",
+    "budskap"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "00b59b58-5d4e-46e7-86f3-6159961b4664",
@@ -478,8 +518,7 @@
     "åtgärder",
     "möte"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "3124c870-6ab2-48ed-9669-d32aa93c3f08",
@@ -495,8 +534,7 @@
     "ansvar",
     "arbetsflode"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "8929218e-759a-4634-a4e0-7afc144d28b5",
@@ -514,8 +552,28 @@
     "systemkrav",
     "detaljkrav"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "6c46d74f-edba-4f75-8a15-b8c7aa7c217f",
+   "title": "Granska bild före publicering",
+   "syfte": "Kontrollerar om en färdig bild är korrekt, relevant, tillgänglig och lämplig att publicera i sitt sammanhang.",
+   "area": "visuellt",
+   "area_label": "Yrkesanvändare",
+   "output_format": "publiceringsgranskning",
+   "tags": [
+    "bildgranskning",
+    "publicering",
+    "kvalitetssakring",
+    "kvalitetssäkring",
+    "visuellt",
+    "tillganglighet",
+    "tillgänglighet",
+    "representation",
+    "faktakontroll",
+    "kanalanpassning"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "ac0ddd75-e494-470e-bca9-b44fbf4af62e",
@@ -531,8 +589,7 @@
     "kvalitet",
     "beslutsstod"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4681705a-5208-4217-b180-4dc9018c0d14",
@@ -549,8 +606,23 @@
     "ingress",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "3337397e-debd-476e-9e80-ec3eddc46987",
+   "title": "Granska presentationen",
+   "syfte": "Kvalitetsgranskar en presentation utifrån syfte, målgrupp, röd tråd, informationsmängd, trovärdighet och avslut.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "presentationsgranskning",
+   "tags": [
+    "presentation",
+    "granskning",
+    "kvalitet",
+    "malgrupp",
+    "budskap"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "d8d7857a-5e54-423e-8e35-8e866f275511",
@@ -567,8 +639,23 @@
     "observation",
     "kvantifiering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "8478fcb5-e02d-4587-b557-03c6164717fc",
+   "title": "Hitta presentationens kärna",
+   "syfte": "Hjälper dig låsa syfte, målgrupp, kärnbudskap och önskad effekt innan du börjar bygga slides.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "presentationsbrief",
+   "tags": [
+    "presentation",
+    "budskap",
+    "malgrupp",
+    "syfte",
+    "forberedelse"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "a9d2edc7-6be4-4b08-a0c1-3854fd79a462",
@@ -584,8 +671,7 @@
     "planering",
     "möte"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "5dd61183-834e-4590-ba1a-0118135f89e8",
@@ -601,8 +687,7 @@
     "malgrupp",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ad07188b-24e9-4021-b59d-6ac0b551c384",
@@ -619,8 +704,7 @@
     "skrivkramp",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "1511eeb2-2aa8-4311-a917-3bc058d38b8e",
@@ -636,8 +720,7 @@
     "personuppgifter",
     "riskbedomning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "f166e296-413a-4225-ac0c-a1c7eac66abb",
@@ -653,8 +736,7 @@
     "nyanstalld",
     "planering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "633dde9f-5f26-4e84-b31a-7bedd05164e6",
@@ -670,8 +752,7 @@
     "kompetensbehov",
     "likabehandling"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "e733afc1-a016-42fb-aa77-61ff6ef50c78",
@@ -687,8 +768,7 @@
     "kravprofil",
     "inkluderande-sprak"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4d668eaf-bea2-41bf-9aab-ed19c8af7110",
@@ -705,8 +785,7 @@
     "implementering",
     "ansvar"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "85bbda2a-6148-4cb8-af33-278d4897be5c",
@@ -723,8 +802,7 @@
     "arbetsgivarstod",
     "samtalsforberedelse"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "5bac4add-3956-4ba5-bb7f-67d2f6d4f415",
@@ -738,24 +816,29 @@
     "schema",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "a01714bc-419e-43fe-891d-c6d536e44e96",
-   "title": "Illustration till informationsutskick",
-   "syfte": "Skapa en trygg och neutral bildidé till kommunalt informationsutskick.",
+   "title": "Skapa illustration till information",
+   "syfte": "Skapar en relevant och kanal-anpassad illustration som stödjer ett informationsbudskap utan att ersätta själva informationen.",
    "area": "visuellt",
    "area_label": "Visuellt stöd och informationsbilder",
    "output_format": "image_prompt",
    "tags": [
-    "image_prompt",
-    "information_notice",
-    "public_communication",
-    "illustration"
+    "illustration",
+    "informationsbild",
+    "information",
+    "utskick",
+    "kommunikation",
+    "bild",
+    "visuellt",
+    "publicering",
+    "webb",
+    "sociala medier",
+    "presentation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "fab9ece6-6b46-4f5b-be67-bea307f2e402",
@@ -769,8 +852,7 @@
     "announcement",
     "citizen_communication"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "5aded741-7d2e-4a5e-8872-3da298efb627",
@@ -784,8 +866,7 @@
     "jamforelse",
     "beslut"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "790d36f7-75f0-4cc9-9e33-3d518e4b67dc",
@@ -802,8 +883,7 @@
     "spårbarhet",
     "evidenslogg"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b086dcd4-029f-46e1-808e-9be23263dae8",
@@ -817,8 +897,7 @@
     "meeting_notice",
     "event_notice"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9703224c-0271-45cd-a06a-4a7b27ae9b6e",
@@ -836,8 +915,7 @@
     "akademiskt-skrivande",
     "anti-slop"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4a326dd1-09d6-4812-87a0-4b8fabe907da",
@@ -852,8 +930,7 @@
     "citizen_communication",
     "simplify"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "6b6d95ae-ef05-4418-acb0-bd655cce9ffe",
@@ -869,8 +946,7 @@
     "kritiskt-tankande",
     "beslut"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4797ab2f-cf73-455d-bda5-851d54198725",
@@ -886,8 +962,25 @@
     "roadmap",
     "produktlarande"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "5b01292a-7944-4e36-a780-70edf1355b98",
+   "title": "Lås beslutet och jämförelsealternativen",
+   "syfte": "Definierar vilket beslut business caset ska stödja, vilket nollalternativ som gäller och vilka realistiska alternativ som faktiskt ska jämföras.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "guidad_analys",
+   "tags": [
+    "business-case",
+    "investeringsbeslut",
+    "beslutsstod",
+    "nollalternativ",
+    "alternativanalys",
+    "nytta",
+    "kostnad"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "15821efe-5cfa-4317-9619-1c0cd3a2e4a3",
@@ -900,8 +993,7 @@
     "mallbygge",
     "arbetsbank"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "d546f05d-1772-4ed0-8ddf-c0f304c403a4",
@@ -914,8 +1006,7 @@
     "promptgranskning",
     "arbetsbank"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "63fdded3-ce6c-46e5-847b-1febe36a755b",
@@ -928,8 +1019,7 @@
     "promptanpassning",
     "arbetsbank"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "5c18f588-5a2c-45bc-840a-f51097fd2ef6",
@@ -942,8 +1032,7 @@
     "mallbygge",
     "arbetsbank"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "68a8195a-8711-460a-b420-bd68aba61a5c",
@@ -956,8 +1045,7 @@
     "kvalitetskontroll",
     "arbetsbank"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "3b7417f3-9ff6-403e-ae48-14e9d2458e1b",
@@ -970,8 +1058,7 @@
     "arbetsflode",
     "arbetsbank"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "e8772653-aa6e-45c0-b038-ad04d7f9e64b",
@@ -984,8 +1071,7 @@
     "beslutsstod",
     "beslutsberedning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "d88ff146-ab61-4d2d-b94d-ad7c1e650152",
@@ -998,8 +1084,7 @@
     "underlagsgranskning",
     "beslutsberedning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "2cdfcc75-cc0c-4d1d-99b7-45081520b16a",
@@ -1012,8 +1097,7 @@
     "riskanalys",
     "beslutsberedning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "426374c9-09e0-4505-9301-2041c49e3425",
@@ -1026,8 +1110,7 @@
     "alternativanalys",
     "beslutsberedning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "6afb3538-03b9-4561-a500-5f6962caa069",
@@ -1040,8 +1123,7 @@
     "beslutsformulering",
     "beslutsberedning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "2d5e66c8-3bf1-4153-b170-1da444416a30",
@@ -1054,8 +1136,7 @@
     "genomforandeplan",
     "beslutsberedning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "372a2821-be87-44e9-a2eb-e6747aa26703",
@@ -1068,8 +1149,7 @@
     "inforandeplan",
     "forandringsledning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "3ca9318f-5c1f-456c-b241-5551f0ce5bfe",
@@ -1082,8 +1162,7 @@
     "intressentanalys",
     "forandringsledning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ff884b6b-4c41-4e91-afeb-170cab06931f",
@@ -1096,8 +1175,7 @@
     "pilotdesign",
     "forandringsledning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "3744d7e7-86eb-45f8-bc5f-2e88a0cdf774",
@@ -1110,8 +1188,7 @@
     "beslutsstod",
     "forandringsledning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "f3dc3f44-f622-453d-83ed-6e6be5447cfb",
@@ -1124,8 +1201,7 @@
     "forankring",
     "forandringsledning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9729652a-b314-448f-bd68-38693c7c40a8",
@@ -1138,8 +1214,7 @@
     "driftsattning",
     "forandringsledning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "aabd463e-021c-4251-aff7-4933badbb3e1",
@@ -1152,8 +1227,7 @@
     "kommunikationspaket",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ad1321f9-08a9-49bb-a5eb-51c7fbb6cb81",
@@ -1166,8 +1240,7 @@
     "kommunikationsgranskning",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9969270c-0e78-4b2d-a932-d614c5ee86b8",
@@ -1180,8 +1253,7 @@
     "malgruppsanpassning",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b59eddd5-c691-4474-b18e-b9cc5dd85ee6",
@@ -1194,8 +1266,7 @@
     "medborgarsvar",
     "kommunikation"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "1221debc-650d-42f2-8680-c901353c3c6c",
@@ -1208,8 +1279,7 @@
     "driftstorning",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "b70ddb7c-ae77-4099-a1cf-a8013820a5c1",
@@ -1222,8 +1292,7 @@
     "publiceringscheck",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ac93a553-80bc-4647-b5dd-30c436caa71a",
@@ -1236,8 +1305,7 @@
     "motesuppfoljning",
     "ledarskap"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "9152c6ba-d387-46e3-9169-247bd2a9d2aa",
@@ -1250,8 +1318,7 @@
     "uppdragsformulering",
     "ledarskap"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "64e4b9db-0f4f-48c2-b285-ff025ab817e3",
@@ -1264,8 +1331,7 @@
     "prioritering",
     "ledarskap"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "d0822a84-0135-4855-a586-a735a55052b8",
@@ -1278,8 +1344,7 @@
     "svartsamtal",
     "ledarskap"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "db5ab87f-7b20-43f4-8a62-639fc25360b5",
@@ -1292,8 +1357,7 @@
     "ledningsgrupp",
     "ledarskap"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "bd7c689e-27ba-452d-b0dd-47a48dc7970f",
@@ -1306,8 +1370,7 @@
     "lagesbild",
     "ledarskap"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "451cb5b5-0c67-4981-b401-6268b234b334",
@@ -1320,8 +1383,7 @@
     "processpaket",
     "processer"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "0d0c25c2-ec63-4d9c-9198-e2f8b30fc673",
@@ -1334,8 +1396,7 @@
     "processkarta",
     "processer"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "febb9bd5-7fdc-4c56-809c-105ccff26369",
@@ -1348,8 +1409,7 @@
     "raci",
     "processer"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "725d0e07-4fb8-499b-8c9f-7711a8a8df44",
@@ -1362,8 +1422,7 @@
     "gapanalys",
     "processer"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9314a5ad-3921-4b3e-ae3e-f97f84c2ac24",
@@ -1376,8 +1435,7 @@
     "arshjul",
     "processer"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "6520056f-b500-4e6e-b1a9-393644826709",
@@ -1390,92 +1448,102 @@
     "rotorsaksanalys",
     "processer"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "e7a7b6c8-2eb6-4d86-a933-eef1a81f80ce",
    "title": "Gör detta visuellt",
-   "syfte": "Väljer lämplig visuell form för ett underlag.",
+   "syfte": "Hjälper yrkespersonen välja och skapa rätt visuell form för ett arbetsunderlag – exempelvis diagram, infografik, processbild, illustration eller ikoner.",
    "area": "visuellt",
    "area_label": "Visuellt stöd och informationsbilder",
    "output_format": "rekommendation",
    "tags": [
     "visuell-rekommendation",
-    "visuellt"
+    "visuellt",
+    "visualisering",
+    "bild",
+    "diagram",
+    "tabell",
+    "infografik",
+    "processbild",
+    "tidslinje",
+    "ikon",
+    "ikoner",
+    "ikonfamilj",
+    "skapa ikon",
+    "skapa ikoner",
+    "symbol",
+    "piktogram",
+    "affisch",
+    "text-i-bild",
+    "layout"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "bc6712db-d3b4-45ec-9dd8-fcc20c232c48",
-   "title": "Infografik-generator",
-   "syfte": "Gör fakta eller process till en enkel informationsgrafik.",
+   "title": "Skapa en infografik",
+   "syfte": "Gör ett fåtal fakta eller huvudpunkter begripliga i en tydlig infografik med separat faktalager och utan påhittad visuell data.",
    "area": "visuellt",
    "area_label": "Visuellt stöd och informationsbilder",
-   "output_format": "bildprompt",
+   "output_format": "image_prompt",
    "tags": [
     "infografik",
-    "visuellt"
+    "infographic",
+    "visuell sammanfattning",
+    "fakta",
+    "huvudpunkter",
+    "informationsdesign",
+    "layout",
+    "faktatrohet",
+    "visuellt",
+    "bild"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "248223f8-0e14-4fe9-b59c-83bd0bd58572",
-   "title": "Process till bild",
-   "syfte": "Gör en process mer begriplig visuellt.",
+   "title": "Visualisera en process",
+   "syfte": "Gör en arbetsprocess begriplig visuellt utan att förändra steg, beslut, ansvar eller beroenden.",
    "area": "visuellt",
    "area_label": "Visuellt stöd och informationsbilder",
    "output_format": "bildprompt",
    "tags": [
+    "process",
+    "processer",
     "processbild",
+    "processkarta",
+    "flodesschema",
+    "flödesschema",
+    "beslutstrad",
+    "beslutsträd",
+    "swimlane",
+    "tidslinje",
+    "arbetsflode",
+    "arbetsflöde",
     "visuellt"
    ],
-   "risk_level": "low",
-   "tone_hint": null
-  },
-  {
-   "id": "d7ad5323-6a82-4e2d-9f56-ca973df14dd4",
-   "title": "Ikon- och symbolbild",
-   "syfte": "Skapar neutrala visuella idéer för kommunala ämnen.",
-   "area": "visuellt",
-   "area_label": "Visuellt stöd och informationsbilder",
-   "output_format": "bildprompt",
-   "tags": [
-    "ikon",
-    "visuellt"
-   ],
-   "risk_level": "low",
-   "tone_hint": null
-  },
-  {
-   "id": "396e2673-7c30-449d-8e91-9f54778a7d0e",
-   "title": "Bildprompt-granskare",
-   "syfte": "Kvalitetssäkrar bildprompts innan användning.",
-   "area": "visuellt",
-   "area_label": "Visuellt stöd och informationsbilder",
-   "output_format": "granskning",
-   "tags": [
-    "bildgranskning",
-    "visuellt"
-   ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "a956184c-6a9c-4d7f-af53-459871384822",
-   "title": "Alt-text Pro",
-   "syfte": "Skapar tillgänglig bildbeskrivning och publiceringsråd.",
+   "title": "Gör bilden tillgänglig / alt-text",
+   "syfte": "Avgör bildens funktion och hjälper yrkespersonen göra den tillgänglig med rätt alt-text, längre beskrivning eller dekorativ hantering.",
    "area": "visuellt",
    "area_label": "Visuellt stöd och informationsbilder",
    "output_format": "alttext",
    "tags": [
     "alttext",
+    "alt-text",
+    "tillganglighet",
+    "tillgänglighet",
+    "wcag",
+    "bildbeskrivning",
+    "informationsbild",
+    "publicering",
     "visuellt"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "987a12cf-9679-419a-8d15-0f3be011b742",
@@ -1489,8 +1557,7 @@
     "citizen_communication",
     "tone_improvement"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "c5520837-7389-4464-b0ce-c254d6135112",
@@ -1504,8 +1571,7 @@
     "resa",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "260d767a-af55-4f7b-8c86-4e3e26e14bd8",
@@ -1519,8 +1585,7 @@
     "planering",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "eab381ed-856c-49fa-bdfc-f87cd8b5c628",
@@ -1536,8 +1601,7 @@
     "pilot",
     "arbetsflode"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "a9343c2e-3323-49ae-9dfc-0392bcdacc7b",
@@ -1551,8 +1615,7 @@
     "fest",
     "planering"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "5e1b434e-c5dd-470c-bf01-27242c2b7a6a",
@@ -1574,8 +1637,7 @@
     "dataskydd",
     "informationssakerhet"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ff768ae2-115c-4f4b-998d-31cc57c5ca34",
@@ -1591,8 +1653,7 @@
     "prototyp",
     "pilot"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "3e8ee085-3bbe-45be-bd5e-c8c68ce86e88",
@@ -1606,8 +1667,7 @@
     "planering",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "0d87a780-ec24-4120-af23-4a82e5086488",
@@ -1623,8 +1683,7 @@
     "informationssokning",
     "kallor"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "f95e2087-b1be-4da5-bd89-0593c677cda0",
@@ -1641,8 +1700,7 @@
     "dataskydd",
     "kontinuitet"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "7930d21a-cc86-4af9-b18a-59bd209df192",
@@ -1659,8 +1717,7 @@
     "uppföljning",
     "dokumentation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "a049f94f-0794-4295-80bd-8f0878693a03",
@@ -1676,8 +1733,7 @@
     "ai-chattar",
     "sammanfattning"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "a9b44e46-c9e7-402c-84e9-c39ea963cd9f",
@@ -1691,8 +1747,7 @@
     "planering",
     "hemma"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "bae6c4d4-c8b6-49ac-853d-0f1ff71fef0b",
@@ -1708,8 +1763,7 @@
     "freemium",
     "saas"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "e30d4b38-2dcf-4960-92cc-38f15e478fbc",
@@ -1728,8 +1782,7 @@
     "upphandling",
     "inforande"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "26f01916-de7c-4de4-bb70-7a9e454c9ec9",
@@ -1745,8 +1798,7 @@
     "språkgranskning",
     "interpunktion"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "0fc152bc-51cb-4d6d-82f4-7a6e91e58ed0",
@@ -1762,8 +1814,7 @@
     "möte",
     "konflikthantering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "8cc8b965-4a26-4dd6-b610-11c1bb016dec",
@@ -1779,8 +1830,7 @@
     "karnflode",
     "product-discovery"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "6dcd7d9c-b9fe-48b9-b361-6984193e3c02",
@@ -1794,8 +1844,7 @@
     "routine",
     "work_instruction"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "26d10a6a-8a7a-4af2-af09-3d137d56ae31",
@@ -1813,8 +1862,7 @@
     "evidenslogg",
     "verifiering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4a03632b-c85b-48e3-bfce-3fa6f42f3e14",
@@ -1828,8 +1876,7 @@
     "text",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "60008156-254d-491b-a2de-6de031c953a7",
@@ -1847,8 +1894,25 @@
     "obligatoriska-krav",
     "upphandling"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "60db0d0e-cf2a-4308-b81a-0a403ba9fab9",
+   "title": "Skapa beslutsbart business case",
+   "syfte": "Samlar beslut, alternativ, ekonomi, nyttor, risker och osäkerheter till ett kort och granskningsbart beslutsunderlag med tydlig rekommendation.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "business_case",
+   "tags": [
+    "business-case",
+    "beslutsunderlag",
+    "investeringsbeslut",
+    "rekommendation",
+    "kalkyl",
+    "risk",
+    "beslutsstod"
+   ],
+   "risk_level": "high"
   },
   {
    "id": "bc014add-9a26-4507-a779-ea91ea9c9cb9",
@@ -1867,8 +1931,7 @@
     "upphandling",
     "verksamhetstest"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "9a745ddb-88a6-45d3-9b39-05a5a016516d",
@@ -1886,8 +1949,46 @@
     "evidenslogg",
     "verifiering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "fc6fdbab-784c-46a1-b4c9-7c10a2f8f986",
+   "title": "Skapa visuell instruktion eller lathund",
+   "syfte": "Gör en arbetsuppgift till en tydlig steg-för-steg-instruktion med rätt skärmbilder, markeringar och korta texter.",
+   "area": "visuellt",
+   "area_label": "Yrkesanvändare",
+   "output_format": "visuell_instruktion",
+   "tags": [
+    "lathund",
+    "instruktion",
+    "steg-for-steg",
+    "steg för steg",
+    "skarmbilder",
+    "skärmbilder",
+    "guide",
+    "manual",
+    "visuellt",
+    "support",
+    "utbildning"
+   ],
+   "risk_level": "medium"
+  },
+  {
+   "id": "34e0a5bc-4a23-43c7-8d4e-4c43aa43ba15",
+   "title": "Skilj fakta från antaganden",
+   "syfte": "Gör underlaget granskningsbart genom att separera verifierade fakta, uppskattningar, antaganden och kritiska kunskapsluckor.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "evidensoversikt",
+   "tags": [
+    "business-case",
+    "antaganden",
+    "evidens",
+    "datakvalitet",
+    "osakerhet",
+    "beslutsstod"
+   ],
+   "risk_level": "high"
   },
   {
    "id": "70661200-cb48-4573-bfad-cb9704a2fd1c",
@@ -1904,8 +2005,7 @@
     "självskattning",
     "bedömningsstöd"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "6ba9c4f0-4212-49fe-957a-b6fc1ed657a1",
@@ -1922,8 +2022,7 @@
     "observation",
     "uppföljning"
    ],
-   "risk_level": "high",
-   "tone_hint": null
+   "risk_level": "high"
   },
   {
    "id": "a8c70fbb-9e3c-45e1-b104-8041cb4b5892",
@@ -1940,8 +2039,7 @@
     "resonemang",
     "formativt"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "10f56556-ad21-4f67-895b-3f55eb2a2ea7",
@@ -1958,8 +2056,7 @@
     "uppgift",
     "tillgänglighet"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "0facb880-90de-40a7-b7fa-f36d800c7bcc",
@@ -1976,8 +2073,7 @@
     "ai-robust",
     "didaktik"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "bb826922-8b51-4a23-a9b8-51ee7fe4647d",
@@ -1994,8 +2090,7 @@
     "lektion",
     "uppföljning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "6c80110f-1177-406f-9264-9e6e672ad460",
@@ -2012,8 +2107,7 @@
     "tonalitet",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "98968081-4c6f-442c-bb58-febdad8e534b",
@@ -2029,8 +2123,7 @@
     "felsokning",
     "kommunikation"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "781e01c2-45d5-4d8a-a6d3-c1e135a7005f",
@@ -2048,8 +2141,7 @@
     "funktionskrav",
     "upphandling"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "e985e54a-8506-458a-bb58-dfddbd7336eb",
@@ -2065,8 +2157,7 @@
     "anti-slop",
     "kommunikation"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "1a06355b-5b98-4b6d-9570-28a8cdb82864",
@@ -2083,8 +2174,25 @@
     "leverans",
     "kvalitetskriterier"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
+  },
+  {
+   "id": "596f4393-2222-4115-b6c2-01a687684d38",
+   "title": "Stressa business caset",
+   "syfte": "Prövar vilka antaganden som driver resultatet och visar hur slutsatsen förändras i sämre, bas- och bättre scenario utan falsk precision.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "kanslighetsanalys",
+   "tags": [
+    "business-case",
+    "kanslighetsanalys",
+    "scenarioanalys",
+    "break-even",
+    "antaganden",
+    "osakerhet",
+    "beslutsstod"
+   ],
+   "risk_level": "high"
   },
   {
    "id": "e223b297-87aa-4413-8d81-9f9e0ba41600",
@@ -2098,8 +2206,7 @@
     "planering",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "db52b451-1d49-4109-ad9e-d74f372febc1",
@@ -2115,8 +2222,23 @@
     "kommunikation",
     "felsokning"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
+  },
+  {
+   "id": "b9427bc5-9a31-4b2c-8242-dbda381536d0",
+   "title": "Talarstöd utan manus",
+   "syfte": "Gör presentationsstrukturen till korta talarpunkter och övergångar som stödjer ett naturligt framförande utan att skriva ett helt manus.",
+   "area": "fran-budskap-till-tydlig-dragning",
+   "area_label": "Från budskap till tydlig dragning",
+   "output_format": "talarstod",
+   "tags": [
+    "presentation",
+    "talarstod",
+    "framforande",
+    "overgangar",
+    "fragor"
+   ],
+   "risk_level": "medium"
   },
   {
    "id": "85aee9de-faab-464c-9839-5246889260f9",
@@ -2130,8 +2252,7 @@
     "formal_informal",
     "rewrite"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "cdb68eec-b040-466a-bb16-eaf8273e6d74",
@@ -2149,8 +2270,7 @@
     "specifikation",
     "leverans"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "1290d2c9-c57a-41c5-88b6-b308e476c086",
@@ -2166,8 +2286,7 @@
     "forandring",
     "arbetsflode"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "67d60128-141c-44d8-9a2a-e0e53ddc3707",
@@ -2183,8 +2302,7 @@
     "verksamhetsutveckling",
     "uppfoljning"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "4c82fc20-5666-4ae4-baff-86bc1f411d8d",
@@ -2201,8 +2319,7 @@
     "planering",
     "beslut"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "27bd5bac-f6c0-424e-9249-1803c837d982",
@@ -2217,8 +2334,7 @@
     "alternativanalys",
     "product-discovery"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "e2e6d242-7fea-46ff-b6cb-595595903bd7",
@@ -2236,8 +2352,7 @@
     "kravstallning",
     "upphandling"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "964e8fb8-378d-46fb-83cb-6aeeed29e544",
@@ -2253,8 +2368,7 @@
     "larande",
     "forbattring"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "f32fa400-0c1e-468a-bcd1-59388503109f",
@@ -2270,8 +2384,7 @@
     "perspektiv",
     "beslut"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "687c313b-bdb8-4f3a-be77-f54c25a3b357",
@@ -2287,8 +2400,7 @@
     "buyer",
     "product-discovery"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "ae3bcc9b-3b75-4c03-b5c6-b996bf19e517",
@@ -2302,8 +2414,25 @@
     "vardagsspråk",
     "kommunikation"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
+  },
+  {
+   "id": "0df74b64-3eed-4c92-89b8-c1cc8f2b1ab4",
+   "title": "Värdera nytta, risk och osäkerhet",
+   "syfte": "Väger ekonomiska och icke-ekonomiska nyttor mot risker, beroenden och osäkerheter utan att tvinga allt till kronor.",
+   "area": "fran-ide-till-beslutsbart-business-case",
+   "area_label": "Från idé till beslutsbart business case",
+   "output_format": "risk_och_nyttobedomning",
+   "tags": [
+    "business-case",
+    "verksamhetsnytta",
+    "risk",
+    "osakerhet",
+    "beroenden",
+    "beslutsmognad",
+    "beslutsstod"
+   ],
+   "risk_level": "high"
   },
   {
    "id": "4052fcc8-ff00-481b-9eba-9c21475a2c21",
@@ -2320,8 +2449,7 @@
     "oberoende",
     "evidenslogg"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "508720d1-f756-48e2-b11b-700400bc1462",
@@ -2335,8 +2463,7 @@
     "meny",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "eb597968-a66b-4630-9e86-5783af355171",
@@ -2350,8 +2477,7 @@
     "planering",
     "vardag"
    ],
-   "risk_level": "low",
-   "tone_hint": null
+   "risk_level": "low"
   },
   {
    "id": "4658a3ec-aeb6-412e-aa6e-04f6f8f0afef",
@@ -2369,8 +2495,7 @@
     "specialistprompt",
     "korrigering"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   },
   {
    "id": "31f94104-19d1-4ac1-9708-6e63e1283a0e",
@@ -2387,12 +2512,12 @@
     "övningar",
     "möte"
    ],
-   "risk_level": "medium",
-   "tone_hint": null
+   "risk_level": "medium"
   }
  ],
  "packages": [
   {
+   "id": "f478295a-fac3-4e2f-811e-ce5cfb0cd8f6",
    "slug": "anti-slop",
    "title": "Anti-slop",
    "summary": "Tre mallar som hjälper användaren att hitta och ta bort generiska, uppblåsta och mekaniska textmönster utan att förlora innehåll eller personlig röst.",
@@ -2404,6 +2529,7 @@
    ]
   },
   {
+   "id": "575feb23-74ee-4be4-9776-9bab09468b57",
    "slug": "arbetsbank",
    "title": "Egen AI-arbetsbank",
    "summary": "Samlade mallar för att bygga, förbättra och kvalitetssäkra egna AI-mallar.",
@@ -2418,9 +2544,10 @@
    ]
   },
   {
+   "id": "aa9197e6-1e7e-4b1b-b35e-ffbaf742c9d6",
    "slug": "behov-till-effekt",
    "title": "Från behov till effekt",
-   "summary": "Ett guidat arbetsflöde för verksamhetsutveckling – från behov och målbild till genomförande, uppföljning och faktisk effekt.",
+   "summary": "Ett guidat arbetsflöde för att förbättra arbetssätt och lösa återkommande problem i verksamheten – från behov och målbild till genomförande, uppföljning och faktisk effekt.",
    "package_type": "workflow",
    "prompt_ids": [
     "b51629cb-9649-462b-a46e-1e5ab5e01277",
@@ -2432,6 +2559,7 @@
    ]
   },
   {
+   "id": "01707099-d33c-4fb7-8791-d570afb4b424",
    "slug": "behov-till-verifierad-digital-losning",
    "title": "Från behov till verifierad digital lösning",
    "summary": "Ett sammanhållet arbetsflöde från verksamhetsbehov och önskad effekt till funktionskrav, verifiering, införande och planerad uppföljning av verksamhetsnytta.",
@@ -2448,6 +2576,7 @@
    ]
   },
   {
+   "id": "9f21f0df-748c-4edb-b363-ca42b1745864",
    "slug": "bemot-argument",
    "title": "Bemöt argument",
    "summary": "Fyra prompts för att förstå ett argument, pröva den egna ståndpunkten och formulera ett sakligt svar som passar rätt kanal och längd.",
@@ -2460,6 +2589,7 @@
    ]
   },
   {
+   "id": "0a6349dd-ae3f-41bb-94a0-9526e50dfe5a",
    "slug": "beslutsberedning",
    "title": "Tjänstemannastöd och beslutsberedning",
    "summary": "Samlade mallar för beslutsunderlag, konsekvensanalys och genomförandeplanering.",
@@ -2475,6 +2605,7 @@
    ]
   },
   {
+   "id": "29101039-e0a7-4a0d-8ac3-4cf8391a770a",
    "slug": "data-till-forbattring",
    "title": "Från data till förbättring",
    "summary": "Ett guidat arbetsflöde som hjälper användaren gå från verksamhetsdata till välgrundade förbättringshypoteser, test och uppföljning utan att dra starkare slutsatser än underlaget tillåter.",
@@ -2490,6 +2621,7 @@
    ]
   },
   {
+   "id": "0c270bd6-0370-4845-8365-3fc5d229b4a0",
    "slug": "forandringsledning",
    "title": "Förändringsledning och införande",
    "summary": "Samlade mallar för införande, förankring och förändringsarbete.",
@@ -2504,6 +2636,7 @@
    ]
   },
   {
+   "id": "c96e0cd2-2531-4969-962a-9af42e291b0d",
    "slug": "fran-behov-till-validerad-produkt",
    "title": "Från behov till validerad produkt",
    "summary": "Ett guidat arbetsflöde för produktutveckling – från verkligt problem och målgrupp till produktlöfte, kärnflöde, MVP, affärsmodell, validering och nästa produktsteg.",
@@ -2521,6 +2654,22 @@
    ]
   },
   {
+   "id": "3ba60bde-fe27-4cbc-929b-c554932f709a",
+   "slug": "fran-budskap-till-tydlig-dragning",
+   "title": "Från budskap till tydlig dragning",
+   "summary": "Sex AI-mallar som hjälper yrkespersoner att förbereda tydliga presentationer – från syfte och röd tråd till slidebrief, talarstöd, komprimering och kritisk granskning – utan att försöka ersätta presentationsverktygen.",
+   "package_type": "collection",
+   "prompt_ids": [
+    "8478fcb5-e02d-4587-b557-03c6164717fc",
+    "25de33e9-9e7b-4ead-939c-3be8f42d4302",
+    "3c35b477-9dd2-4934-a05f-3cd84252aaa7",
+    "b9427bc5-9a31-4b2c-8242-dbda381536d0",
+    "4bd5ae15-538a-4120-bec0-0fbb9610c90a",
+    "3337397e-debd-476e-9e80-ec3eddc46987"
+   ]
+  },
+  {
+   "id": "a877a0c8-1f54-4714-81d5-e24a9fdc253f",
    "slug": "fran-fraga-till-researchunderlag",
    "title": "Från fråga till researchunderlag",
    "summary": "Ett guidat researchworkflow som hjälper användaren gå från en konkret fråga till ett spårbart researchunderlag med relevanta källor, källvärdering, syntes, osäkerheter och kunskapsluckor.",
@@ -2536,6 +2685,7 @@
    ]
   },
   {
+   "id": "7e084c22-94d5-4c84-bbdc-3f130536abfa",
    "slug": "fran-ide-till-artikel",
    "title": "Från idé till artikel",
    "summary": "Ett guidat arbetsflöde från artikelidé och vinkel till skriven, granskad och publiceringsklar artikel.",
@@ -2548,6 +2698,22 @@
    ]
   },
   {
+   "id": "8055cbdb-0dc1-49cb-872d-e9e0c164686f",
+   "slug": "fran-ide-till-beslutsbart-business-case",
+   "title": "Från idé till beslutsbart business case",
+   "summary": "Ett guidat arbetsflöde som prövar en investering eller förändring från beslut och baslinje till kostnader, nyttor, känslighetsanalys, risk och ett transparent beslutsunderlag.",
+   "package_type": "workflow",
+   "prompt_ids": [
+    "5b01292a-7944-4e36-a780-70edf1355b98",
+    "34e0a5bc-4a23-43c7-8d4e-4c43aa43ba15",
+    "6ca4c278-a1be-4898-b86b-0fc25ae15af9",
+    "596f4393-2222-4115-b6c2-01a687684d38",
+    "0df74b64-3eed-4c92-89b8-c1cc8f2b1ab4",
+    "60db0d0e-cf2a-4308-b81a-0a403ba9fab9"
+   ]
+  },
+  {
+   "id": "b10f0f3c-d73d-4f5e-b2e3-f491cf4c731f",
    "slug": "hall-traden",
    "title": "Håll tråden",
    "summary": "Tre genomarbetade promptar som hjälper användaren att behålla överblicken, skilja beslut från diskussion och föra ett pågående arbete vidare i längre AI-chattar.",
@@ -2559,6 +2725,7 @@
    ]
   },
   {
+   "id": "2d6719cc-aaec-49cf-bdf7-a3cf66a7d807",
    "slug": "hr",
    "title": "HR – tryggt AI-stöd i arbetsvardagen",
    "summary": "Sex AI-mallar för HR-arbete med säker förberedelse, kravprofiler, rekryteringskommunikation, introduktion, riktlinjer och svåra samtal – utan att AI bedömer människor.",
@@ -2573,6 +2740,7 @@
    ]
   },
   {
+   "id": "96ed171a-98b3-4833-98ad-84aa0e9b1c55",
    "slug": "kommunikation",
    "title": "Kommunikation och publicering",
    "summary": "Samlade mallar för kommunikation, publicering och målgruppsanpassning.",
@@ -2593,6 +2761,7 @@
    ]
   },
   {
+   "id": "495786a4-9e5b-46bc-b43b-6d6ebedb3feb",
    "slug": "ledarskap",
    "title": "Ledarskap och styrning",
    "summary": "Samlade mallar för ledning, prioritering och uppföljning.",
@@ -2607,6 +2776,7 @@
    ]
   },
   {
+   "id": "78101c02-775d-4a27-8410-3c9260c66792",
    "slug": "processer",
    "title": "Verksamhetsutveckling och processer",
    "summary": "Samlade mallar för rutiner, processer och strukturerat förbättringsarbete.",
@@ -2623,6 +2793,7 @@
    ]
   },
   {
+   "id": "89f25529-9a13-49f8-8424-a5162b8b2478",
    "slug": "sag-emot-mig",
    "title": "Säg emot mig",
    "summary": "Fem prompts som gör AI till en kritisk kollega och hjälper användaren att hitta svaga antaganden, motargument, risker och alternativa perspektiv innan beslut.",
@@ -2636,6 +2807,7 @@
    ]
   },
   {
+   "id": "8406ec9f-f23a-405b-a7ae-492257533437",
    "slug": "skarpare-funktionskrav",
    "title": "Skarpare funktionskrav – kravställning i upphandling",
    "summary": "Granska, förenkla och formulera funktionskrav inför upphandling. Hjälper dig att göra om detaljerade ska- och börkrav, hitta överkrav och överlapp samt bedöma vad som bör vara obligatoriskt, mervärde eller användningsfall.",
@@ -2649,6 +2821,7 @@
    ]
   },
   {
+   "id": "571cc5fb-52c4-4e04-bfa2-409876d4c474",
    "slug": "skola-undervisning-larare",
    "title": "Skola och undervisning – för lärare",
    "summary": "Sex genomarbetade AI-mallar för lärare som stödjer planering, tydliga instruktioner, tänkande frågor, AI-robust uppgiftsdesign, återkoppling och reflektion efter undervisningen.",
@@ -2663,6 +2836,7 @@
    ]
   },
   {
+   "id": "21ab7ee7-75a0-4210-94ca-2d7664128a98",
    "slug": "superplanlage",
    "title": "Superplanläge",
    "summary": "Ett guidat AI-arbetsflöde från idé till utfört och verifierat resultat. Låser riktning, skapar spec, routar vid behov till relevanta Promptbanken-prompts och verifierar helheten.",
@@ -2675,6 +2849,7 @@
    ]
   },
   {
+   "id": "aabb195c-42f5-458a-912d-2845f0d14d58",
    "slug": "supportarenden",
    "title": "Supportärenden",
    "summary": "Praktiska AI-mallar för att skriva tydliga supportärenden och svara på inkomna supportfrågor.",
@@ -2685,6 +2860,7 @@
    ]
   },
   {
+   "id": "58eba64d-59f1-4fb0-b005-313035e27d63",
    "slug": "vardagspaket",
    "title": "Vardagspaket",
    "summary": "Enkla mallar för vardagliga skrivuppgifter – för alla, oavsett roll eller bransch.",
@@ -2707,6 +2883,7 @@
    ]
   },
   {
+   "id": "c498f157-ea24-4725-a753-7dfb067d683a",
    "slug": "visuellt",
    "title": "Visuellt stöd och informationsbilder",
    "summary": "Samlade mallar för infografik, bildidéer och tillgängliga visuella förklaringar.",
@@ -2715,14 +2892,12 @@
     "e7a7b6c8-2eb6-4d86-a933-eef1a81f80ce",
     "bc6712db-d3b4-45ec-9dd8-fcc20c232c48",
     "248223f8-0e14-4fe9-b59c-83bd0bd58572",
-    "d7ad5323-6a82-4e2d-9f56-ca973df14dd4",
-    "396e2673-7c30-449d-8e91-9f54778a7d0e",
     "a956184c-6a9c-4d7f-af53-459871384822",
-    "f303a6d0-40ee-47ff-8cb5-4ee97d4e242c",
     "a01714bc-419e-43fe-891d-c6d536e44e96"
    ]
   },
   {
+   "id": "948b45a1-e60f-4d8f-955f-0e6bc26cf6bc",
    "slug": "workshop-och-facilitering",
    "title": "Workshop och facilitering",
    "summary": "Planera workshop med AI: fem mallar för workshopagenda, workshopövningar, facilitering, problemlösning och tydlig uppföljning.",

@@ -47,6 +47,23 @@
   "kommunikationsplan" och "bemöta kritik".
 - Områdesindexets cache är 60 s (inte 5 min); målgruppscachen är 5 min.
 
+### Innehållsgapet för `behov-till-effekt` (samma dag)
+- Simulerade två varianter mot fixturen: nya taggar på stegen eller ny paketsammanfattning. Båda löste fallet utan regressioner, men stegen delas med tre andra workflows, så taggar hade följt med dit. Valde sammanfattningen.
+- Paketets `generell`-summary ändrad i produktion till "Ett guidat arbetsflöde för att förbättra arbetssätt och lösa återkommande problem i verksamheten – från behov och målbild till genomförande, uppföljning och faktisk effekt." Endast summary ändrad, verifierat i den publika katalogen.
+- Den gamla desktop-servern `promptbanken-admin` (`/admin`) gav `400` på `grant_type=refresh_token`. Adminarbete sker nu via den fristående OAuth-tjänsten `admin-mcp.promptbanken.se`; ändringen gjordes därifrån via ChatGPT.
+- Fixturen uppdaterad med den nya sammanfattningen, `expectedFailure` borttagen: 190 tester gröna, inga förväntade fel.
+- Bonus i simuleringen: "ändra arbetssätt i verksamheten" routar nu också till workflowet (gav tidigare HR-policy).
+
+### Målgrupper på paketen (samma dag)
+- Upptäckte två nya paket i katalogen (26 i stället för 24): `fran-budskap-till-tydlig-dragning` och `fran-ide-till-beslutsbart-business-case`. De saknas i `_AREA_ROLES`, och deras målgrupper ("Yrkespersoner", "Yrkesverksamma kunskapsarbetare") gav inga rollord någon skriver, så de rekommenderades aldrig för någon roll.
+- Simulerade nya målgrupper lokalt: de två nya paketen når då chef, projektledare, utredare, kommunikatör, lärare och ekonom. För de fem workflowen som redan finns i kartan ändrades inga rekommendationer; där fyller målgruppen bara i webbens "Vem det är för". "controllers" känns inte igen (plural-s tas inte bort) och ersattes med "analytiker".
+- Satte `audience_label` på sju paket via nya admin-MCP:n från ChatGPT. Första försöket stoppades: `admin_upsert_package_variant` i nya tjänsten kräver `summary`. Andra försöket skickade nuvarande summary oförändrad. Alla sju verifierade; stickprov i publika katalogen stämmer.
+
+### Rollkarta och fixture uppdaterad (samma dag)
+- Lade till `fran-budskap-till-tydlig-dragning` och `fran-ide-till-beslutsbart-business-case` i `_AREA_ROLES` (`package_recommendations.py`), med samma roller som i deras nya `audience_label`.
+- Hämtade en ny ögonblicksbild av den publika katalogen (`list_templates` + `list_packages` + `list_package_prompts` per paket) och skrev om `tests/fixtures/open_catalog_2026-09-14.json`: 159 mallar (var 147), 26 paket (var 24, 18 collections/8 workflows, var 17/7), 7 mallar utan paket (var 4).
+- `FixtureTests` uppdaterad med de nya talen. 190 tester gröna, inga xfail.
+
 ### Kvarstår
 - Deploy av grenen efter granskning. Hämtningen av fixturen gav cirka 30
   läsanrop mot produktionen, synliga i usage-statistiken.

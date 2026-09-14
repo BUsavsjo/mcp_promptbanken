@@ -50,6 +50,10 @@ _AREA_ROLES: dict[str, set[str] | None] = {
         "verksamhetsutvecklare", "upphandlare", "inkopare", "utredare", "projektledare", "systemforvaltare", "chef",
     },
     "fran-behov-till-validerad-produkt": {"verksamhetsutvecklare", "produktagare", "entreprenor", "projektledare", "chef"},
+    "fran-budskap-till-tydlig-dragning": {"chef", "projektledare", "utredare", "kommunikator", "samordnare", "larare"},
+    "fran-ide-till-beslutsbart-business-case": {
+        "chef", "verksamhetsutvecklare", "ekonom", "analytiker", "projektledare", "utredare",
+    },
     # Universella: skrivstöd och arbetssätt som inte hör till en yrkesroll.
     "arbetsbank": None,
     "vardagspaket": None,

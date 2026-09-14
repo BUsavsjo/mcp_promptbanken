@@ -84,9 +84,9 @@ class FixtureTests(unittest.TestCase):
         member_ids = set(_MEMBERSHIP)
         all_ids = {t["id"] for t in _CATALOG["templates"]}
         types = Counter(p["package_type"] for p in _CATALOG["packages"])
-        self.assertEqual(len(all_ids), 147)
-        self.assertEqual(types, Counter({"collection": 17, "workflow": 7}))
-        self.assertEqual(len(all_ids - member_ids), 4)
+        self.assertEqual(len(all_ids), 159)
+        self.assertEqual(types, Counter({"collection": 18, "workflow": 8}))
+        self.assertEqual(len(all_ids - member_ids), 7)
 
 
 class KeywordQueryRoutingTests(RoutingBaselineCase):
@@ -144,11 +144,10 @@ class NaturalQueryRoutingTests(RoutingBaselineCase):
     def test_digital_solution(self) -> None:
         self.assertRoutesToWorkflow("verksamhetsbehov till krav leverantörsvisning test införande", "behov-till-verifierad-digital-losning")
 
-    @unittest.expectedFailure
     def test_business_development(self) -> None:
-        # Innehållsgap, inte rankingfel: inget av orden återkommande, supportproblem,
-        # förbättra eller arbetssätt finns i stegen eller sammanfattningen för
-        # behov-till-effekt. Löses med taggar eller sammanfattning via admin-MCP.
+        # Hittas via paketets sammanfattning ("förbättra arbetssätt och lösa
+        # återkommande problem"), ändrad i katalogen 2026-09-14. Stegen delas med
+        # andra workflows och saknar orden.
         self.assertRoutesToWorkflow("återkommande supportproblem förbättra arbetssättet", "behov-till-effekt")
 
     def test_article(self) -> None:
