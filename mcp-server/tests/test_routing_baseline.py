@@ -190,5 +190,76 @@ class RoleExplorationTests(unittest.TestCase):
         self.assertEqual(published - set(_AREA_ROLES), set())
 
 
+class EverydayNeedRoutingTests(RoutingBaselineCase):
+    """Fem problemfall från användartestet 2026-09-15: en yrkesperson
+    beskriver sin situation utan att känna till Promptbankens mallnamn."""
+
+    def test_generic_decision_beats_the_purchase_specific_variant(self) -> None:
+        """Test 1: en generell alternativanalys ska inte tappa mot en
+        köpspecifik variant bara för att frågan råkar dela ordet 'inför'."""
+        top = _search("Jag behöver jämföra två alternativ inför ett beslut.", limit=5)
+        titles = [t["title"] for t in top]
+        self.assertIn("Alternativanalys", titles, titles)
+        self.assertLess(
+            titles.index("Alternativanalys"),
+            titles.index("Jämför alternativ inför ett köp") if "Jämför alternativ inför ett köp" in titles else len(titles),
+            titles,
+        )
+
+    def test_business_data_decline_routes_to_the_improvement_workflow(self) -> None:
+        """Test 2: 'statistik som visar att något försämrats' ska hitta
+        data-till-förbättring-mallarna, inte 'Pröva affärsmodellen'."""
+        top = _search(
+            "Jag har statistik som visar att något försämrats och behöver förstå "
+            "vad som kan ligga bakom och vad vi bör undersöka vidare.",
+            limit=5,
+        )
+        titles = [t["title"] for t in top]
+        data_titles = {
+            "Hitta mönster och avvikelser",
+            "Formulera prövbara hypoteser",
+            "Utforma ett förbättringstest",
+            "Avgränsa analysfrågan",
+        }
+        self.assertGreaterEqual(len(data_titles & set(titles[:3])), 2, titles)
+        self.assertNotIn("Pröva affärsmodellen", titles[:3], titles)
+
+    def test_process_mapping_beats_generic_governance_content(self) -> None:
+        """Test 3: att kartlägga hur en process faktiskt går till ska hitta
+        processkartläggning/nuläge-gap, inte bara generella styrningsmallar."""
+        top = _search(
+            "Vi gör samma arbetsuppgift på olika sätt och behöver kartlägga "
+            "hur processen faktiskt ser ut och var den brister.",
+            limit=5,
+        )
+        titles = [t["title"] for t in top]
+        process_titles = {"Nuläge-börläge-gap", "Processkarta i Mermaid", "RACI-matris", "5 varför", "Rutin till processpaket"}
+        self.assertGreaterEqual(len(process_titles & set(titles[:3])), 2, titles)
+
+    def test_routine_to_practice_ranks_near_the_top_and_role_helps(self) -> None:
+        """Test 4: 'Från styrning till vardag' ska ligga högt även utan roll,
+        och rollen samordnare ska lyfta den ytterligare (aldrig sänka den)."""
+        query = (
+            "Vi har fått en ny rutin och jag behöver göra den begriplig för "
+            "personalen och tydliggöra vad de faktiskt ska göra."
+        )
+        without_role = [t["title"] for t in _search(query, limit=8)]
+        with_role = [t["title"] for t in _search(query, role="samordnare", limit=8)]
+        self.assertIn("Från styrning till vardag", without_role, without_role)
+        self.assertIn("Från styrning till vardag", with_role, with_role)
+        self.assertLessEqual(
+            with_role.index("Från styrning till vardag"),
+            without_role.index("Från styrning till vardag"),
+            (without_role, with_role),
+        )
+
+    def test_prioritization_overload_finds_the_prioritization_prompt(self) -> None:
+        """Test 5: kontrollerar att rätt innehåll finns och hittas -- inte
+        bara att sökningen ger något slags svar."""
+        top = _search("Jag har för mycket att göra och behöver avgöra vad jag ska prioritera först.", limit=8)
+        titles = [t["title"] for t in top]
+        self.assertIn("Prioriteringsstöd", titles, titles)
+
+
 if __name__ == "__main__":
     unittest.main()

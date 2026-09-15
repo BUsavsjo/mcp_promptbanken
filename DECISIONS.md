@@ -1,5 +1,39 @@
 # Beslut
 
+## 2026-09-15 - Sökranking: fyllnadsord, ordkantsmatchning, evidensbaserade synonymer
+
+### Beslut
+`server/search_ranking.py` utökad med tre punktinsatser, alla begränsade till
+rankingen -- inget i det publicerade `search_templates`-kontraktet ändrat:
+- `_SEARCH_STOPWORDS` fick sju ord till (`behöver`, `faktiskt`, `inför`,
+  `ligga`, `mycket`, `först`, `ny`) som visade sig få en hög IDF-vikt av en
+  slump (sällsynta i katalogens löptext utan att vara domänspecifika).
+- `_matcher()` kräver nu en ordkant i minst ena änden för ord längre än tre
+  tecken, inte fri substräng -- stoppar mitt-i-ord-kollisioner ("fått" i
+  "sammanfattning") men behåller sammansättningsträffar ("karta" i
+  "processkarta").
+- En ny `_SYNONYMS`-tabell (7 rader) bygger broar mellan vardagsord och
+  taggar som redan finns i katalogen (t.ex. `statistik -> data`,
+  `bakom -> orsak`), viktad som en stamträff -- kan aldrig slå en riktig
+  ordträff. Ingen ny mallvokabulär uppfanns, bara befintliga taggar nådda via
+  ett annat ord.
+- Oavgjort-brytare: lika poäng avgörs nu av kortast titel/taggfält (mest
+  koncentrerad träff), inte listordning.
+
+### Varför
+Ett nytt användartest 2026-09-15 gav fem konkreta problemfall (se README för
+testrapportens exakta frågor). Nedbrytning term för term mot
+`tests/fixtures/open_catalog_2026-09-14.json` visade att felen inte var ett
+kataloginnehållsproblem -- rätt mallar fanns nästan alltid, poängen bara nådde
+fel mallar. Ett fall (test 5, prioritering) kontrollerades explicit mot
+kataloggap-hypotesen innan någon ändring gjordes; `Prioriteringsstöd` fanns
+redan och behövde bara nå fram.
+
+### Kvarstår
+Ett testfall ("Från styrning till vardag" för en ny rutin) förbättrades men
+nådde inte topp 1-2 -- se TODO.md. Löses inte av fler stoppord/synonymer utan
+kräver riktig böjningshantering (lemmatisering).
+
 ## 2026-09-14 - Uppgiften routas före rollen, och roller kan sättas som innehåll
 
 ### Beslut

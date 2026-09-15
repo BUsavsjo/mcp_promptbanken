@@ -76,6 +76,34 @@ class TextMatchTests(unittest.TestCase):
 
         self.assertEqual(_ids(rank(templates, "planera", area="y")), ["b"])
 
+    def test_a_word_does_not_match_mid_word_in_an_unrelated_word(self) -> None:
+        """'fått' (fyra tecken) råkade träffa mitt i 'sammanfattning' --
+        ordet ska bara räknas där det faktiskt börjar eller slutar ett ord."""
+        templates = [_t("summary", "Sammanfatta en lång text", tags=["sammanfattning"]), *_filler(5)]
+
+        self.assertEqual(rank(templates, "fått"), [])
+
+    def test_a_word_still_matches_as_a_compound_suffix(self) -> None:
+        templates = [_t("map", "Rita en processkarta"), *_filler(5)]
+
+        self.assertEqual(_ids(rank(templates, "karta")), ["map"])
+
+    def test_a_query_word_reaches_a_synonym_already_in_the_catalog(self) -> None:
+        """'statistik' har inget gemensamt ord med mallen, men taggen 'data'
+        gör -- se _SYNONYMS i search_ranking.py."""
+        templates = [_t("a", "Hitta mönster och avvikelser", tags=["dataanalys"]), *_filler(5)]
+
+        self.assertEqual(_ids(rank(templates, "statistik")), ["a"])
+
+    def test_a_synonym_never_beats_a_real_exact_match(self) -> None:
+        templates = [
+            _t("synonym", "Hitta mönster och avvikelser", tags=["dataanalys"]),
+            _t("exact", "Om statistik", tags=["statistik"]),
+            *_filler(5),
+        ]
+
+        self.assertEqual(_ids(rank(templates, "statistik"))[0], "exact")
+
 
 class PackageContextTests(unittest.TestCase):
     def test_package_text_finds_a_step_whose_own_text_does_not(self) -> None:

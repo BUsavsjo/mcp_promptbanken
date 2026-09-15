@@ -20,11 +20,29 @@ from .skill_router import SkillRouter
 
 # Funktionsord som folk skriver i en fråga men som inte säger något om
 # uppgiften. "detta" gjorde att "Kan jag använda AI till detta HR-arbete?"
-# toppade "skriv om detta mejl".
+# toppade "skriv om detta mejl". Användartestet 2026-09-15 hittade fem till:
+# "behöver"/"faktiskt"/"inför"/"ligga"/"mycket"/"först" förekommer i enstaka
+# mallars löptext av en slump och fick då en hög sällsynthetsvikt trots att de
+# inte säger något om uppgiften -- de körde om mallar med en riktig ordträff.
 _SEARCH_STOPWORDS = SkillRouter.STOPWORDS | {
     "bor", "denna", "dessa", "detta", "din", "dina", "ditt", "min", "mina", "mitt",
     "oss", "sin", "sina", "sitt", "var", "vad", "vi", "vilka", "vilken", "vilket",
+    "behover", "faktiskt", "infor", "ligga", "mycket", "forst", "ny",
 }
+
+# Vardagsord som saknar en gemensam stam med den mall de syftar på, hittade i
+# samma test. Varje rad är verifierad mot en tagg/titel som redan finns i
+# katalogen -- ingen ny mallvokabulär, bara en bro till den befintliga.
+_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "statistik": ("data",),
+    "forsamrats": ("avvikelse", "monster"),
+    "bakom": ("orsak",),
+    "undersoka": ("analys",),
+    "kartlagga": ("karta",),
+    "brister": ("gap",),
+    "rutin": ("styrdokument", "riktlinje"),
+}
+_SYNONYM_FACTOR = 0.6
 
 _STRONG = 2.0
 _WEAK = 1.0
@@ -67,10 +85,17 @@ def query_terms(query: str) -> tuple[bool, list[str]]:
 
 
 def _matcher(term: str) -> Any:
+    escaped = re.escape(term)
     if len(term) <= _MAX_WHOLE_WORD_TOKEN:
-        pattern = re.compile(rf"\b{re.escape(term)}\b", flags=re.UNICODE)
+        pattern = re.compile(rf"\b{escaped}\b", flags=re.UNICODE)
         return lambda text: bool(pattern.search(text))
-    return lambda text: term in text
+    # En svensk sammansättning fogar hela ord ihop ("produktutveckling"), så
+    # ett längre ord får träffa som hela ordet eller som en av delarna --
+    # men bara i en riktig ordkant. Utan gränskravet råkade "fått" (fyra
+    # tecken) träffa mitt i "sammanfattning" ("samman-FATT-ning"), en
+    # slumpträff utan betydelse som körde om en riktig ordträff.
+    pattern = re.compile(rf"\b{escaped}|{escaped}\b", flags=re.UNICODE)
+    return lambda text: bool(pattern.search(text))
 
 
 def _stem(term: str) -> str | None:
@@ -91,12 +116,15 @@ def _fields(template: dict[str, Any], packages: list[dict[str, Any]]) -> tuple[s
 def _level(term: str, fields: tuple[str, str, str]) -> float:
     exact = _matcher(term)
     stem = _stem(term)
+    synonyms = [_matcher(synonym) for synonym in _SYNONYMS.get(term, ())]
     best = 0.0
     for text, weight in zip(fields, (_STRONG, _WEAK, _PACKAGE)):
         if exact(text):
             best = max(best, weight)
         elif stem and stem in text:
             best = max(best, weight * _STEM_FACTOR)
+        elif any(synonym(text) for synonym in synonyms):
+            best = max(best, weight * _SYNONYM_FACTOR)
     return best
 
 
@@ -190,4 +218,11 @@ def rank(
             if row[1].get("area") in role_areas:
                 row[0] *= role_factor
 
-    return [template for _score, template in sorted(scored, key=lambda row: -row[0])]
+    # Vid poänglika (samma ord, samma vikt) vinner den mall vars titel/taggar
+    # är kortast -- färre egna ord kring träffen betyder att frågan täcker en
+    # större andel av mallen, dvs. ett renodlat svar snarare än en variant med
+    # en extra, otryckt kvalificering (t.ex. "...inför ett köp").
+    def _specificity(row: list[Any]) -> int:
+        return len(fields[id(row[1])][0].split())
+
+    return [template for _score, template in sorted(scored, key=lambda row: (-row[0], _specificity(row)))]
