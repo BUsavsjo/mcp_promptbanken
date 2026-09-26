@@ -374,27 +374,6 @@ _catalog_prompt_count_cache: tuple[float, int] | None = None
 _CATALOG_AUDIENCE_CACHE_TTL_SECONDS = 300
 _catalog_audience_cache: tuple[float, dict[str, str]] | None = None
 
-_PROMPTBANKEN_OPEN_1_2_2_AREAS = (
-    "anti-slop",
-    "arbetsbank",
-    "bemot-argument",
-    "beslutsberedning",
-    "forandringsledning",
-    "hall-traden",
-    "kommunikation",
-    "ledarskap",
-    "processer",
-    "sag-emot-mig",
-    "skarpare-funktionskrav",
-    "skola-undervisning-larare",
-    "superplanlage",
-    "supportarenden",
-    "vardagspaket",
-    "visuellt",
-    "workshop-och-facilitering",
-)
-
-
 def _open_catalog_prompt_count() -> int | None:
     """Antal publicerade mallar i den öppna katalogen (list_templates), cachat 5 min.
 
@@ -446,15 +425,6 @@ def _catalog_package_audiences() -> dict[str, str]:
     }
     _catalog_audience_cache = (now, audiences)
     return audiences
-
-
-def _open_catalog_areas() -> list[str]:
-    """Det granskade area-filtret i Promptbanken Open 1.2.2.
-
-    Tool-schemat är ett versionslåst externt kontrakt. Nya publicerade paket
-    får därför inte automatiskt lägga till enumvärden i ``tools/list``.
-    """
-    return list(_PROMPTBANKEN_OPEN_1_2_2_AREAS)
 
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
@@ -749,6 +719,10 @@ def _search_templates_payload(
         "returned": len(limited),
         "templates": [{k: t.get(k) for k in _TEMPLATE_SUMMARY_FIELDS} for t in limited],
     }
+    if area and area not in {template.get("area") for template in templates}:
+        payload["hint"] = (
+            f"Okänt område '{area}'. Giltiga områden är paketens slug från list_packages."
+        )
     if role and recommendation is not None:
         payload["role_recognized"] = recommendation["role_recognized"]
         payload["matched_role"] = recommendation["matched_role"]
@@ -2645,6 +2619,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     "matched_role": _nullable("string"),
                     "role_match_source": _nullable("string"),
                     "recommended_areas": _nullable_array(),
+                    "hint": _nullable("string"),
                 },
                 "additionalProperties": True,
             },
@@ -2670,10 +2645,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     "area": {
                         "type": "string",
                         "description": (
-                            "Restrict the search to one area. The values are the "
-                            "package slugs in the published catalogue."
+                            "Restrict the search to one area -- a package slug "
+                            "as returned by list_packages. An unknown slug "
+                            "returns no matches and a hint."
                         ),
-                        "enum": _open_catalog_areas(),
                     },
                     "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
                     "limit": {"type": "integer", "default": 10},

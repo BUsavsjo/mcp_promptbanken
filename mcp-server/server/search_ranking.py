@@ -64,6 +64,16 @@ _CLUSTER_MIN_SHARE = 0.4
 _RECOGNIZED_ROLE_FACTOR = 1.25
 _GUESSED_ROLE_FACTOR = 1.05
 
+# "zzzz-no-such-template-987654321" gav träff eftersom "no" råkar vara ett
+# helt ord i taggen "go-no-go" och får hög sällsynthetsvikt -- fast bara ett
+# av frågans fyra ord ("no") finns alls i katalogen. Täckningskravet gäller
+# därför bara frågor där de flesta orden är okända för katalogen (färre än
+# hälften av termerna hittas någonstans); en riktig fråga där ett starkt ord
+# faktiskt träffar mallen ska aldrig filtreras bort bara för att frågan har
+# flera ord.
+_COVERAGE_MIN_TERMS = 3
+_COVERAGE_MIN_MATCHED = 2
+
 
 def _fold(value: Any) -> str:
     if isinstance(value, list):
@@ -79,7 +89,7 @@ def query_terms(query: str) -> tuple[bool, list[str]]:
     terms: list[str] = []
     for word in raw:
         folded = SkillRouter._normalize(word)
-        if len(folded) >= 2 and folded not in _SEARCH_STOPWORDS and folded not in terms:
+        if len(folded) >= 2 and not folded.isdigit() and folded not in _SEARCH_STOPWORDS and folded not in terms:
             terms.append(folded)
     return bool(raw), terms
 
@@ -190,11 +200,16 @@ def rank(
     }
 
     weights: dict[str, float] = {}
+    known = 0
     if terms:
         total = len(templates)
         for term in terms:
             found = sum(1 for t in templates if _level(term, fields[id(t)]) > 0)
+            if found > 0:
+                known += 1
             weights[term] = math.log((total + 1) / (found + 0.5))
+
+    require_coverage = len(terms) >= _COVERAGE_MIN_TERMS and known * 2 < len(terms)
 
     role_factor = _RECOGNIZED_ROLE_FACTOR if role_recognized else _GUESSED_ROLE_FACTOR
 
@@ -205,7 +220,11 @@ def rank(
         if risk_level and template.get("risk_level") != risk_level:
             continue
         if terms:
-            score = sum(_level(term, fields[id(template)]) * weights[term] for term in terms)
+            levels = [_level(term, fields[id(template)]) for term in terms]
+            matched = sum(1 for level in levels if level > 0)
+            if require_coverage and matched < _COVERAGE_MIN_MATCHED:
+                continue
+            score = sum(level * weights[term] for level, term in zip(levels, terms))
             if score <= 0:
                 continue
         else:

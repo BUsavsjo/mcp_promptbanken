@@ -451,6 +451,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": true
@@ -468,26 +474,7 @@
           },
           "area": {
             "type": "string",
-            "description": "Restrict the search to one area. The values are the package slugs in the published catalogue.",
-            "enum": [
-              "anti-slop",
-              "arbetsbank",
-              "bemot-argument",
-              "beslutsberedning",
-              "forandringsledning",
-              "hall-traden",
-              "kommunikation",
-              "ledarskap",
-              "processer",
-              "sag-emot-mig",
-              "skarpare-funktionskrav",
-              "skola-undervisning-larare",
-              "superplanlage",
-              "supportarenden",
-              "vardagspaket",
-              "visuellt",
-              "workshop-och-facilitering"
-            ]
+            "description": "Restrict the search to one area -- a package slug as returned by list_packages. An unknown slug returns no matches and a hint."
           },
           "risk_level": {
             "type": "string",
