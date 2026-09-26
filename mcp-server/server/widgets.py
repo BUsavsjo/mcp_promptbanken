@@ -21,11 +21,17 @@ WIDGETS: dict[str, dict[str, str]] = {
         "name": "Promptbanken – paketkort",
         "description": "Kort för rekommenderade eller listade promptpaket med filter för arbetsflöden och samlingar.",
     },
+    "workflow-stepper": {
+        "file": "workflow-stepper.html",
+        "name": "Promptbanken – paketets steg",
+        "description": "Stegen i ett arbetsflöde med aktuellt steg markerat, eller mallarna i en samling.",
+    },
 }
 
 TOOL_WIDGETS: dict[str, str] = {
     "recommend_packages": "package-cards",
     "list_packages": "package-cards",
+    "list_package_prompts": "workflow-stepper",
 }
 
 

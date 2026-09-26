@@ -61,6 +61,10 @@ class WidgetResourceTests(unittest.TestCase):
             resource = widgets.list_widget_resources()[0]
         self.assertEqual(resource["_meta"]["ui"]["domain"], "https://mcp-dev.promptbanken.se")
 
+    def test_stepper_is_linked_to_list_package_prompts(self) -> None:
+        self.assertEqual(widgets.TOOL_WIDGETS["list_package_prompts"], "workflow-stepper")
+        self.assertIn("workflow-stepper", widgets.WIDGETS)
+
     def test_tools_point_to_their_widget_and_keep_status_texts(self) -> None:
         tools = {t["name"]: t for t in _tool_definitions_for_profile("public")}
         for tool_name, widget in widgets.TOOL_WIDGETS.items():

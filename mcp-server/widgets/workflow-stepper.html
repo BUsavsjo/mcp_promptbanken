@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promptbanken – paketets steg</title>
+<style>
+/*PB_BASE_CSS*/
+.head { display: grid; gap: 6px; justify-items: start; margin-bottom: 12px; }
+.steps, .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.marker { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; border: 1px solid var(--pb-border); background: var(--pb-surface); color: var(--pb-muted); }
+.step.done .marker { background: var(--pb-accent); border-color: var(--pb-accent); color: #ffffff; }
+.step.current .marker { border: 2px solid var(--pb-accent); color: var(--pb-text); font-weight: 600; }
+.step.current .body { border-color: var(--pb-accent); }
+.body, .item { display: grid; gap: 4px; justify-items: start; padding: 8px 10px; border: 1px solid var(--pb-border); border-radius: var(--pb-radius); background: var(--pb-bg); }
+.step.todo .body strong { color: var(--pb-muted); }
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"><p class="pb-notice">Laddar paketet …</p></div>
+<script>
+/*PB_BRIDGE_JS*/
+</script>
+<script>
+(function () {
+  "use strict";
+  var el = PB.el;
+  var app = document.getElementById("app");
+
+  function stepLabel(prompt, index) {
+    var raw = prompt.step_title || prompt.title || "Steg " + (index + 1);
+    return String(raw).replace(/^\s*\d+\.\s*/, "");
+  }
+
+  function header(pkg, label) {
+    var head = el("header", "head");
+    head.append(el("span", "pb-badge", label), el("h2", null, pkg.title || pkg.slug || "Paket"));
+    if (pkg.summary) head.append(el("p", "pb-muted", pkg.summary));
+    if (PB.canFullscreen()) {
+      var full = el("button", null, "Helskärm");
+      full.type = "button";
+      full.addEventListener("click", function () { PB.requestFullscreen().catch(function () {}); });
+      head.append(full);
+    }
+    return head;
+  }
+
+  function renderWorkflow(pkg, prompts, current) {
+    var saved = PB.getState();
+    var started = saved && saved.package === pkg.slug && typeof saved.started === "number" ? saved.started : 0;
+    var active = current || started || null;
+    var list = el("ol", "steps");
+    prompts.forEach(function (prompt, index) {
+      var number = index + 1;
+      var label = stepLabel(prompt, index);
+      var status = active === null ? "todo" : number < active ? "done" : number === active ? "current" : "todo";
+      var item = el("li", "step " + status);
+      if (status === "current") item.setAttribute("aria-current", "step");
+      var marker = el("span", "marker", status === "done" ? "✓" : String(number));
+      marker.setAttribute("aria-hidden", "true");
+      var body = el("div", "body");
+      var statusText = { done: "klart", current: "pågår", todo: "kommande" }[status];
+      body.setAttribute("aria-label", "Steg " + number + ", " + statusText + ": " + label);
+      body.append(el("strong", null, number + ". " + label));
+      var intro = prompt.step_intro || prompt.syfte;
+      if (intro) body.append(el("p", "pb-muted", intro));
+      var primary = status === "current" || (active === null && number === 1);
+      var start = el("button", primary ? "pb-primary" : null, status === "done" ? "Öppna igen" : "Starta steg " + number);
+      start.type = "button";
+      start.addEventListener("click", function () {
+        PB.setState({ package: pkg.slug, started: number });
+        PB.sendMessage("Starta steg " + number + ' i "' + (pkg.title || pkg.slug) + '": ' + label + ".").catch(function () {});
+      });
+      body.append(start);
+      item.append(marker, body);
+      list.append(item);
+    });
+    app.replaceChildren(header(pkg, "Arbetsflöde · " + prompts.length + " steg"), list);
+  }
+
+  function renderCollection(pkg, prompts) {
+    var list = el("ul", "items");
+    prompts.forEach(function (prompt) {
+      var name = prompt.title || prompt.slug || "Mall";
+      var item = el("li", "item");
+      item.append(el("strong", null, name));
+      if (prompt.syfte) item.append(el("p", "pb-muted", prompt.syfte));
+      var use = el("button", null, "Använd");
+      use.type = "button";
+      use.addEventListener("click", function () {
+        PB.sendMessage('Använd mallen "' + name + '" från paketet "' + (pkg.title || pkg.slug) + '".').catch(function () {});
+      });
+      item.append(use);
+      list.append(item);
+    });
+    app.replaceChildren(header(pkg, "Samling · " + prompts.length + " mallar"), list);
+  }
+
+  PB.onData(function (data) {
+    if (data && data.code === "package_not_found") { PB.notice(app, "Paketet hittades inte."); return; }
+    if (!data || data.status === "error" || !Array.isArray(data.prompts) || !data.prompts.length) {
+      PB.notice(app, "Kunde inte visa innehållet. Svaret finns i chatten.");
+      return;
+    }
+    var pkg = data.package || { slug: "", title: "" };
+    var prompts = data.prompts.slice().sort(function (a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });
+    var hasStepTitles = prompts.some(function (p) { return p.step_title; });
+    var type = pkg.package_type || (hasStepTitles ? "workflow" : "collection");
+    var current = typeof data.current_step === "number" ? data.current_step : null;
+    if (type === "workflow" && !hasStepTitles) {
+      // Arbetsflöden utan stegrubriker (som Superplan) håller processen dold.
+      app.replaceChildren(header(pkg, "Arbetsflöde"));
+    } else if (type === "workflow") {
+      renderWorkflow(pkg, prompts, current);
+    } else {
+      renderCollection(pkg, prompts);
+    }
+  });
+  PB.start(function () { PB.notice(app, "Innehållet visas i chatten."); });
+})();
+</script>
+</body>
+</html>

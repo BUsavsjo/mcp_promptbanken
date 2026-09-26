@@ -1,0 +1,11 @@
+{
+  "status": "success",
+  "package": {"slug": "forbattringside-till-synlig-effekt", "title": "Från förbättringsidé till synlig effekt", "package_type": "workflow", "summary": "Ett guidat förbättringsflöde.", "icon_key": null, "color_theme": null},
+  "current_step": 3,
+  "prompts": [
+    {"id": "1", "title": "Avgränsa förbättringsproblemet", "sort_order": 1, "step_title": "1. Avgränsa förbättringsproblemet", "step_intro": "Säkerställ att ni arbetar med ett konkret problem."},
+    {"id": "2", "title": "Formulera förbättringsmål", "sort_order": 2, "step_title": "2. Formulera förbättringsmål", "step_intro": "Beskriv vad som ska bli bättre."},
+    {"id": "3", "title": "Kartlägg orsaker till problemet", "sort_order": 3, "step_title": "3. Kartlägg orsaker", "step_intro": "Analysera möjliga orsaker."},
+    {"id": "4", "title": "Bestäm mätning och baslinje", "sort_order": 4, "step_title": "4. Bestäm mätning och baslinje", "step_intro": "Bestäm hur ni ska upptäcka förbättring."}
+  ]
+}
