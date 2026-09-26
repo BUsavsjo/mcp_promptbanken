@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-09-26 - Design: Open 1.3.0 med MCP Apps-widgets och Superplan-skill
+
+### Gjort
+- Kartlade ChatGPT:s UI-stöd: MCP Apps (SEP-1865, `io.modelcontextprotocol/ui`) är officiell standard och stöds av ChatGPT, Claude, VS Code och Goose. `window.openai` är ChatGPT-tillägg; flera `openai/*`-nycklar är legacy.
+- Gick igenom live-katalogen (35 paket, 16 workflows) för att bedöma värde: störst för workflows och rollrekommendationer, lågt för formulär.
+- Designade 1.3.0: tre widgets (paketkort, stegvisare, mallvy), `current_step` på `list_package_prompts`, utökad `recommend_packages`, öppen `area`, Superplan-skill som tunn dirigent, isolerad dev-miljö. Spec: `docs/superpowers/specs/2026-09-26-open-1.3.0-apps-and-superplan-skill-design.md`.
+- Verifierade på VPS:en: prod- och dev-container byggs från samma katalog och pekar båda på prod-Supabase. Admin start/stop för `mcp-dev` går via `admin_control.py` (port 8013) som mappar tjänstnamn till containernamn.
+
+### Beslut
+- Framsteg i workflows sparas bara i chatten.
+- Widgets i ren HTML/JS utan byggsteg; navigering via `ui/message`.
+- Superplan visar inga faser (mallarnas eget krav); stegvisaren används för workflows som Superplan routar till.
+
+### Nästa steg
+- Implementationsplan (writing-plans).
+- Kontrollera att dev-Supabase har katalog-RPC:er och data.
+
 ## 2026-09-15 - Sökranking: fem vardagsfall från nytt användartest
 
 ### Gjort
