@@ -26,12 +26,18 @@ WIDGETS: dict[str, dict[str, str]] = {
         "name": "Promptbanken – paketets steg",
         "description": "Stegen i ett arbetsflöde med aktuellt steg markerat, eller mallarna i en samling.",
     },
+    "template-view": {
+        "file": "template-view.html",
+        "name": "Promptbanken – mall",
+        "description": "En promptmall med syfte, risknivå och säkerhetsråd; prompttexten kan fällas ut.",
+    },
 }
 
 TOOL_WIDGETS: dict[str, str] = {
     "recommend_packages": "package-cards",
     "list_packages": "package-cards",
     "list_package_prompts": "workflow-stepper",
+    "get_template": "template-view",
 }
 
 

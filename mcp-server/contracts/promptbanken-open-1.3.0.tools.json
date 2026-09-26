@@ -509,7 +509,10 @@
       },
       "_meta": {
         "openai/toolInvocation/invoking": "Hämtar promptmallen",
-        "openai/toolInvocation/invoked": "Promptmallen hämtad"
+        "openai/toolInvocation/invoked": "Promptmallen hämtad",
+        "ui": {
+          "resourceUri": "ui://promptbanken/template-view.html"
+        }
       },
       "outputSchema": {
         "type": "object",

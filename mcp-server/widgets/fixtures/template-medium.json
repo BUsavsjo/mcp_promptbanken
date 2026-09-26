@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "template": {
+    "id": "4e188dc0-f5be-404c-8e2e-6cde30ff4df7",
+    "title": "Planera PGSA-test",
+    "syfte": "Planerar minsta rimliga PGSA-test med tydlig hypotes, omfattning, ansvar och mätning.",
+    "area_label": "Från förbättringsidé till synlig effekt",
+    "risk_level": "medium",
+    "security_examples": [
+      "Använd inte personuppgifter eller sekretessbelagd information i förbättringsexempel om det inte är nödvändigt och tillåtet.",
+      "Vid delning eller publicering ska små grupper och identifierbara individer anonymiseras."
+    ],
+    "prompt_text": "Du leder steget **Planera** i en PGSA-cykel.\n\n## Samtalsprincip\nFråga stegvis efter saknade uppgifter."
+  }
+}

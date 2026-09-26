@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promptbanken – mall</title>
+<style>
+/*PB_BASE_CSS*/
+#app { display: grid; gap: 12px; justify-items: start; }
+.head { display: grid; gap: 6px; justify-items: start; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.risk-low { color: #1f7a3d; border-color: #1f7a3d; }
+.risk-medium { color: #9a6200; border-color: #9a6200; }
+.risk-high { color: #b3261e; border-color: #b3261e; }
+:root[data-theme="dark"] .risk-low { color: #7dd39a; border-color: #7dd39a; }
+:root[data-theme="dark"] .risk-medium { color: #f0b85a; border-color: #f0b85a; }
+:root[data-theme="dark"] .risk-high { color: #f28b82; border-color: #f28b82; }
+.safety { width: 100%; padding: 10px 12px; border: 1px solid var(--pb-border); border-left: 4px solid #9a6200; border-radius: var(--pb-radius); background: var(--pb-surface); }
+.safety ul { margin: 6px 0 0; padding-left: 18px; }
+.prompt { width: 100%; }
+.prompt summary { cursor: pointer; color: var(--pb-muted); }
+.prompt pre { white-space: pre-wrap; font: 13px/1.5 var(--pb-font); background: var(--pb-surface); border-radius: var(--pb-radius); padding: 10px; max-height: 320px; overflow: auto; }
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"><p class="pb-notice">Laddar mallen …</p></div>
+<script>
+/*PB_BRIDGE_JS*/
+</script>
+<script>
+(function () {
+  "use strict";
+  var el = PB.el;
+  var app = document.getElementById("app");
+  var RISK = { low: ["Låg risk", "risk-low"], medium: ["Medelrisk", "risk-medium"], high: ["Hög risk", "risk-high"] };
+
+  PB.onData(function (data) {
+    var template = data && data.template;
+    if (!template || data.status === "error") {
+      PB.notice(app, data && data.status === "error" ? "Mallen hittades inte." : "Kunde inte visa innehållet. Svaret finns i chatten.");
+      return;
+    }
+    var nodes = [];
+    var head = el("header", "head");
+    var badges = el("div", "badges");
+    if (template.area_label) badges.append(el("span", "pb-badge", template.area_label));
+    var risk = RISK[template.risk_level];
+    if (risk) badges.append(el("span", "pb-badge " + risk[1], risk[0]));
+    head.append(badges, el("h2", null, template.title || "Mall"));
+    if (template.syfte) head.append(el("p", null, template.syfte));
+    nodes.push(head);
+    var examples = Array.isArray(template.security_examples) ? template.security_examples.filter(Boolean) : [];
+    if (examples.length) {
+      var box = el("section", "safety");
+      box.setAttribute("aria-label", "Säkerhetsråd");
+      box.append(el("strong", null, "Tänk på"));
+      var list = el("ul");
+      examples.forEach(function (text) { list.append(el("li", null, text)); });
+      box.append(list);
+      nodes.push(box);
+    }
+    if (template.prompt_text) {
+      var details = el("details", "prompt");
+      details.append(el("summary", null, "Visa prompttexten"), el("pre", null, template.prompt_text));
+      nodes.push(details);
+    }
+    var use = el("button", "pb-primary", "Använd mallen");
+    use.type = "button";
+    use.addEventListener("click", function () {
+      PB.sendMessage('Använd mallen "' + (template.title || "") + '".').catch(function () {});
+    });
+    nodes.push(use);
+    app.replaceChildren.apply(app, nodes);
+  });
+  PB.start(function () { PB.notice(app, "Innehållet visas i chatten."); });
+})();
+</script>
+</body>
+</html>
