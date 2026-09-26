@@ -97,6 +97,10 @@
   }
 
   PB.onData(function (data) {
+    if (data && data.status === "error") {
+      PB.notice(app, "Kunde inte visa innehållet. Svaret finns i chatten.");
+      return;
+    }
     if (!data || !Array.isArray(data.packages)) {
       PB.notice(app, "Kunde inte visa innehållet. Svaret finns i chatten.");
       return;

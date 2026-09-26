@@ -4,7 +4,7 @@ Körs manuellt i ChatGPT (developer mode, pluginet installerat mot dev) och i Co
 
 | # | Kategori | Användarens meddelande | Förväntat |
 |---|---|---|---|
-| 1 | Direkt | "Kör superplan: vi behöver en plan för att införa digitala signaturer på förvaltningen." | Skillen aktiveras. `list_package_prompts("superplanlage")`, sedan `get_template` för första fasen. Högst tre fokuserade frågor, inga fasnamn. |
+| 1 | Direkt | "Kör superplan: vi behöver en plan för att införa digitala signaturer på förvaltningen." | Skillen aktiveras. `list_package_prompts("superplanlage", include_prompt_text=true)` en gång; inga `get_template` för Superplans faser. Högst tre fokuserade frågor, inga fasnamn. |
 | 2 | Direkt | "Hjälp mig hela vägen med en kommunikationsplan för en omorganisation, kör." | Tolkas som delegation. Kort riktningssammanfattning utan extra bekräftelse om inget nytt antagande tillkommit. |
 | 3 | Indirekt | "Jag har ett rörigt uppdrag om att minska väntetider i kundtjänst och vet inte var jag ska börja." | Skillen aktiveras. Riktningsfasen startar. |
 | 4 | Indirekt | "Ta fram ett beslutsunderlag åt mig om vi ska byta ärendesystem." | Skillen aktiveras. I utförandet rekommenderas en specialist (t.ex. business case- eller konsekvensanalysflödet) med ett kort skäl. |

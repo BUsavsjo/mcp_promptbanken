@@ -65,6 +65,14 @@
       else entry.resolve(message.result);
       return;
     }
+    if (message.id !== undefined && message.method) {
+      if (message.method === "ping" || message.method === "ui/resource-teardown") {
+        post({ jsonrpc: "2.0", id: message.id, result: {} });
+      } else {
+        post({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Method not found" } });
+      }
+      return;
+    }
     var params = message.params || {};
     if (message.method === "ui/notifications/tool-result" && params.structuredContent) deliver(params.structuredContent);
     if (message.method === "ui/notifications/host-context-changed") applyContext(params);
@@ -84,22 +92,23 @@
         connected = true;
         applyContext(result && result.hostContext);
         notify("ui/notifications/initialized");
+        if (typeof ResizeObserver === "function") {
+          new ResizeObserver(function () {
+            notify("ui/notifications/size-changed", {
+              width: document.documentElement.scrollWidth,
+              height: document.documentElement.scrollHeight
+            });
+          }).observe(document.body);
+        }
       }).catch(function () {});
       window.addEventListener("openai:set_globals", function () { if (!received) fromOpenAi(); });
       setTimeout(function () {
-        if (!received && !fromOpenAi() && onNothing) onNothing();
+        if (received || connected) return;
+        if (!fromOpenAi() && onNothing) onNothing();
       }, FALLBACK_MS);
-      if (typeof ResizeObserver === "function") {
-        new ResizeObserver(function () {
-          notify("ui/notifications/size-changed", {
-            width: document.documentElement.scrollWidth,
-            height: document.documentElement.scrollHeight
-          });
-        }).observe(document.body);
-      }
     },
     sendMessage: function (text) {
-      if (connected) return request("ui/message", { role: "user", content: { type: "text", text: text } });
+      if (connected) return request("ui/message", { role: "user", content: [{ type: "text", text: text }] });
       var host = openai();
       if (host && host.sendFollowUpMessage) return host.sendFollowUpMessage({ prompt: text });
       return Promise.reject(new Error("no host"));
@@ -133,7 +142,7 @@
       return "hsl(" + (hash % 360) + " 55% 50%)";
     },
     safeColor: function (value, slug) {
-      return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value) ? value : PB.areaColor(slug);
+      return typeof value === "string" && /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value) ? value : PB.areaColor(slug);
     },
     typeLabel: function (type) {
       return type === "workflow" ? "Arbetsflöde" : type === "collection" ? "Samling" : "Paket";

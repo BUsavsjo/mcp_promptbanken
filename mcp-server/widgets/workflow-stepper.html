@@ -30,7 +30,7 @@
 
   function stepLabel(prompt, index) {
     var raw = prompt.step_title || prompt.title || "Steg " + (index + 1);
-    return String(raw).replace(/^\s*\d+\.\s*/, "");
+    return String(raw).replace(/^\s*\d+\.\s+/, "");
   }
 
   function header(pkg, label) {

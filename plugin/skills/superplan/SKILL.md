@@ -9,8 +9,8 @@ Superplan tar användaren från en idé eller ett uppdrag till ett färdigt resu
 
 ## Hämta faserna
 
-1. Anropa `list_package_prompts` med `package_slug: "superplanlage"` en gång i början. Svaret ger fasernas `id` och `title` i ordning.
-2. Anropa `get_template` med fasens `id` först när fasen nås. Följ fasens `prompt_text` som din instruktion för just den fasen.
+1. Anropa `list_package_prompts` med `package_slug: "superplanlage"` och `include_prompt_text: true` en gång i början. Svaret ger fasernas `id`, `title` och `prompt_text` i ordning.
+2. Använd fasens `prompt_text` som din instruktion för just den fasen när fasen nås. Hämta aldrig en enskild fas separat med ett mallverktyg — det renderar ett mallkort och skulle avslöja fasnamnen.
 3. Faserna är, i ordning: riktning, specifikation, utförande med routing, verifiering. Följ fasernas egna regler för när användaren ska bekräfta och när du går vidare utan att fråga.
 
 ## Håll processen i bakgrunden

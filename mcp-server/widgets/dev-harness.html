@@ -55,7 +55,10 @@ window.addEventListener("message", function (event) {
   if (event.source !== frame.contentWindow) return;
   var message = event.data;
   log("←", message);
-  if (message.method === "ui/message") window.sentMessages.push(message.params.content.text);
+  if (message.method === "ui/message") {
+    var content = message.params.content;
+    window.sentMessages.push(Array.isArray(content) ? content[0].text : content.text);
+  }
   if (message.method === "ui/initialize") {
     send({ jsonrpc: "2.0", id: message.id, result: {
       protocolVersion: "2026-01-26",

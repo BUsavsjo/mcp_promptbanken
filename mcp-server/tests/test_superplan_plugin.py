@@ -44,6 +44,15 @@ class SuperplanPluginTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertNotIn(phrase, self.skill)
 
+    def test_phases_are_fetched_in_one_call_without_get_template(self) -> None:
+        self.assertIn("include_prompt_text", self.skill)
+        match = re.search(
+            r"## Hämta faserna\n(.*?)\n## ", self.skill, flags=re.DOTALL
+        )
+        self.assertIsNotNone(match)
+        section = match.group(1)
+        self.assertNotIn("get_template", section)
+
     def test_mcp_endpoint_is_the_same_in_both_manifests(self) -> None:
         mcp = json.loads((_PLUGIN / "mcp.json").read_text(encoding="utf-8"))
         url = mcp["mcpServers"]["promptbanken"]["url"]
