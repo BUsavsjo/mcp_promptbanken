@@ -1,0 +1,42 @@
+# Isolerad devmiljö för Promptbanken Open. Körs från en egen klon
+# (~/mcp_promptbanken_dev) med eget compose-projekt så att prodkatalogen,
+# prodcontainern och prod-Supabase aldrig berörs. Start/stopp sker från
+# admin-gränssnittet (tjänsten "mcp-dev" i admin_control.py mappar till
+# container_name nedan).
+#
+#   docker-compose -p promptbanken-open-dev -f deploy/open-dev/docker-compose.yml up -d --build
+#
+# .env ligger i samma katalog som den här filen och ska peka på
+# dev-Supabase (dklxriwjskyglqeombvv), aldrig prod.
+services:
+  promptbanken-mcp-dev:
+    build:
+      context: ../../mcp-server
+    container_name: promptbanken-open-dev-mcp
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      MCP_LOG_LEVEL: INFO
+      PROMPTBANKEN_MCP_MODE: hosted
+      PROMPTBANKEN_WIDGET_DOMAIN: https://mcp-dev.promptbanken.se
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL saknas i deploy/open-dev/.env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY saknas i deploy/open-dev/.env}
+      SUPABASE_MCP_ROLE_JWT: ${SUPABASE_MCP_ROLE_JWT:-}
+    ports:
+      - "127.0.0.1:8001:8000"
+    # Startas och stoppas manuellt/från admin -- VPS:en har 378 MB RAM.
+    restart: "no"
+    mem_limit: 150m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
