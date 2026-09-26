@@ -1,5 +1,19 @@
 # Beslut
 
+## 2026-09-27 - Open 1.3.0: MCP Apps-widgets, öppet area och Superplan dold
+
+### Beslut
+- UI byggs mot den öppna MCP Apps-standarden (`io.modelcontextprotocol/ui`, 2026-01-26) med egen brygga i ren HTML/JS; `window.openai` bara via feature detection. Navigering sker med `ui/message` (content som array, som ext-apps-SDK:n).
+- `search_templates.area` blir öppen sträng (en dynamisk enum hade krävt ny OpenAI-review vid varje nytt paket).
+- Sökningens täckningskrav gäller bara frågor där färre än hälften av orden finns i katalogen (≥3 termer ⇒ minst 2 träffar); en fast regel gav regression i routing-baslinjen.
+- Okänd roll i `recommend_packages` ger tom lista + förslag; `area_label` = paketets titel.
+- Superplan visas inte som stegvisare: mallarna kräver dold process och flödet är inte linjärt. Skillen hämtar alla faser i ett `list_package_prompts(include_prompt_text=true)` så att mallvyn aldrig visar fasnamn. Stegvisaren döljer steglistan för arbetsflöden utan `step_title`.
+- Framsteg sparas bara i chatten (`current_step` ekas, ingen lagring).
+- Dev körs isolerat mot dev-Supabase i eget compose-projekt; prodkatalog, prodcontainer och prod-Supabase rörs inte under utveckling.
+
+### Varför
+Se specen `docs/superpowers/specs/2026-09-26-open-1.3.0-apps-and-superplan-skill-design.md` och testrapporten `docs/superpowers/tests/2026-09-27-open-1.3.0-dev-test.md`.
+
 ## 2026-09-15 - Sökranking: fyllnadsord, ordkantsmatchning, evidensbaserade synonymer
 
 ### Beslut

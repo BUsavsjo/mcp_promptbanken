@@ -1,5 +1,22 @@
 # Logg
 
+## 2026-09-27 - Open 1.3.0 byggd, deployad till mcp-dev och testad
+
+### Gjort
+- Byggde hela 1.3.0 enligt planen `docs/superpowers/plans/2026-09-26-open-1.3.0-apps-and-superplan-skill.md` med underagenter (en implementerare + en granskare per task, slutgranskning av hela grenen, en korrigeringsrunda). 240 tester gröna.
+- Isolerad dev-miljö: klon `~/mcp_promptbanken_dev`, container `promptbanken-open-dev-mcp` mot dev-Supabase, admin-tjänsten `mcp-dev` pekar om (status/stop/start testat). Gamla dev-containern borttagen.
+- Deployat `5155087` till mcp-dev. Livekontroll 23/24 OK (enda FAIL: dev-katalogen saknar arbetsflöden).
+- UX-test med riktig data och Playwright; rapport i `docs/superpowers/tests/2026-09-27-open-1.3.0-dev-test.md`.
+- Förberedde katalogsynk prod → dev (läser bara den publika MCP:n) som körs i dev-containern via `/tmp/pbsync/run_apply.sh`; uttag av dev service_role-nyckel via webbläsaren nekades av behörighetsklassificeraren, så Peter kör synken själv.
+
+### Fynd
+- Dev-MCP pekade tidigare på prod-Supabase och skrev användningshändelser dit (åtgärdat).
+- Dev-katalogen: 52 mallar/7 samlingar mot prods 225/35.
+- Lokal C: var full under arbetet (0 byte), vilket stoppade lokal Python tillfälligt.
+
+### Nästa steg
+- Katalogsynk, sedan livetest av stegvisare och Superplan; test i ChatGPT och Claude.
+
 ## 2026-09-26 - Design: Open 1.3.0 med MCP Apps-widgets och Superplan-skill
 
 ### Gjort
