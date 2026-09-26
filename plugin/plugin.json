@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "promptbanken",
+  "version": "1.3.0",
+  "description": "Promptbankens öppna katalog med promptmallar och guidade arbetsflöden, plus Superplan som driver ett uppdrag från idé till kontrollerat resultat.",
+  "author": {
+    "name": "Promptbanken",
+    "url": "https://app.promptbanken.se"
+  },
+  "homepage": "https://app.promptbanken.se",
+  "license": "MIT",
+  "keywords": ["promptmallar", "arbetsflöden", "offentlig sektor", "superplan"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Promptbanken",
+        "shortDescription": "Hitta och använd promptmallar och arbetsflöden",
+        "developerName": "Promptbanken",
+        "category": "Productivity"
+      }
+    }
+  }
+}
