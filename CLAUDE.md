@@ -25,11 +25,14 @@ mcp-server/
     admin_auth.py           # Supabase refresh-token-brygga för /admin (JWT-utbyte, cachning)
     admin_catalog.py         # RPC-lager för admin-katalogförfattande (rate-limit, audit-loggning)
     hosted_guard.py        # Metadata-only-guard för hosted-läge
+    widgets.py             # resources/list, resources/read och _meta.ui-koppling för widgetarna
   scripts/                 # run-mcp.js, serve-http.js, setup-python.js, check-python.js, log-summary.js
+  widgets/                 # Widgets (package-cards, workflow-stepper, template-view), brygga, testvärd
   skills.json              # Skill-katalog (21 skills, se README.md för aktuell lista av skill-id)
   prompts/                 # Promptmallar (.txt), en per skill-id
   requirements.txt
 docker-compose.yml         # Produktionsdrift på VPS
+plugin/                    # OpenAI-plugin med Superplan-skill
 docs/add-new-prompt.md     # Guide för att lägga till en ny skill/prompt
 .claude/
   settings.json            # MCP-serverkonfiguration (Supabase MCP, lokalt)
@@ -54,7 +57,7 @@ docker compose up -d --build
 docker compose logs -f --tail=100 promptbanken-mcp
 ```
 
-Inga automatiserade tester finns i repot ännu — verifiera ändringar manuellt via `npm run dev`/`npm run serve` och `/healthz`.
+Testsviten körs från `mcp-server/`: `.venv/Scripts/python.exe -m unittest discover -s tests`. Kontraktsgrinden (`tests/test_open_contract_snapshot.py`) jämför den publika verktygsytan med `contracts/promptbanken-open-<version>.tools.json`; generera om filen med `scripts/export_open_contract.py` vid avsiktliga ändringar.
 
 ## Viktiga miljövariabler
 | Variabel | Syfte |
@@ -64,6 +67,7 @@ Inga automatiserade tester finns i repot ännu — verifiera ändringar manuellt
 | `SUPABASE_ANON_KEY` | Publik anon-nyckel — krävs i `apikey`-headern för att passera Kong-gatewayen, avslöjar ingen behörighet i sig |
 | `SUPABASE_MCP_ROLE_JWT` | Egen JWT signerad för rollen `mcp_server` (se nedan) — skickas som `Authorization: Bearer`, styr vilken Postgres-roll RPC-anropen kör som |
 | `PROMPTBANKEN_MCP_API_KEY` | Global Bearer-token som låser hela servern (se varning nedan) |
+| `PROMPTBANKEN_WIDGET_DOMAIN` | Origin i widgetarnas `_meta.ui.domain`, standard `https://mcp.promptbanken.se` |
 
 `PROMPTBANKEN_MCP_USER_KEY` används inte längre — nyckeln skickas per anrop av klienten.
 
@@ -195,7 +199,12 @@ POST     /api/v1/vault/items/{item_id}/archive              # arkivera/aterstall
 GET      /openapi.json
 POST     /admin                                             # admin-katalogförfattande, fail-closed bakom PROMPTBANKEN_ADMIN_KEY
 ```
+`/mcp` stöder utöver `tools/list`/`tools/call` även `resources/list` och `resources/read` för widget-resurserna `ui://promptbanken/*.html` (MCP Apps, `text/html;profile=mcp-app`) som paket- och mallverktygen länkar till via `_meta.ui.resourceUri`.
+
 Alla `/api/v1/*` stöder `X-MCP-Key` (fallback: `Authorization: Bearer`). Guard-allowlist för hosted-läge (`hosted_guard.py`) måste hållas i synk med tool-listan i `mcp_server.py` när nya tools läggs till.
+
+### Dev-miljö
+Isolerad devmiljö i `deploy/open-dev/`: egen klon (`~/mcp_promptbanken_dev`), eget compose-projekt (`promptbanken-open-dev`), egen container (`promptbanken-open-dev-mcp`) och en egen dev-Supabase (`dklxriwjskyglqeombvv`) — prodkatalogen, prodcontainern och prod-Supabase berörs aldrig. Styrs från admin-gränssnittet som tjänsten `mcp-dev`.
 
 ## Arbetsminnesfiler
 Läs dessa innan större ändringar:

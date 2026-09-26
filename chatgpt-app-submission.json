@@ -134,7 +134,7 @@
       "user_prompt": "Jag är chef. Vilka paket i Promptbanken passar min roll?",
       "file_attachment_urls": null,
       "tools_triggered": "recommend_packages",
-      "expected_output": "Recognises the role (role_recognized: true, matched_role \"chef\") and returns four areas: Förändringsledning och införande, Tjänstemannastöd och beslutsberedning, Ledarskap och styrning, and Egen AI-arbetsbank. Role matching is Swedish; an unrecognised role deliberately returns every package with role_recognized: false rather than an empty result.",
+      "expected_output": "Recognises the role (role_recognized: true, matched_role \"chef\") and returns the packages that suit a manager, leadership and decision-support packages first, each with title, summary and type. In ChatGPT the result is shown as package cards. An unrecognised role returns no packages and a suggestion to call list_packages.",
       "expected_output_url": null
     },
     {
@@ -142,7 +142,7 @@
       "user_prompt": "Vilka arbetsflöden finns i Promptbanken?",
       "file_attachment_urls": null,
       "tools_triggered": "list_packages with package_type=\"workflow\"",
-      "expected_output": "Returns only packages whose package_type is \"workflow\" — currently exactly one, Superplanläge (slug: superplanlage) — each with slug, title, summary and package_type.",
+      "expected_output": "list_packages with package_type=workflow returns only guided workflows (package_type: workflow), each with slug, title and summary.",
       "expected_output_url": null
     },
     {
@@ -159,6 +159,14 @@
       "file_attachment_urls": null,
       "tools_triggered": "search_templates, then get_template on the chosen result",
       "expected_output": "Returns templates from the procurement package \"Skarpare funktionskrav\", led by \"Gör om till funktionskrav\", together with \"Slå ihop och förenkla krav\", \"SKA, mervärde eller användningsfall?\" and \"Utmana våra krav\". get_template on the chosen id returns that template's full prompt text for local use by the client.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Walk through a guided workflow step by step.",
+      "user_prompt": "Jag vill driva ett förbättringsarbete på min enhet steg för steg. Visa stegen.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_packages or search_templates, then list_package_prompts",
+      "expected_output": "Returns the steps of the improvement workflow in order with the package's title and type. In ChatGPT the steps are shown in a stepper; with current_step the step the user is on is marked. Step prompts are fetched with get_template when reached.",
       "expected_output_url": null
     }
   ],
@@ -185,6 +193,14 @@
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "The app should not be invoked. Promptbanken has no write or file-handling tools on the open connector and cannot produce or modify documents.",
+      "expected_output_url": null
+    },
+    {
+      "description": "The user asks Promptbanken to store their own text.",
+      "user_prompt": "Spara den här mötesanteckningen i Promptbanken så jag hittar den sen.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked. The open connector is read-only and has no tool that stores the user's content.",
       "expected_output_url": null
     }
   ]

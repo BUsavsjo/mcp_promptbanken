@@ -433,6 +433,7 @@ Nuvarande skill-id:
 |-- docker-compose.yml
 |-- package.json
 |-- README.md
+|-- plugin/                # OpenAI-plugin med Superplan-skill
 `-- mcp-server/
     |-- Dockerfile
     |-- package.json
@@ -440,7 +441,9 @@ Nuvarande skill-id:
     |-- skills.json
     |-- prompts/
     |-- scripts/
+    |-- widgets/            # widgets (package-cards, workflow-stepper, template-view), brygga, testvärd
     `-- server/
+        `-- widgets.py      # resources/list, resources/read och _meta.ui-koppling
 ```
 
 Rotens `package.json` är en tunn genväg till script i `mcp-server/`.
@@ -482,6 +485,7 @@ PROMPTBANKEN_MCP_VERSION=1.1.0
 PROMPTBANKEN_MCP_HOSTED_GUARD=warn
 PROMPTBANKEN_MCP_ALLOWED_ORIGINS=https://mcp.promptbanken.se
 PROMPTBANKEN_OPENAI_CHALLENGE_TOKEN=  # OpenAI:s app-directory-domänverifieringstoken
+PROMPTBANKEN_WIDGET_DOMAIN=https://mcp.promptbanken.se  # origin i widgetarnas _meta.ui.domain
 ```
 
 Tillåtna värden för `PROMPTBANKEN_MCP_MODE`:
@@ -503,6 +507,11 @@ GET  /mcp
 POST /mcp/key
 GET  /mcp/key
 ```
+
+`/mcp` stöder utöver `tools/list`/`tools/call` även `resources/list` och
+`resources/read` för widget-resurserna `ui://promptbanken/*.html`
+(MCP Apps, `text/html;profile=mcp-app`) som paket- och mallverktygen länkar
+till via `_meta.ui.resourceUri`.
 
 REST-ytan är read-only:
 
@@ -598,6 +607,16 @@ För publik demo kan servern köras utan API-nyckel. För intern eller längre d
 ```env
 PROMPTBANKEN_MCP_API_KEY=byt-till-en-lång-slumpad-nyckel
 ```
+
+### Dev-miljö
+
+Utveckling mot en delad server sker i en isolerad devmiljö, helt skild från
+prod: egen klon på VPS:en (`~/mcp_promptbanken_dev`), eget compose-projekt
+(`promptbanken-open-dev`, `deploy/open-dev/docker-compose.yml`), egen
+container (`promptbanken-open-dev-mcp`) och en egen dev-Supabase
+(`dklxriwjskyglqeombvv`) så att dev aldrig skriver användningshändelser till
+prod-katalogen. Dev-miljön startas och stoppas från admin-gränssnittet som
+tjänsten `mcp-dev`.
 
 ## Client-side routing
 
