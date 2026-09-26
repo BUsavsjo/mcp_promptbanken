@@ -1266,7 +1266,7 @@
     },
     {
       "name": "recommend_packages",
-      "description": "Suggest which prompt packages suit a given job role -- a good first step when the user does not yet know what to ask for. Takes a short Swedish role term such as 'chef' or 'kommunikator'; ask the user for their role first if it is unknown. An unrecognised role returns every package with role_recognized=false rather than an empty result.",
+      "description": "Suggest which prompt packages suit a given job role -- a good first step when the user does not yet know what to ask for. Takes a short Swedish role term such as 'chef' or 'kommunikator'; ask the user for their role first if it is unknown. An unrecognised role returns no packages, role_recognized=false and a suggestion to call list_packages instead.",
       "annotations": {
         "title": "Rekommendera promptpaket för en roll",
         "readOnlyHint": true,
@@ -1304,6 +1304,12 @@
               "type": "string"
             }
           },
+          "suggestion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "packages": {
             "type": "array",
             "items": {
@@ -1322,6 +1328,42 @@
                 "template_count": {
                   "type": [
                     "integer",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "summary": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "package_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "audience_label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "icon_key": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "color_theme": {
+                  "type": [
+                    "string",
                     "null"
                   ]
                 }

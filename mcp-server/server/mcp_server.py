@@ -577,7 +577,9 @@ def _catalog_prompt_area_meta(
             return area_index[prompt_slug]
     return {
         "area": prompt.get("area"),
-        "area_label": prompt.get("area_label") or prompt.get("audience_label"),
+        # Målgruppen är inte områdets namn -- den gav "ledarskap" etiketten
+        # "Chefer, verksamhetsutvecklare, ..." i recommend_packages.
+        "area_label": prompt.get("area_label") or prompt.get("area"),
         "context_key": prompt.get("context_key"),
     }
 
@@ -1313,12 +1315,40 @@ def _copy_template_to_valvet_payload(mcp_key: str, template_id: str, confirm: bo
         return {"status": "error", "message": "Kunde inte kopiera mallen."}
 
 
+_RECOMMEND_CARD_FIELDS = ("title", "summary", "package_type", "audience_label", "icon_key", "color_theme")
+_UNKNOWN_ROLE_SUGGESTION = "Använd list_packages för att se alla paket, eller ange en annan roll."
+
+
+def _catalog_package_cards() -> dict[str, dict[str, Any]]:
+    """Paketens kortfält per slug. Fälten är ett tillägg till rekommendationen:
+    kan katalogen inte nås blir de null, rekommendationen går aldrig sönder."""
+    try:
+        packages = _catalog.list_published_packages()
+    except _catalog.CatalogNotConfigured:
+        return {}
+    except Exception:  # noqa: BLE001 - kortfälten får aldrig fälla rekommendationen
+        logger.warning("catalog_package_cards_failed", exc_info=True)
+        return {}
+    return {package["slug"]: package for package in packages if isinstance(package.get("slug"), str)}
+
+
 def _recommend_packages_payload(role: str) -> dict[str, Any]:
     context_keys = _normalize_context_keys(None)
     prompts = _catalog.list_published_prompts(context_keys=context_keys)
     area_index = _catalog_area_index(context_keys)
     templates = [_catalog_prompt_to_template_summary(p, area_index=area_index) for p in prompts]
-    return _recommend_packages(role, templates, _catalog_package_audiences())
+    result = _recommend_packages(role, templates, _catalog_package_audiences())
+    if not result["role_recognized"]:
+        # Hela katalogen för en okänd roll var stort och sa inget om rollen.
+        return result | {"packages": [], "recommended_areas": [], "suggestion": _UNKNOWN_ROLE_SUGGESTION}
+    cards = _catalog_package_cards()
+    for package in result["packages"]:
+        card = cards.get(package["area"], {})
+        for field in _RECOMMEND_CARD_FIELDS:
+            package[field] = card.get(field)
+        if card.get("title"):
+            package["area_label"] = card["title"]
+    return result
 
 
 def _save_workspace_prompt_payload(
@@ -3059,8 +3089,9 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "first step when the user does not yet know what to ask for. "
                 "Takes a short Swedish role term such as 'chef' or "
                 "'kommunikator'; ask the user for their role first if it is "
-                "unknown. An unrecognised role returns every package with "
-                "role_recognized=false rather than an empty result."
+                "unknown. An unrecognised role returns no packages, "
+                "role_recognized=false and a suggestion to call list_packages "
+                "instead."
             ),
             "annotations": _public_tool_annotations("Rekommendera promptpaket för en roll"),
             "_meta": _public_tool_status_meta(
@@ -3074,6 +3105,7 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     "matched_role": _nullable("string"),
                     "role_match_source": _nullable("string"),
                     "recommended_areas": _nullable_array(),
+                    "suggestion": _nullable("string"),
                     "packages": {
                         "type": "array",
                         "items": {
@@ -3082,6 +3114,12 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                                 "area": {"type": "string", "description": "Package slug."},
                                 "area_label": _nullable("string"),
                                 "template_count": _nullable("integer"),
+                                "title": _nullable("string"),
+                                "summary": _nullable("string"),
+                                "package_type": _nullable("string"),
+                                "audience_label": _nullable("string"),
+                                "icon_key": _nullable("string"),
+                                "color_theme": _nullable("string"),
                             },
                             "additionalProperties": True,
                         },

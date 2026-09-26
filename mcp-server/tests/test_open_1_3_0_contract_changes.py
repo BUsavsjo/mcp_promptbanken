@@ -91,5 +91,76 @@ class SearchAreaTests(unittest.TestCase):
         self.assertIn("hint", _public_tool("search_templates")["outputSchema"]["properties"])
 
 
+class RecommendPackagesTests(unittest.TestCase):
+    BASE = {
+        "role_recognized": True,
+        "matched_role": "chef",
+        "role_match_source": "exact",
+        "recommended_areas": ["ledarskap"],
+        "packages": [
+            {"area": "ledarskap", "area_label": "Chefer, verksamhetsutvecklare", "template_count": 7},
+        ],
+    }
+    CARDS = [
+        {
+            "slug": "ledarskap",
+            "title": "Ledarskap och styrning",
+            "summary": "Samlade mallar för ledning.",
+            "package_type": "collection",
+            "audience_label": "Chefer",
+            "icon_key": None,
+            "color_theme": None,
+        }
+    ]
+
+    def _recommend(self, base: dict, cards=None, cards_error=None) -> dict:
+        packages_patch = (
+            patch.object(server_mcp._catalog, "list_published_packages", side_effect=cards_error)
+            if cards_error
+            else patch.object(server_mcp._catalog, "list_published_packages", return_value=cards or [])
+        )
+        with (
+            patch.object(server_mcp._catalog, "list_published_prompts", return_value=[]),
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+            patch("server.mcp_server._catalog_package_audiences", return_value={}),
+            patch("server.mcp_server._recommend_packages", return_value=copy.deepcopy(base)),
+            packages_patch,
+        ):
+            return server_mcp._recommend_packages_payload("chef")
+
+    def test_packages_carry_card_fields_and_the_package_title_as_label(self) -> None:
+        package = self._recommend(self.BASE, self.CARDS)["packages"][0]
+        self.assertEqual(package["area_label"], "Ledarskap och styrning")
+        self.assertEqual(package["title"], "Ledarskap och styrning")
+        self.assertEqual(package["summary"], "Samlade mallar för ledning.")
+        self.assertEqual(package["package_type"], "collection")
+        self.assertEqual(package["audience_label"], "Chefer")
+        self.assertIn("icon_key", package)
+        self.assertIn("color_theme", package)
+
+    def test_catalog_failure_keeps_the_recommendation(self) -> None:
+        package = self._recommend(self.BASE, cards_error=RuntimeError("nere"))["packages"][0]
+        self.assertEqual(package["area"], "ledarskap")
+        self.assertIsNone(package["title"])
+
+    def test_unknown_role_returns_no_packages_and_a_suggestion(self) -> None:
+        base = copy.deepcopy(self.BASE) | {"role_recognized": False, "matched_role": None}
+        result = self._recommend(base, self.CARDS)
+        self.assertEqual(result["packages"], [])
+        self.assertEqual(result["recommended_areas"], [])
+        self.assertIn("list_packages", result["suggestion"])
+
+    def test_area_label_fallback_never_uses_the_audience(self) -> None:
+        meta = server_mcp._catalog_prompt_area_meta({"area": "processer", "audience_label": "Chefer"})
+        self.assertEqual(meta["area_label"], "processer")
+
+    def test_output_schema_declares_the_new_fields(self) -> None:
+        schema = _public_tool("recommend_packages")["outputSchema"]
+        items = schema["properties"]["packages"]["items"]["properties"]
+        for field in ("title", "summary", "package_type", "audience_label", "icon_key", "color_theme"):
+            self.assertIn(field, items)
+        self.assertIn("suggestion", schema["properties"])
+
+
 if __name__ == "__main__":
     unittest.main()
