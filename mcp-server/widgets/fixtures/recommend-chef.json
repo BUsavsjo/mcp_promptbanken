@@ -1,0 +1,10 @@
+{
+  "role_recognized": true,
+  "matched_role": "chef",
+  "role_match_source": "exact",
+  "recommended_areas": ["ledarskap", "forbattringside-till-synlig-effekt"],
+  "packages": [
+    {"area": "ledarskap", "area_label": "Ledarskap och styrning", "template_count": 7, "title": "Ledarskap och styrning", "summary": "Samlade mallar för ledning, prioritering och uppföljning.", "package_type": "collection", "audience_label": "Chefer och ledningsgrupper", "icon_key": null, "color_theme": null},
+    {"area": "forbattringside-till-synlig-effekt", "area_label": "Från förbättringsidé till synlig effekt", "template_count": 10, "title": "Från förbättringsidé till synlig effekt", "summary": "Ett guidat förbättringsflöde från avgränsat problem till mätning, PGSA-test och lärande.", "package_type": "workflow", "audience_label": "Medarbetare och chefer som driver förbättringsarbete", "icon_key": null, "color_theme": "#2e8b57"}
+  ]
+}

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>Promptbanken – widget-testvärd</title>
+<style>
+body { font: 14px system-ui, sans-serif; margin: 16px; display: grid; grid-template-columns: auto 1fr; gap: 16px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+iframe { width: 420px; height: 600px; border: 1px solid #c8ccd2; border-radius: 8px; background: #fff; }
+body.dark iframe { background: #1e1f22; }
+pre { background: #f4f5f7; padding: 8px; height: 640px; overflow: auto; font-size: 12px; margin: 0; }
+</style>
+</head>
+<body>
+<div>
+  <div class="controls">
+    <label>Widget <select id="widget"></select></label>
+    <label>Fixture <select id="fixture"></select></label>
+    <label>Tema <select id="theme"><option>light</option><option>dark</option></select></label>
+    <label>Bredd <select id="width"><option>420</option><option>360</option></select></label>
+    <button id="load" type="button">Ladda</button>
+  </div>
+  <iframe id="frame" title="Widget" sandbox="allow-scripts"></iframe>
+</div>
+<pre id="log" aria-label="Meddelanden från widgeten"></pre>
+<script>
+var FIXTURES = {
+  "package-cards": ["recommend-chef", "recommend-unknown", "hostile"],
+  "workflow-stepper": ["workflow-step-3", "collection", "workflow-hidden-steps", "not-found"],
+  "template-view": ["template-medium"]
+};
+var frame = document.getElementById("frame");
+var widgetSel = document.getElementById("widget");
+var fixtureSel = document.getElementById("fixture");
+var themeSel = document.getElementById("theme");
+var widthSel = document.getElementById("width");
+var logEl = document.getElementById("log");
+var currentFixture = null;
+window.sentMessages = [];
+
+function log(direction, message) {
+  logEl.textContent += direction + " " + JSON.stringify(message) + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function send(message) { log("→", message); frame.contentWindow.postMessage(message, "*"); }
+function fillFixtures() {
+  fixtureSel.replaceChildren();
+  FIXTURES[widgetSel.value].forEach(function (name) { fixtureSel.append(new Option(name, name)); });
+}
+Object.keys(FIXTURES).forEach(function (name) { widgetSel.append(new Option(name, name)); });
+widgetSel.addEventListener("change", fillFixtures);
+fillFixtures();
+
+window.addEventListener("message", function (event) {
+  if (event.source !== frame.contentWindow) return;
+  var message = event.data;
+  log("←", message);
+  if (message.method === "ui/message") window.sentMessages.push(message.params.content.text);
+  if (message.method === "ui/initialize") {
+    send({ jsonrpc: "2.0", id: message.id, result: {
+      protocolVersion: "2026-01-26",
+      hostInfo: { name: "dev-harness", version: "1" },
+      hostCapabilities: {},
+      hostContext: { theme: themeSel.value, displayMode: "inline", availableDisplayModes: ["inline", "fullscreen"], locale: "sv-SE" }
+    } });
+  } else if (message.method === "ui/notifications/initialized") {
+    send({ jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: currentFixture } });
+  } else if (message.id !== undefined && message.method) {
+    send({ jsonrpc: "2.0", id: message.id, result: {} });
+  }
+});
+
+document.getElementById("load").addEventListener("click", function () {
+  logEl.textContent = "";
+  window.sentMessages = [];
+  document.body.classList.toggle("dark", themeSel.value === "dark");
+  frame.style.width = widthSel.value + "px";
+  Promise.all([
+    fetch(".preview/" + widgetSel.value + ".html").then(function (r) { return r.text(); }),
+    fetch("fixtures/" + fixtureSel.value + ".json").then(function (r) { return r.json(); })
+  ]).then(function (loaded) {
+    currentFixture = loaded[1];
+    frame.srcdoc = loaded[0];
+  }).catch(function (error) { log("!", String(error)); });
+});
+</script>
+</body>
+</html>

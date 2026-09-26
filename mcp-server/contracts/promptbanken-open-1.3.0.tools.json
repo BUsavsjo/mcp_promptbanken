@@ -719,7 +719,10 @@
       },
       "_meta": {
         "openai/toolInvocation/invoking": "Hämtar promptpaket",
-        "openai/toolInvocation/invoked": "Promptpaketen hämtade"
+        "openai/toolInvocation/invoked": "Promptpaketen hämtade",
+        "ui": {
+          "resourceUri": "ui://promptbanken/package-cards.html"
+        }
       },
       "outputSchema": {
         "type": "object",
@@ -1352,7 +1355,10 @@
       },
       "_meta": {
         "openai/toolInvocation/invoking": "Söker promptpaket för rollen",
-        "openai/toolInvocation/invoked": "Rekommendationerna klara"
+        "openai/toolInvocation/invoked": "Rekommendationerna klara",
+        "ui": {
+          "resourceUri": "ui://promptbanken/package-cards.html"
+        }
       },
       "outputSchema": {
         "type": "object",

@@ -1,0 +1,1 @@
+{"packages": [{"slug": "x", "title": "<img src=x onerror=alert(1)><script>alert(2)</script>", "summary": "<b>fet</b>", "package_type": "collection", "color_theme": "red;background:url(x)"}]}

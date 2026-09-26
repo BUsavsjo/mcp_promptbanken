@@ -22,6 +22,7 @@ from starlette.routing import Mount, Route
 
 from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
+from .widgets import list_widget_resources, read_widget_resource, tool_ui_meta
 from . import admin_auth
 from . import admin_catalog
 from .usage_events import track_usage_event
@@ -3206,6 +3207,10 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
             },
         },
     ]
+    for tool in tools:
+        ui_meta = tool_ui_meta(tool["name"])
+        if ui_meta:
+            tool["_meta"] = {**tool.get("_meta", {}), **ui_meta}
     if mcp_key:
         return tools
     return [tool for tool in tools if tool["name"] in _PUBLIC_OPEN_TOOL_NAMES]
@@ -3275,7 +3280,7 @@ def _handle_mcp_message(
             request_id,
             {
                 "protocolVersion": "2025-06-18",
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}},
                 "serverInfo": {"name": "promptbanken-skill-router", "version": SERVICE_VERSION},
             },
         )
@@ -3283,6 +3288,14 @@ def _handle_mcp_message(
         return None
     if method == "ping":
         return _json_rpc_result(request_id, {})
+    if method == "resources/list":
+        return _json_rpc_result(request_id, {"resources": list_widget_resources()})
+    if method == "resources/read":
+        uri = params.get("uri")
+        resource = read_widget_resource(uri) if isinstance(uri, str) else None
+        if resource is None:
+            return _json_rpc_error(request_id, -32002, "Resource not found")
+        return _json_rpc_result(request_id, resource)
     if method == "tools/list":
         if tool_profile == "key_authenticated" and not _mcp_key_is_valid(mcp_key):
             return _json_rpc_error(request_id, -32001, "Ogiltig eller återkallad MCP-nyckel.")

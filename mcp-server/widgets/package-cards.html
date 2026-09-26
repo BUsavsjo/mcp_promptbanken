@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promptbanken – paket</title>
+<style>
+/*PB_BASE_CSS*/
+.filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.filters button[aria-pressed="true"] { background: var(--pb-accent); border-color: var(--pb-accent); color: #ffffff; }
+.track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+.card { flex: 0 0 240px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--pb-border); border-left: 4px solid var(--pb-card-color); border-radius: var(--pb-radius); background: var(--pb-bg); }
+.card .head { display: flex; gap: 6px; align-items: center; }
+.card .icon { font-size: 16px; }
+.card p { flex: 1; }
+.card .meta { flex: 0; font-size: 12px; }
+.card button { align-self: flex-start; }
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"><p class="pb-notice">Laddar paket …</p></div>
+<script>
+/*PB_BRIDGE_JS*/
+</script>
+<script>
+(function () {
+  "use strict";
+  var el = PB.el;
+  var app = document.getElementById("app");
+  var filter = "all";
+  var state = { packages: [], suggestion: null };
+  var FILTERS = [["all", "Alla"], ["workflow", "Arbetsflöden"], ["collection", "Samlingar"]];
+
+  function normalize(p) {
+    var slug = p.slug || p.area;
+    return {
+      slug: slug,
+      title: p.title || p.area_label || slug,
+      summary: p.summary || "",
+      type: p.package_type || null,
+      count: typeof p.template_count === "number" ? p.template_count : null,
+      audience: p.audience_label || "",
+      icon: p.icon_key || null,
+      color: p.color_theme || null
+    };
+  }
+
+  function card(pkg) {
+    var node = el("article", "card");
+    node.style.setProperty("--pb-card-color", PB.safeColor(pkg.color, pkg.slug));
+    var head = el("div", "head");
+    var icon = el("span", "icon", PB.typeIcon(pkg.icon, pkg.type));
+    icon.setAttribute("aria-hidden", "true");
+    head.append(icon, el("span", "pb-badge", PB.typeLabel(pkg.type)));
+    node.append(head, el("h3", null, pkg.title));
+    if (pkg.summary) node.append(el("p", null, pkg.summary));
+    var meta = [];
+    if (pkg.count !== null) meta.push(pkg.count + (pkg.type === "workflow" ? " steg" : " mallar"));
+    if (pkg.audience) meta.push(pkg.audience);
+    if (meta.length) node.append(el("p", "meta pb-muted", meta.join(" · ")));
+    var open = el("button", "pb-primary", "Öppna");
+    open.type = "button";
+    open.setAttribute("aria-label", "Öppna paketet " + pkg.title);
+    open.addEventListener("click", function () {
+      PB.sendMessage('Visa paketet "' + pkg.title + '" (' + pkg.slug + ") i Promptbanken.").catch(function () {});
+    });
+    node.append(open);
+    return node;
+  }
+
+  function render() {
+    if (!state.packages.length) {
+      var empty = el("div", "pb-notice");
+      empty.append(el("p", null, state.suggestion || "Inga paket att visa."));
+      var all = el("button", "pb-primary", "Visa alla paket");
+      all.type = "button";
+      all.addEventListener("click", function () { PB.sendMessage("Visa alla paket i Promptbanken.").catch(function () {}); });
+      empty.append(all);
+      app.replaceChildren(empty);
+      return;
+    }
+    var filters = el("div", "filters");
+    filters.setAttribute("role", "group");
+    filters.setAttribute("aria-label", "Filtrera paket");
+    FILTERS.forEach(function (entry) {
+      var button = el("button", null, entry[1]);
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(filter === entry[0]));
+      button.addEventListener("click", function () { filter = entry[0]; render(); });
+      filters.append(button);
+    });
+    var track = el("div", "track");
+    var shown = state.packages.filter(function (p) { return filter === "all" || p.type === filter; });
+    if (!shown.length) track.append(el("p", "pb-muted", "Inga paket av den typen."));
+    shown.forEach(function (p) { track.append(card(p)); });
+    app.replaceChildren(filters, track);
+  }
+
+  PB.onData(function (data) {
+    if (!data || !Array.isArray(data.packages)) {
+      PB.notice(app, "Kunde inte visa innehållet. Svaret finns i chatten.");
+      return;
+    }
+    state.packages = data.packages.filter(function (p) { return p && (p.slug || p.area); }).map(normalize);
+    state.suggestion = typeof data.suggestion === "string" ? data.suggestion : null;
+    render();
+  });
+  PB.start(function () { PB.notice(app, "Innehållet visas i chatten."); });
+})();
+</script>
+</body>
+</html>

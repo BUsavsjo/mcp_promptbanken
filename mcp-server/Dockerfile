@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server ./server
 COPY prompts ./prompts
 COPY skills.json ./skills.json
+COPY widgets ./widgets
 
 RUN adduser --disabled-password --gecos "" --uid 10001 appuser \
     && chown -R appuser:appuser /app
