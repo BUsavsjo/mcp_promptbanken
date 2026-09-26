@@ -142,7 +142,7 @@ def _server_mode() -> str:
 
 
 SERVER_MODE = _server_mode()
-SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.2.2")
+SERVICE_VERSION = os.getenv("PROMPTBANKEN_MCP_VERSION", "1.3.0")
 HOSTED_GUARD_MODE = os.getenv("PROMPTBANKEN_MCP_HOSTED_GUARD", "warn").strip().lower()
 logger.info("server_config mode=%s skill_count=%s", SERVER_MODE, len(repository.list_skills()))
 
