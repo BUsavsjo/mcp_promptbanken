@@ -133,7 +133,10 @@ class ReadOnlyCatalogPayloadContractTests(unittest.TestCase):
         self.assertIn("binding_overrides", package)
 
     def test_list_package_prompts_payload_has_no_rendered_fields(self) -> None:
-        with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_prompts:
+        with (
+            patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog.list_published_packages") as mocked_packages,
+        ):
             mocked_prompts.return_value = [
                 {
                     "prompt_id": "prompt-1",
@@ -147,6 +150,7 @@ class ReadOnlyCatalogPayloadContractTests(unittest.TestCase):
                     ],
                 }
             ]
+            mocked_packages.return_value = [{"slug": "kommunikation", "title": "Kommunikation"}]
 
             payload = _list_package_prompts_payload(
                 "kommunikation", ["generell"], include_prompt_text=True

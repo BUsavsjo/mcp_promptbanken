@@ -993,6 +993,18 @@
               "additionalProperties": true
             },
             "description": "The stored profile variants of this package."
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": true
@@ -1018,7 +1030,7 @@
     },
     {
       "name": "list_package_prompts",
-      "description": "List the steps inside one package, in the order they are meant to be used. Takes the package slug -- a short name such as 'kommunikation', not a template id -- and context_keys to pick the variant written for the user's setting. Returns each step's id, title and purpose; fetch a step's prompt text with get_template(id) when that step is actually reached. Set include_prompt_text=true only to pull every step's text at once.",
+      "description": "List the steps inside one package, in the order they are meant to be used. Takes the package slug -- a short name such as 'kommunikation', not a template id -- and context_keys to pick the variant written for the user's setting. Returns each step's id, title and purpose; fetch a step's prompt text with get_template(id) when that step is actually reached. Set include_prompt_text=true only to pull every step's text at once. Pass current_step to mark the step the user is on; it is echoed back and nothing is stored. An unknown slug returns status=error with code=package_not_found.",
       "annotations": {
         "title": "Lista mallar i ett promptpaket",
         "readOnlyHint": true,
@@ -1236,6 +1248,66 @@
               },
               "additionalProperties": true
             }
+          },
+          "package": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "package_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "icon_key": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "color_theme": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          },
+          "current_step": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": true
@@ -1256,6 +1328,11 @@
             "type": "boolean",
             "default": false,
             "description": "Return every step's full prompt text. Off by default -- fetch the step you need with get_template(id) instead."
+          },
+          "current_step": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The step the user is on, 1-based. Echoed back so a client can show progress; nothing is stored."
           }
         },
         "required": [

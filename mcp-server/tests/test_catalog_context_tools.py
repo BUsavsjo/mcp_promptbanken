@@ -595,7 +595,10 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(template["tone_hint"], "tydlig och vänlig")
 
     def test_list_package_prompts_fills_stable_identity_fields(self) -> None:
-        with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts:
+        with (
+            patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_package_prompts,
+            patch("server.mcp_server._catalog.list_published_packages") as mocked_packages,
+        ):
             mocked_package_prompts.return_value = [
                 {
                     "prompt_slug": "mejl",
@@ -604,6 +607,7 @@ class CatalogContextToolsTests(unittest.TestCase):
                     "sort_order": 1,
                 }
             ]
+            mocked_packages.return_value = [{"slug": "kommunikation", "title": "Kommunikation"}]
 
             payload = _list_package_prompts_payload("kommunikation", ["generell"])
 
@@ -671,7 +675,10 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(payload["variant_source"], "fallback_generell")
 
     def test_list_package_prompts_reports_context_matches(self) -> None:
-        with patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_prompts:
+        with (
+            patch("server.mcp_server._catalog.list_published_package_prompts") as mocked_prompts,
+            patch("server.mcp_server._catalog.list_published_packages") as mocked_packages,
+        ):
             mocked_prompts.return_value = [
                 {
                     "prompt_id": "prompt-1",
@@ -680,6 +687,7 @@ class CatalogContextToolsTests(unittest.TestCase):
                     "context_key": "skola",
                 }
             ]
+            mocked_packages.return_value = [{"slug": "kommunikation", "title": "Kommunikation"}]
 
             payload = _list_package_prompts_payload(
                 "kommunikation", ["kommun", "skola"]

@@ -162,5 +162,96 @@ class RecommendPackagesTests(unittest.TestCase):
         self.assertIn("suggestion", schema["properties"])
 
 
+class ListPackagePromptsTests(unittest.TestCase):
+    PACKAGE = {
+        "slug": "forbattring",
+        "title": "Från förbättringsidé till synlig effekt",
+        "package_type": "workflow",
+        "summary": "Ett guidat förbättringsflöde.",
+        "icon_key": None,
+        "color_theme": None,
+    }
+    PROMPTS = [
+        {"id": "p1", "slug": "avgransa", "title": "Avgränsa", "sort_order": 1, "step_title": "1. Avgränsa"},
+        {"id": "p2", "slug": "mal", "title": "Mål", "sort_order": 2, "step_title": "2. Mål"},
+    ]
+
+    def _payload(self, slug: str = "forbattring", prompts=None, packages=None, **kwargs) -> dict:
+        with (
+            patch.object(server_mcp._catalog, "list_published_package_prompts", return_value=self.PROMPTS if prompts is None else prompts),
+            patch.object(server_mcp._catalog, "list_published_packages", return_value=[self.PACKAGE] if packages is None else packages),
+        ):
+            return server_mcp._list_package_prompts_payload(slug, **kwargs)
+
+    def _call(self, arguments: dict) -> dict:
+        with (
+            patch.object(server_mcp._catalog, "list_published_package_prompts", return_value=self.PROMPTS),
+            patch.object(server_mcp._catalog, "list_published_packages", return_value=[self.PACKAGE]),
+            patch("server.mcp_server.track_usage_event"),
+        ):
+            return server_mcp._handle_mcp_message(
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                 "params": {"name": "list_package_prompts", "arguments": arguments}},
+                "",
+            )
+
+    def test_payload_carries_the_package_and_current_step(self) -> None:
+        payload = self._payload(current_step=2)
+        self.assertEqual(payload["package"]["package_type"], "workflow")
+        self.assertEqual(payload["package"]["title"], "Från förbättringsidé till synlig effekt")
+        self.assertEqual(payload["current_step"], 2)
+        self.assertEqual(len(payload["prompts"]), 2)
+
+    def test_current_step_defaults_to_none(self) -> None:
+        self.assertIsNone(self._payload()["current_step"])
+
+    def test_unknown_package_is_an_error_not_an_empty_package(self) -> None:
+        payload = self._payload("finns-inte-xyz", prompts=[], packages=[])
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["code"], "package_not_found")
+        self.assertEqual(payload["prompts"], [])
+
+    def test_current_step_outside_the_steps_is_an_error(self) -> None:
+        for step in (0, 3, -1):
+            with self.subTest(step=step):
+                payload = self._payload(current_step=step)
+                self.assertEqual(payload["code"], "invalid_current_step")
+
+    def test_dispatcher_rejects_non_integer_current_step(self) -> None:
+        for bad in ("2", True, 1.5):
+            with self.subTest(value=bad):
+                response = self._call({"package_slug": "forbattring", "current_step": bad})
+                self.assertEqual(response["error"]["code"], -32602)
+
+    def test_dispatcher_passes_current_step_through(self) -> None:
+        response = self._call({"package_slug": "forbattring", "current_step": 1})
+        self.assertEqual(response["result"]["structuredContent"]["current_step"], 1)
+
+    def test_get_package_not_found_has_the_same_code(self) -> None:
+        with patch.object(server_mcp._catalog, "get_published_package", return_value=[]):
+            payload = server_mcp._get_package_payload("finns-inte-xyz")
+        self.assertEqual(payload["code"], "package_not_found")
+
+    def test_definition_declares_current_step_and_package(self) -> None:
+        tool = _public_tool("list_package_prompts")
+        self.assertEqual(tool["inputSchema"]["properties"]["current_step"]["type"], "integer")
+        for field in ("package", "current_step", "code", "message"):
+            self.assertIn(field, tool["outputSchema"]["properties"])
+
+    def test_guard_accepts_current_step_and_widget_resources(self) -> None:
+        from server.hosted_guard import HostedMetadataGuard
+
+        guard = HostedMetadataGuard(server_mcp.repository)
+        self.assertIsNone(guard.inspect_json_rpc_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+             "params": {"name": "list_package_prompts",
+                        "arguments": {"package_slug": "x", "current_step": 1, "include_prompt_text": False}}}
+        ))
+        self.assertIsNone(guard.inspect_json_rpc_message(
+            {"jsonrpc": "2.0", "id": 2, "method": "resources/read",
+             "params": {"uri": "ui://promptbanken/package-cards.html"}}
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()

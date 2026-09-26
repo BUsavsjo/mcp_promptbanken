@@ -15,6 +15,7 @@ class HostedMetadataGuard:
             "notifications/cancelled",
             "ping",
             "resources/list",
+            "resources/read",
             "tools/list",
             "tools/call",
             "list_skills",
@@ -56,7 +57,7 @@ class HostedMetadataGuard:
             "get_template": {"template_id", "context_keys", "role", "audience", "tone"},
             "list_packages": {"context_keys", "package_type"},
             "get_package": {"package_slug", "context_keys", "role", "audience", "tone"},
-            "list_package_prompts": {"package_slug", "context_keys", "role", "audience", "tone"},
+            "list_package_prompts": {"package_slug", "context_keys", "include_prompt_text", "current_step", "role", "audience", "tone"},
             "list_my_prompts": set(),
             "list_my_private_prompts": set(),
             "list_my_shared_workspaces": set(),
@@ -103,7 +104,7 @@ class HostedMetadataGuard:
             return None
         if method not in self.allowed_methods:
             return {"reason": "unexpected_method", "method": method, "id": request_id}
-        if method in {"initialize", "notifications/initialized", "notifications/cancelled", "ping", "resources/list", "tools/list"}:
+        if method in {"initialize", "notifications/initialized", "notifications/cancelled", "ping", "resources/list", "resources/read", "tools/list"}:
             return None
         if method == "tools/call":
             params = message.get("params")

@@ -927,7 +927,11 @@ def _get_package_payload(
                 context_keys=normalized_contexts,
                 metadata={"tool": "get_package"},
             )
-        return {"status": "error", "message": f"Inget paket hittades med slug {package_slug!r}."}
+        return {
+            "status": "error",
+            "code": "package_not_found",
+            "message": f"Inget paket hittades med slug {package_slug!r}.",
+        }
     if track_usage:
         track_usage_event(
             event_type="package_get",
@@ -944,12 +948,23 @@ def _get_package_payload(
     }
 
 
+_PACKAGE_CARD_FIELDS = ("slug", "title", "package_type", "summary", "icon_key", "color_theme")
+
+
+def _catalog_package_card(package_slug: str, context_keys: list[str]) -> dict[str, Any] | None:
+    for package in _catalog.list_published_packages(context_keys=context_keys):
+        if package.get("slug") == package_slug:
+            return {field: package.get(field) for field in _PACKAGE_CARD_FIELDS}
+    return None
+
+
 def _list_package_prompts_payload(
     package_slug: str,
     context_keys: list[str] | None = None,
     *,
     include_prompt_text: bool = False,
     track_usage: bool = False,
+    current_step: int | None = None,
 ) -> dict[str, Any]:
     normalized_contexts = _normalize_context_keys(context_keys)
     selected_context = normalized_contexts[0] if normalized_contexts and normalized_contexts[0] != "generell" else None
@@ -957,6 +972,7 @@ def _list_package_prompts_payload(
         prompts = _catalog.list_published_package_prompts(
             package_slug, context_keys=normalized_contexts
         )
+        package = _catalog_package_card(package_slug, normalized_contexts)
     except _catalog.CatalogNotConfigured as exc:
         if track_usage:
             track_usage_event(
@@ -967,6 +983,29 @@ def _list_package_prompts_payload(
                 metadata={"tool": "list_package_prompts"},
             )
         return {"status": "error", "message": str(exc), "prompts": []}
+    if package is None:
+        # Ett okänt slug såg förut ut som ett existerande men tomt paket.
+        if track_usage:
+            track_usage_event(
+                event_type="package_prompts_list",
+                outcome="not_found",
+                package_slug=package_slug,
+                context_keys=normalized_contexts,
+                metadata={"tool": "list_package_prompts"},
+            )
+        return {
+            "status": "error",
+            "code": "package_not_found",
+            "message": f"Inget paket hittades med slug {package_slug!r}.",
+            "prompts": [],
+        }
+    if current_step is not None and not 1 <= current_step <= len(prompts):
+        return {
+            "status": "error",
+            "code": "invalid_current_step",
+            "message": f"current_step måste vara mellan 1 och {len(prompts)}.",
+            "prompts": [],
+        }
     area_index = {
         key: {"area": package_slug, "area_label": package_slug, "context_key": prompt.get("context_key") or selected_context}
         for prompt in prompts
@@ -984,6 +1023,8 @@ def _list_package_prompts_payload(
     ]
     payload = {
         **_variant_diagnostics(normalized_contexts, prompts),
+        "package": package,
+        "current_step": current_step,
         # Steps only by default: the package's own prompt texts are fetched
         # just in time with get_template(id), which accepts the id returned
         # here. Returning every full prompt made this response ~47 KB for a
@@ -1081,12 +1122,14 @@ def _list_package_prompts_with_usage(
     context_keys: list[str] | None = None,
     *,
     include_prompt_text: bool = False,
+    current_step: int | None = None,
 ) -> dict[str, Any]:
     return _list_package_prompts_payload(
         package_slug,
         context_keys,
         include_prompt_text=include_prompt_text,
         track_usage=True,
+        current_step=current_step,
     )
 
 
@@ -2776,6 +2819,8 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                         "items": _PACKAGE_SCHEMA,
                         "description": "The stored profile variants of this package.",
                     },
+                    "code": _nullable("string"),
+                    "message": _nullable("string"),
                 },
                 "additionalProperties": True,
             },
@@ -2800,6 +2845,9 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "get_template(id) when that step is actually reached. Set "
                 "include_prompt_text=true only to pull every step's text at "
                 "once."
+                " Pass current_step to mark the step the user is on; it is "
+                "echoed back and nothing is stored. An unknown slug returns "
+                "status=error with code=package_not_found."
             ),
             "annotations": _public_tool_annotations("Lista mallar i ett promptpaket"),
             "_meta": _public_tool_status_meta(
@@ -2813,6 +2861,21 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                     # Steps by default, full prompts with include_prompt_text.
                     # Nothing is required, so one schema describes both.
                     "prompts": {"type": "array", "items": _PACKAGE_PROMPT_SCHEMA},
+                    "package": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "slug": {"type": "string"},
+                            "title": _nullable("string"),
+                            "package_type": _nullable("string"),
+                            "summary": _nullable("string"),
+                            "icon_key": _nullable("string"),
+                            "color_theme": _nullable("string"),
+                        },
+                        "additionalProperties": True,
+                    },
+                    "current_step": _nullable("integer"),
+                    "code": _nullable("string"),
+                    "message": _nullable("string"),
                 },
                 "additionalProperties": True,
             },
@@ -2828,6 +2891,14 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                             "Return every step's full prompt text. Off by "
                             "default -- fetch the step you need with "
                             "get_template(id) instead."
+                        ),
+                    },
+                    "current_step": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": (
+                            "The step the user is on, 1-based. Echoed back so a "
+                            "client can show progress; nothing is stored."
                         ),
                     },
                 },
@@ -3336,18 +3407,23 @@ def _handle_mcp_message(
             package_slug = arguments.get("package_slug")
             context_keys = _optional_context_keys(arguments)
             include_prompt_text = arguments.get("include_prompt_text", False)
+            current_step = arguments.get("current_step")
             if (
                 not isinstance(package_slug, str)
                 or not package_slug
                 or context_keys == []
                 or not isinstance(include_prompt_text, bool)
+                or (current_step is not None and (isinstance(current_step, bool) or not isinstance(current_step, int)))
             ):
                 return _json_rpc_error(request_id, -32602, "Invalid list_package_prompts arguments")
             return _json_rpc_result(
                 request_id,
                 _mcp_content_result(
                     _list_package_prompts_with_usage(
-                        package_slug, context_keys, include_prompt_text=include_prompt_text
+                        package_slug,
+                        context_keys,
+                        include_prompt_text=include_prompt_text,
+                        current_step=current_step,
                     ),
                     tool_name,
                 ),
