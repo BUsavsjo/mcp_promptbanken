@@ -1,5 +1,6 @@
 """MCP Apps-widgets: register, resurser, verktygskoppling och säkerhetsregler."""
 import os
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -89,6 +90,20 @@ class WidgetSafetyTests(unittest.TestCase):
             for token in _FORBIDDEN:
                 with self.subTest(file=path.name, token=token):
                     self.assertNotIn(token, text)
+
+    def test_bridge_reports_size_like_the_sdk(self) -> None:
+        bridge = (_WIDGET_DIR / "bridge.js").read_text(encoding="utf-8")
+        self.assertIn("requestAnimationFrame", bridge)
+        self.assertIn("notifyIntrinsicHeight", bridge)
+        self.assertIn("ui/notifications/size-changed", bridge)
+
+    def test_bridge_waits_for_slow_hosts_on_initialize(self) -> None:
+        bridge = (_WIDGET_DIR / "bridge.js").read_text(encoding="utf-8")
+        match = re.search(r"INIT_TIMEOUT_MS\s*=\s*(\d+)", bridge)
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertGreaterEqual(int(match.group(1)), 60000)
+        self.assertNotIn("}, 5000)", bridge)
 
     def test_rendered_widgets_stay_small(self) -> None:
         for name in widgets.WIDGETS:

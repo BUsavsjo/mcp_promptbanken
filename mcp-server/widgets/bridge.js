@@ -6,23 +6,33 @@
   var PROTOCOL_VERSION = "2026-01-26";
   var APP_INFO = { name: "promptbanken-widgets", version: "1.3.0" };
   var FALLBACK_MS = 2000;
+  var INIT_TIMEOUT_MS = 60000;
+  var REQUEST_TIMEOUT_MS = 10000;
   var pending = {};
   var nextId = 1;
   var handlers = [];
   var hostContext = {};
   var connected = false;
   var received = false;
+  var sizeScheduled = false;
+  var lastSize = { width: 0, height: 0 };
+  var lastIntrinsicHeight = 0;
 
   function post(message) { window.parent.postMessage(message, "*"); }
 
-  function request(method, params) {
+  /* onLate: ett svar som kommer efter timeout tas ändå emot (långsamma värdar). */
+  function request(method, params, timeoutMs, onLate) {
     var id = nextId++;
     post({ jsonrpc: "2.0", id: id, method: method, params: params || {} });
     return new Promise(function (resolve, reject) {
       pending[id] = { resolve: resolve, reject: reject };
       setTimeout(function () {
-        if (pending[id]) { delete pending[id]; reject(new Error("timeout: " + method)); }
-      }, 5000);
+        var entry = pending[id];
+        if (!entry || entry.late) return;
+        if (onLate) pending[id] = { late: true, resolve: onLate, reject: function () {} };
+        else delete pending[id];
+        reject(new Error("timeout: " + method));
+      }, timeoutMs || REQUEST_TIMEOUT_MS);
     });
   }
 
@@ -43,9 +53,59 @@
     }
   }
 
+  /* Samma mätning som SDK:ns autoResize: bredd från innerWidth (beror inte på
+   * scrollbar, ingen återkopplingsloop), höjd som max-content, rAF-batchat och
+   * bara skickat när de avrundade värdena ändrats. setTimeout är reserv om
+   * värden stryper rAF i en dold iframe. */
+  function measureAndSend() {
+    if (!sizeScheduled) return;
+    sizeScheduled = false;
+    var html = document.documentElement;
+    var originalHeight = html.style.height;
+    html.style.height = "max-content";
+    var height = Math.ceil(html.getBoundingClientRect().height);
+    html.style.height = originalHeight;
+    var width = Math.ceil(window.innerWidth);
+    if (connected) {
+      if (width !== lastSize.width || height !== lastSize.height) {
+        lastSize = { width: width, height: height };
+        notify("ui/notifications/size-changed", { width: width, height: height });
+      }
+      return;
+    }
+    var host = openai();
+    if (host && typeof host.notifyIntrinsicHeight === "function" && height !== lastIntrinsicHeight) {
+      lastIntrinsicHeight = height;
+      host.notifyIntrinsicHeight(height);
+    }
+  }
+
+  function scheduleSize() {
+    if (sizeScheduled) return;
+    sizeScheduled = true;
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(measureAndSend);
+    setTimeout(measureAndSend, 100);
+  }
+
+  function observeSize() {
+    if (typeof ResizeObserver !== "function") return;
+    var observer = new ResizeObserver(scheduleSize);
+    observer.observe(document.documentElement);
+    if (document.body) observer.observe(document.body);
+  }
+
+  function onInitialized(result) {
+    if (connected) return;
+    connected = true;
+    applyContext(result && result.hostContext);
+    notify("ui/notifications/initialized");
+    scheduleSize();
+  }
+
   function deliver(data) {
     received = true;
     handlers.forEach(function (handler) { handler(data); });
+    scheduleSize();
   }
 
   function fromOpenAi() {
@@ -84,27 +144,16 @@
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.setAttribute("data-theme", "dark");
       }
+      observeSize();
       request("ui/initialize", {
         protocolVersion: PROTOCOL_VERSION,
         appInfo: APP_INFO,
         appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] }
-      }).then(function (result) {
-        connected = true;
-        applyContext(result && result.hostContext);
-        notify("ui/notifications/initialized");
-        if (typeof ResizeObserver === "function") {
-          new ResizeObserver(function () {
-            notify("ui/notifications/size-changed", {
-              width: document.documentElement.scrollWidth,
-              height: document.documentElement.scrollHeight
-            });
-          }).observe(document.body);
-        }
-      }).catch(function () {});
+      }, INIT_TIMEOUT_MS, onInitialized).then(onInitialized).catch(function () {});
       window.addEventListener("openai:set_globals", function () { if (!received) fromOpenAi(); });
       setTimeout(function () {
         if (received || connected) return;
-        if (!fromOpenAi() && onNothing) onNothing();
+        if (!fromOpenAi() && onNothing) { onNothing(); scheduleSize(); }
       }, FALLBACK_MS);
     },
     sendMessage: function (text) {
