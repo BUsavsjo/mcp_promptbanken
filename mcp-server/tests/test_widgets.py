@@ -70,6 +70,13 @@ class WidgetResourceTests(unittest.TestCase):
         self.assertEqual(widgets.TOOL_WIDGETS["get_template"], "template-view")
         self.assertEqual(len(widgets.WIDGETS), 3)
 
+    def test_template_view_is_a_compact_in_use_line(self) -> None:
+        html = widgets.render_widget("template-view")
+        self.assertIn("används nu", html)
+        self.assertIn("Visa mallen", html)
+        self.assertNotIn("Använd mallen", html)
+        self.assertNotIn("area_label", html)
+
     def test_tools_point_to_their_widget_and_keep_status_texts(self) -> None:
         tools = {t["name"]: t for t in _tool_definitions_for_profile("public")}
         for tool_name, widget in widgets.TOOL_WIDGETS.items():

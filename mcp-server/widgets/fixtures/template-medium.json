@@ -10,6 +10,10 @@
       "Använd inte personuppgifter eller sekretessbelagd information i förbättringsexempel om det inte är nödvändigt och tillåtet.",
       "Vid delning eller publicering ska små grupper och identifierbara individer anonymiseras."
     ],
-    "prompt_text": "Du leder steget **Planera** i en PGSA-cykel.\n\n## Samtalsprincip\nFråga stegvis efter saknade uppgifter."
+    "prompt_text": "Du leder steget **Planera** i en PGSA-cykel.\n\n## Samtalsprincip\nFråga stegvis efter saknade uppgifter.",
+    "packages": [
+      { "slug": "behov-till-effekt", "title": "Från behov till effekt", "package_type": "workflow" },
+      { "slug": "processer", "title": "Verksamhetsutveckling och processer", "package_type": "collection" }
+    ]
   }
 }
