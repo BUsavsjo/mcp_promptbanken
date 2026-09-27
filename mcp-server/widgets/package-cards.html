@@ -8,13 +8,27 @@
 /*PB_BASE_CSS*/
 .filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .filters button[aria-pressed="true"] { background: var(--pb-accent); border-color: var(--pb-accent); color: #ffffff; }
-.track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
-.card { flex: 0 0 240px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--pb-border); border-left: 4px solid var(--pb-card-color); border-radius: var(--pb-radius); background: var(--pb-bg); }
+.track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; align-items: flex-start; }
+.card { flex: 0 0 85%; max-width: 280px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--pb-border); border-left: 4px solid var(--pb-card-color); border-radius: var(--pb-radius); background: var(--pb-bg); align-self: flex-start; }
 .card .head { display: flex; gap: 6px; align-items: center; }
 .card .icon { font-size: 16px; }
 .card p { flex: 1; }
 .card .meta { flex: 0; font-size: 12px; }
 .card button { align-self: flex-start; }
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.row-item { border: 1px solid var(--pb-border); border-left: 4px solid var(--pb-card-color); border-radius: var(--pb-radius); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; background: var(--pb-bg); border: none; text-align: left; }
+.row .icon { font-size: 16px; flex: 0 0 auto; }
+.row-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.row-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chevron { color: var(--pb-muted); flex: 0 0 auto; }
+.more-button { margin-top: 4px; }
+@media (max-width: 479px) {
+  .track { display: none; }
+}
+@media (min-width: 480px) {
+  .rows { display: none; }
+}
 </style>
 </head>
 <body>
@@ -28,21 +42,33 @@
   var el = PB.el;
   var app = document.getElementById("app");
   var filter = "all";
+  var visible = 5;
+  var LIMIT = 5;
   var state = { packages: [], suggestion: null };
   var FILTERS = [["all", "Alla"], ["workflow", "Arbetsflöden"], ["collection", "Samlingar"]];
+  var mobileQuery = window.matchMedia ? window.matchMedia("(max-width: 479px)") : null;
 
   function normalize(p) {
     var slug = p.slug || p.area;
+    var title = p.title || p.area_label || slug;
+    var audience = p.audience_label || "";
+    var titleTrim = String(title || "").trim().toLowerCase();
+    var audienceTrim = String(audience || "").trim().toLowerCase();
+    if (audience && audienceTrim === titleTrim) audience = "";
     return {
       slug: slug,
-      title: p.title || p.area_label || slug,
+      title: title,
       summary: p.summary || "",
       type: p.package_type || null,
       count: typeof p.template_count === "number" ? p.template_count : null,
-      audience: p.audience_label || "",
+      audience: audience,
       icon: p.icon_key || null,
       color: p.color_theme || null
     };
+  }
+
+  function openPackage(pkg) {
+    PB.sendMessage('Visa paketet "' + pkg.title + '" (' + pkg.slug + ") i Promptbanken.").catch(function () {});
   }
 
   function card(pkg) {
@@ -61,11 +87,26 @@
     var open = el("button", "pb-primary", "Öppna");
     open.type = "button";
     open.setAttribute("aria-label", "Öppna paketet " + pkg.title);
-    open.addEventListener("click", function () {
-      PB.sendMessage('Visa paketet "' + pkg.title + '" (' + pkg.slug + ") i Promptbanken.").catch(function () {});
-    });
+    open.addEventListener("click", function () { openPackage(pkg); });
     node.append(open);
     return node;
+  }
+
+  function row(pkg) {
+    var li = el("li", "row-item");
+    li.style.setProperty("--pb-card-color", PB.safeColor(pkg.color, pkg.slug));
+    var button = el("button", "row", null);
+    button.type = "button";
+    var icon = el("span", "icon", PB.typeIcon(pkg.icon, pkg.type));
+    icon.setAttribute("aria-hidden", "true");
+    var textWrap = el("span", "row-text");
+    textWrap.append(el("strong", null, pkg.title));
+    if (pkg.summary) textWrap.append(el("span", "pb-muted row-summary", pkg.summary));
+    button.append(icon, textWrap, el("span", "pb-badge", PB.typeLabel(pkg.type)), el("span", "chevron", "›"));
+    button.setAttribute("aria-label", "Öppna paketet " + pkg.title);
+    button.addEventListener("click", function () { openPackage(pkg); });
+    li.append(button);
+    return li;
   }
 
   function render() {
@@ -86,14 +127,47 @@
       var button = el("button", null, entry[1]);
       button.type = "button";
       button.setAttribute("aria-pressed", String(filter === entry[0]));
-      button.addEventListener("click", function () { filter = entry[0]; render(); });
+      button.addEventListener("click", function () {
+        if (filter === entry[0]) return;
+        filter = entry[0];
+        visible = LIMIT;
+        render();
+      });
       filters.append(button);
     });
-    var track = el("div", "track");
     var shown = state.packages.filter(function (p) { return filter === "all" || p.type === filter; });
-    if (!shown.length) track.append(el("p", "pb-muted", "Inga paket av den typen."));
-    shown.forEach(function (p) { track.append(card(p)); });
-    app.replaceChildren(filters, track);
+    var revealed = shown.slice(0, visible);
+    var remaining = shown.length - revealed.length;
+
+    var track = el("div", "track");
+    var rows = el("ul", "rows");
+    if (!shown.length) {
+      track.append(el("p", "pb-muted", "Inga paket av den typen."));
+      rows.append(el("li", "pb-muted", "Inga paket av den typen."));
+    } else {
+      revealed.forEach(function (p) {
+        track.append(card(p));
+        rows.append(row(p));
+      });
+    }
+
+    var nodes = [filters, track, rows];
+    if (remaining > 0) {
+      var more = el("button", "pb-primary more-button", "Visa fler (" + remaining + ")");
+      more.type = "button";
+      more.addEventListener("click", function () {
+        visible = shown.length;
+        render();
+      });
+      nodes.push(more);
+    }
+    app.replaceChildren.apply(app, nodes);
+  }
+
+  if (mobileQuery) {
+    var onChange = function () { render(); };
+    if (typeof mobileQuery.addEventListener === "function") mobileQuery.addEventListener("change", onChange);
+    else if (typeof mobileQuery.addListener === "function") mobileQuery.addListener(onChange);
   }
 
   PB.onData(function (data) {
@@ -107,6 +181,8 @@
     }
     state.packages = data.packages.filter(function (p) { return p && (p.slug || p.area); }).map(normalize);
     state.suggestion = typeof data.suggestion === "string" ? data.suggestion : null;
+    filter = "all";
+    visible = LIMIT;
     render();
   });
   PB.start(function () { PB.notice(app, "Innehållet visas i chatten."); });

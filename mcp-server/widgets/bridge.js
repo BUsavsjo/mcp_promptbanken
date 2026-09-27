@@ -138,6 +138,18 @@
     if (message.method === "ui/notifications/host-context-changed") applyContext(params);
   });
 
+  var NAMED_COLORS = {
+    blue: "#2563eb", indigo: "#4f46e5", violet: "#7c3aed", purple: "#9333ea",
+    pink: "#db2777", red: "#dc2626", orange: "#ea580c", amber: "#d97706",
+    yellow: "#ca8a04", lime: "#65a30d", green: "#16a34a", emerald: "#059669",
+    teal: "#0d9488", cyan: "#0891b2", sky: "#0284c7", slate: "#475569", gray: "#6b7280"
+  };
+  var NAMED_ICONS = {
+    message: "💬", image: "🖼", library: "📚", sparkles: "✨", chart: "📊",
+    calendar: "📅", check: "✅", compass: "🧭", document: "📄", lightbulb: "💡",
+    people: "👥", shield: "🛡", target: "🎯", workflow: "➜"
+  };
+
   var PB = {
     onData: function (handler) { handlers.push(handler); },
     start: function (onNothing) {
@@ -191,12 +203,19 @@
       return "hsl(" + (hash % 360) + " 55% 50%)";
     },
     safeColor: function (value, slug) {
-      return typeof value === "string" && /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value) ? value : PB.areaColor(slug);
+      if (typeof value === "string" && /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value)) return value;
+      if (typeof value === "string" && Object.prototype.hasOwnProperty.call(NAMED_COLORS, value.toLowerCase())) {
+        return NAMED_COLORS[value.toLowerCase()];
+      }
+      return PB.areaColor(slug);
     },
     typeLabel: function (type) {
       return type === "workflow" ? "Arbetsflöde" : type === "collection" ? "Samling" : "Paket";
     },
     typeIcon: function (iconKey, type) {
+      if (typeof iconKey === "string" && Object.prototype.hasOwnProperty.call(NAMED_ICONS, iconKey.toLowerCase())) {
+        return NAMED_ICONS[iconKey.toLowerCase()];
+      }
       if (typeof iconKey === "string" && iconKey.length > 0 && iconKey.length <= 4) return iconKey;
       return type === "workflow" ? "➜" : "▦";
     }

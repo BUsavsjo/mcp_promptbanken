@@ -83,6 +83,16 @@ class WidgetResourceTests(unittest.TestCase):
             self.assertIn(text, html)
         self.assertNotIn("hasStepTitles", html)
 
+    def test_package_cards_limit_and_mobile_rows(self) -> None:
+        html = widgets.render_widget("package-cards")
+        self.assertIn("Visa fler", html)
+        self.assertIn("max-width: 479px", html)
+
+    def test_bridge_maps_named_colours_and_icons(self) -> None:
+        bridge = (_WIDGET_DIR / "bridge.js").read_text(encoding="utf-8")
+        for token in ("amber", "#d97706", "sparkles", "library"):
+            self.assertIn(token, bridge)
+
     def test_tools_point_to_their_widget_and_keep_status_texts(self) -> None:
         tools = {t["name"]: t for t in _tool_definitions_for_profile("public")}
         for tool_name, widget in widgets.TOOL_WIDGETS.items():
