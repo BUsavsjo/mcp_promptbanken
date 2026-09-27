@@ -97,6 +97,37 @@ def main(url: str) -> None:
             if steps is not None:
                 check("stegsvaret har package och current_step", (steps.get("package") or {}).get("slug") == workflow and steps.get("current_step") == 1)
 
+        if chef is not None:
+            for package in chef.get("packages", [])[:3]:
+                area = package.get("area")
+                label = f"template_count stämmer för {area}"
+                prompts = safe(label, lambda area=area: tool("list_package_prompts", {"package_slug": area})["prompts"])
+                if prompts is not None:
+                    check(label, package.get("template_count") == len(prompts))
+
+        search_hit = safe("search_templates (mejl till invånare) svarar", lambda: tool("search_templates", {"query": "svara på mejl från invånare"}))
+        if search_hit is not None:
+            found = search_hit.get("templates") or []
+            if found:
+                template_id = found[0].get("id")
+                template_result = safe("get_template (mejlträff) svarar", lambda: tool("get_template", {"template_id": template_id}))
+                if template_result is not None:
+                    package_list = (template_result.get("template") or {}).get("packages")
+                    check(
+                        "mallens packages är en icke-tom lista med slug",
+                        isinstance(package_list, list) and bool(package_list) and all("slug" in p for p in package_list),
+                    )
+            else:
+                check("mejlsökningen ger minst en träff", False)
+
+        routing = safe("get_client_routing_instructions svarar", lambda: tool("get_client_routing_instructions", {}))
+        if routing is not None:
+            client_flow = routing.get("client_flow") or []
+            check(
+                "client_flow[0] börjar med 'Routing först'",
+                bool(client_flow) and str(client_flow[0]).startswith("Routing först"),
+            )
+
     print(f"\n{len(failures)} fel")
     sys.exit(1 if failures else 0)
 
