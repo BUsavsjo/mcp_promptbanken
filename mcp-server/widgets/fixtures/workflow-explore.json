@@ -1,0 +1,12 @@
+{
+  "status": "success",
+  "package": {"slug": "behov-till-effekt", "title": "Från behov till effekt", "package_type": "workflow", "summary": "Ett arbetsflöde från behov till uppföljd effekt."},
+  "prompts": [
+    {"id": "1", "title": "Förstå behovet", "sort_order": 1, "step_title": null, "syfte": "Klargör vad som faktiskt behövs."},
+    {"id": "2", "title": "Beskriv nuläge och målbild", "sort_order": 2, "step_title": null, "syfte": "Beskriv var ni är och vart ni vill."},
+    {"id": "3", "title": "Utforma förändringen", "sort_order": 3, "step_title": null, "syfte": "Ta fram förslag på lösning."},
+    {"id": "4", "title": "Gör förändringen genomförbar", "sort_order": 4, "step_title": null, "syfte": "Konkretisera vad som krävs för att genomföra."},
+    {"id": "5", "title": "Planera införandet", "sort_order": 5, "step_title": null, "syfte": "Planera hur förändringen införs."},
+    {"id": "6", "title": "Bestäm hur effekten ska följas upp", "sort_order": 6, "step_title": null, "syfte": "Bestäm hur ni vet att det blev bättre."}
+  ]
+}

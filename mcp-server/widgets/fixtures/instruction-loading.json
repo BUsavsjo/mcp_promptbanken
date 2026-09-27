@@ -1,0 +1,11 @@
+{
+  "status": "success",
+  "package": {"slug": "superplanlage", "title": "Superplanläge", "package_type": "workflow", "summary": "Från idé till utfört och verifierat resultat."},
+  "current_step": null,
+  "prompts": [
+    {"id": "s1", "title": "Utforska och lås riktningen", "sort_order": 1, "step_title": null, "prompt_text": "Utforska problemet och lås en tydlig riktning innan ni går vidare."},
+    {"id": "s2", "title": "Specificera resultatet", "sort_order": 2, "step_title": null, "prompt_text": "Beskriv exakt vad som ska levereras och hur ni vet att det är klart."},
+    {"id": "s3", "title": "Utför och verifiera", "sort_order": 3, "step_title": null, "prompt_text": "Genomför arbetet och verifiera mot specifikationen."},
+    {"id": "s4", "title": "Följ upp effekten", "sort_order": 4, "step_title": null, "prompt_text": "Följ upp om resultatet gav avsedd effekt."}
+  ]
+}

@@ -77,6 +77,12 @@ class WidgetResourceTests(unittest.TestCase):
         self.assertNotIn("Använd mallen", html)
         self.assertNotIn("area_label", html)
 
+    def test_stepper_has_the_three_modes_and_no_step_title_hiding(self) -> None:
+        html = widgets.render_widget("workflow-stepper")
+        for text in ("Steg ", " av ", "Nästa: ", "Visa alla steg", "prompt_text", "Gå till", "Visa alla paket"):
+            self.assertIn(text, html)
+        self.assertNotIn("hasStepTitles", html)
+
     def test_tools_point_to_their_widget_and_keep_status_texts(self) -> None:
         tools = {t["name"]: t for t in _tool_definitions_for_profile("public")}
         for tool_name, widget in widgets.TOOL_WIDGETS.items():
