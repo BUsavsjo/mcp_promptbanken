@@ -220,6 +220,31 @@
                   ],
                   "description": "low, medium or high."
                 },
+                "packages": {
+                  "type": "array",
+                  "description": "Every package this template belongs to, workflows first.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "package_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
                 "slug": {
                   "type": [
                     "string",
@@ -422,6 +447,31 @@
                     "null"
                   ],
                   "description": "low, medium or high."
+                },
+                "packages": {
+                  "type": "array",
+                  "description": "Every package this template belongs to, workflows first.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "package_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  }
                 }
               },
               "additionalProperties": true
@@ -500,7 +550,7 @@
     },
     {
       "name": "get_template",
-      "description": "Fetch one template in full, ready to use, by the id returned from search_templates or list_templates. context_keys only chooses which stored variant comes back. The template arrives as its own text plus the fields the user is meant to fill in; the client fills those in locally -- the server never returns a finished, filled-in prompt.",
+      "description": "Fetch one template in full, ready to use, by the id returned from search_templates or list_templates. context_keys only chooses which stored variant comes back. The template arrives as its own text plus the fields the user is meant to fill in; the client fills those in locally -- the server never returns a finished, filled-in prompt. The client shows a compact 'in use' line; do not restate the template -- continue with its first question.",
       "annotations": {
         "title": "Hämta en publicerad promptmall",
         "readOnlyHint": true,
@@ -598,6 +648,31 @@
                   "null"
                 ],
                 "description": "low, medium or high."
+              },
+              "packages": {
+                "type": "array",
+                "description": "Every package this template belongs to, workflows first.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "package_type": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": true
+                }
               },
               "slug": {
                 "type": [
@@ -1137,6 +1212,31 @@
                   ],
                   "description": "low, medium or high."
                 },
+                "packages": {
+                  "type": "array",
+                  "description": "Every package this template belongs to, workflows first.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "package_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
                 "slug": {
                   "type": [
                     "string",
@@ -1352,7 +1452,7 @@
     },
     {
       "name": "recommend_packages",
-      "description": "Suggest which prompt packages suit a given job role -- a good first step when the user does not yet know what to ask for. Takes a short Swedish role term such as 'chef' or 'kommunikator'; ask the user for their role first if it is unknown. An unrecognised role returns no packages, role_recognized=false and a suggestion to call list_packages instead.",
+      "description": "Suggest which prompt packages suit a given job role -- a good first step when the user does not yet know what to ask for. Takes a short Swedish role term such as 'chef' or 'kommunikator'; ask the user for their role first if it is unknown. An unrecognised role returns no packages, role_recognized=false and a suggestion to call list_packages instead. Present the top 3-5 first; the rest only if the user asks for more.",
       "annotations": {
         "title": "Rekommendera promptpaket för en roll",
         "readOnlyHint": true,

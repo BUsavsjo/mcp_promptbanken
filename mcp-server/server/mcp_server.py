@@ -203,7 +203,7 @@ def _pro_templates_payload(mcp_key: str = "") -> dict[str, Any]:
 
 
 _TEMPLATE_SUMMARY_FIELDS = (
-    "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level",
+    "id", "title", "syfte", "area", "area_label", "output_format", "tags", "risk_level", "packages",
 )
 
 # What a listing needs to let a client choose. The full package, including
@@ -245,6 +245,11 @@ _TEMPLATE_SUMMARY_SCHEMA: dict[str, Any] = {
         "output_format": _nullable("string"),
         "tags": _nullable_array(),
         "risk_level": _nullable("string") | {"description": "low, medium or high."},
+        "packages": {
+            "type": "array",
+            "description": "Every package this template belongs to, workflows first.",
+            "items": {"type": "object", "properties": {"slug": {"type": "string"}, "title": _nullable("string"), "package_type": _nullable("string")}, "additionalProperties": True},
+        },
     },
     "additionalProperties": True,
 }
@@ -566,6 +571,19 @@ def _catalog_template_packages(context_keys: list[str] | None = None) -> dict[st
     return _catalog_template_packages_cache.get(normalized_contexts, {})
 
 
+def _template_packages(template: dict[str, Any], context_keys: list[str] | None) -> list[dict[str, Any]]:
+    """Alla paket en mall ingår i. Ett enda "primärt område" blev fel för mallar
+    som delas mellan workflows (ChatGPT-test 2026-09-27)."""
+    memberships = _catalog_template_packages(context_keys)
+    key = str(template.get("id") or "") or str(template.get("slug") or "")
+    found = memberships.get(key) or memberships.get(str(template.get("slug") or ""), [])
+    unique = {m["slug"]: m for m in found if isinstance(m.get("slug"), str)}
+    return sorted(
+        ({"slug": m["slug"], "title": m.get("title"), "package_type": m.get("package_type")} for m in unique.values()),
+        key=lambda m: (m.get("package_type") != "workflow", str(m.get("title") or "")),
+    )
+
+
 def _catalog_prompt_area_meta(
     prompt: dict[str, Any], area_index: dict[str, dict[str, str | None]] | None = None
 ) -> dict[str, str | None]:
@@ -716,6 +734,8 @@ def _search_templates_payload(
     )
     clamped_limit = max(1, min(limit, len(templates) or 1))
     limited = matches[:clamped_limit]
+    for t in limited:
+        t["packages"] = _template_packages(t, context_keys)
 
     payload: dict[str, Any] = {
         "total_matches": len(matches),
@@ -825,6 +845,7 @@ def _get_template_payload(
                 **_variant_diagnostics(context_keys, [variant]),
                 "template": _catalog_prompt_to_template(variant, area_index),
             }
+            payload["template"]["packages"] = _template_packages(payload["template"], context_keys)
             if track_usage:
                 track_usage_event(
                     event_type="prompt_get",
@@ -842,6 +863,7 @@ def _get_template_payload(
                 **_variant_diagnostics(context_keys, [variant]),
                 "template": _catalog_prompt_to_template(variant, area_index),
             }
+            payload["template"]["packages"] = _template_packages(payload["template"], context_keys)
             if track_usage:
                 track_usage_event(
                     event_type="prompt_get",
@@ -1083,6 +1105,8 @@ def _list_templates_with_usage(
     total = len(templates)
     start = max(0, offset)
     window = templates[start : start + max(1, limit)]
+    for template in window:
+        template["packages"] = _template_packages(template, context_keys)
     payload = payload | {
         "total": total,
         "returned": len(window),
@@ -1386,12 +1410,22 @@ def _recommend_packages_payload(role: str) -> dict[str, Any]:
         # Hela katalogen för en okänd roll var stort och sa inget om rollen.
         return result | {"packages": [], "recommended_areas": [], "suggestion": _UNKNOWN_ROLE_SUGGESTION}
     cards = _catalog_package_cards()
+    memberships = _catalog_template_packages(context_keys)
+    member_counts: dict[str, int] = {}
+    for prompt in prompts:
+        key = str(prompt.get("id") or "")
+        for membership in memberships.get(key, []):
+            slug = membership.get("slug")
+            if isinstance(slug, str):
+                member_counts[slug] = member_counts.get(slug, 0) + 1
     for package in result["packages"]:
         card = cards.get(package["area"], {})
         for field in _RECOMMEND_CARD_FIELDS:
             package[field] = card.get(field)
         if card.get("title"):
             package["area_label"] = card["title"]
+        if package["area"] in member_counts:
+            package["template_count"] = member_counts[package["area"]]
     return result
 
 
@@ -1477,7 +1511,9 @@ def get_template(
     search_templates or list_templates. context_keys only chooses which stored
     variant comes back. The template arrives as its own text plus the fields
     the user is meant to fill in; the client fills those in locally -- the
-    server never returns a finished, filled-in prompt."""
+    server never returns a finished, filled-in prompt. The client shows a
+    compact 'in use' line; do not restate the template -- continue with its
+    first question."""
     logger.info("tool_call name=get_template")
     return _get_template_with_usage(template_id, context_keys)
 
@@ -1872,11 +1908,13 @@ def get_client_routing_instructions() -> dict[str, Any]:
     # rollen var känd gav rollpaket i stället för researchworkflowet i
     # routingtestet 2026-09-14, trots att uppgiften var tydlig.
     catalog_client_flow = [
+        "Routing först: beskriv behov → routa → börja arbeta. Vid ett tydligt behov: search_templates med allmänna ord, sedan get_template på bästa träffen, och ställ mallens första arbetsfråga direkt. Visa inte paketkort och be inte användaren öppna paket eller välja mall när routingen är tydlig. Efter get_template: återge eller sammanfatta inte mallen (klienten visar en kompakt rad) -- gå direkt till första arbetsfrågan.",
+        "Osäker routing: nämn 2–3 alternativ i text och låt användaren välja. Paketkort (recommend_packages, list_packages) är för när användaren vill utforska, till exempel 'vad finns för chefer' eller 'vilka arbetsflöden finns'. I ett aktivt workflow: list_package_prompts(slug, current_step=N) för orientering, sedan get_template för stegets text.",
         "Utgå från uppgiften, inte rollen. Är uppgiften tydlig: sök direkt med search_templates(query) och några allmänna, anonymiserade ord om typen av uppgift. Skicka inte role när uppgiften redan är tydlig -- rollen kan då lyfta fel paket.",
         "Välj omfång efter uppgiften: en smal, konkret leverans (till exempel skriva om ett mejl) ger en enskild mall; flera relaterade specialistbehov ger en collection; ett sammanhängande arbete i flera steg ger ett workflow; en mycket bred eller oklar större uppgift ger workflowet Superplanläge.",
         "För flerstegsarbete: hämta list_packages(package_type='workflow') och jämför uppgiften med titel och sammanfattning. Är flera toppträffar från search_templates steg i samma workflow, föreslå hela workflowet i stället för ett enskilt steg. Stegen visas med list_package_prompts(slug), paketets introduktion med get_package(slug).",
         "Är uppgiften oklar, eller frågar användaren vad som finns för deras roll: använd recommend_packages(role), eller list_packages om rollen är okänd.",
-        "Filtret area i search_templates tar bara de värden schemat listar. Nyare paket nås via query eller list_packages, inte via area.",
+        "Filtret area i search_templates tar ett paket-slug från list_packages; ett okänt värde ger inga träffar och en hint.",
         "När användaren valt mall eller steg: hämta full text med get_template(template_id, context_keys) först när den ska användas.",
         "list_templates är för bläddring och är sidindelad (limit/offset). search_templates är normalvägen in.",
         "Servern levererar bara rådata -- prompt_text/intro_text, parameter_schema, default_bindings och binding_overrides. Klienten gör all ifyllning, tolkning och sammanfogning lokalt; servern renderar aldrig en färdig prompt.",
@@ -2739,7 +2777,9 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "chooses which stored variant comes back. The template arrives "
                 "as its own text plus the fields the user is meant to fill in; "
                 "the client fills those in locally -- the server never returns "
-                "a finished, filled-in prompt."
+                "a finished, filled-in prompt. The client shows a compact 'in "
+                "use' line; do not restate the template -- continue with its "
+                "first question."
             ),
             "annotations": _public_tool_annotations("Hämta en publicerad promptmall"),
             "_meta": _public_tool_status_meta(
@@ -3163,7 +3203,8 @@ def _tool_definitions(mcp_key: str = "") -> list[dict[str, Any]]:
                 "'kommunikator'; ask the user for their role first if it is "
                 "unknown. An unrecognised role returns no packages, "
                 "role_recognized=false and a suggestion to call list_packages "
-                "instead."
+                "instead. Present the top 3-5 first; the rest only if the "
+                "user asks for more."
             ),
             "annotations": _public_tool_annotations("Rekommendera promptpaket för en roll"),
             "_meta": _public_tool_status_meta(
@@ -4540,7 +4581,8 @@ def recommend_packages(role: str) -> dict[str, Any]:
     when the user does not yet know what to ask for. Takes a short Swedish role
     term such as 'chef' or 'kommunikator'; ask the user for their role first if
     it is unknown. An unrecognised role returns every package with
-    role_recognized=false rather than an empty result."""
+    role_recognized=false rather than an empty result. Present the top 3-5
+    first; the rest only if the user asks for more."""
     logger.info("tool_call name=recommend_packages")
     return _recommend_packages_payload(role)
 

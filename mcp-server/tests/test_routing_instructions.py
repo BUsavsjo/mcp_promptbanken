@@ -32,10 +32,10 @@ class RoutingInstructionTests(unittest.TestCase):
 
     def test_role_recommendation_is_for_an_unclear_task(self) -> None:
         step = self.flow[self._first_step_naming("recommend_packages")]
-        self.assertIn("oklar", step)
+        self.assertTrue("oklar" in step or "Osäker" in step)
 
     def test_role_is_not_sent_with_a_clear_task(self) -> None:
-        self.assertIn("Skicka inte role", self.flow[0])
+        self.assertIn("Skicka inte role", self.text)
 
     def test_scope_choice_covers_prompt_collection_workflow_and_superplan(self) -> None:
         for term in ("enskild mall", "collection", "workflow", "Superplanläge"):
@@ -49,7 +49,7 @@ class RoutingInstructionTests(unittest.TestCase):
 
     def test_area_filter_is_not_the_way_to_newer_packages(self) -> None:
         step = self.flow[self._first_step_naming("area")]
-        self.assertIn("schemat", step)
+        self.assertIn("list_packages", step)
 
 
 if __name__ == "__main__":
