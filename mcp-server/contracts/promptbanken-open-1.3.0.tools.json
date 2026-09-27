@@ -190,7 +190,7 @@
                     "string",
                     "null"
                   ],
-                  "description": "Package slug the template belongs to."
+                  "description": "Primary package slug; see packages for all memberships."
                 },
                 "area_label": {
                   "type": [
@@ -418,7 +418,7 @@
                     "string",
                     "null"
                   ],
-                  "description": "Package slug the template belongs to."
+                  "description": "Primary package slug; see packages for all memberships."
                 },
                 "area_label": {
                   "type": [
@@ -619,7 +619,7 @@
                   "string",
                   "null"
                 ],
-                "description": "Package slug the template belongs to."
+                "description": "Primary package slug; see packages for all memberships."
               },
               "area_label": {
                 "type": [
@@ -1182,7 +1182,7 @@
                     "string",
                     "null"
                   ],
-                  "description": "Package slug the template belongs to."
+                  "description": "Primary package slug; see packages for all memberships."
                 },
                 "area_label": {
                   "type": [

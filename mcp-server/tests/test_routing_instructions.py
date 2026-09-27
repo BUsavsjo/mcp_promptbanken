@@ -46,7 +46,7 @@ class RoutingInstructionTests(unittest.TestCase):
     def test_workflows_are_found_as_whole_packages(self) -> None:
         self.assertIn("package_type='workflow'", self.text)
         self.assertIn("list_package_prompts", self.text)
-        self.assertIn("samma workflow", self.text)
+        self.assertIn("workflows en träff ingår i", self.text)
 
     def test_area_filter_is_not_the_way_to_newer_packages(self) -> None:
         step = self.flow[self._first_step_naming("area")]

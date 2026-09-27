@@ -240,7 +240,7 @@ _TEMPLATE_SUMMARY_SCHEMA: dict[str, Any] = {
         "id": {"type": "string", "description": "Pass this to get_template."},
         "title": {"type": "string"},
         "syfte": _nullable("string") | {"description": "What the template is for."},
-        "area": _nullable("string") | {"description": "Package slug the template belongs to."},
+        "area": _nullable("string") | {"description": "Primary package slug; see packages for all memberships."},
         "area_label": _nullable("string"),
         "output_format": _nullable("string"),
         "tags": _nullable_array(),
@@ -1413,7 +1413,7 @@ def _recommend_packages_payload(role: str) -> dict[str, Any]:
     memberships = _catalog_template_packages(context_keys)
     member_counts: dict[str, int] = {}
     for prompt in prompts:
-        key = str(prompt.get("id") or "")
+        key = _catalog_prompt_identifier(prompt) or _catalog_prompt_slug(prompt) or ""
         for membership in memberships.get(key, []):
             slug = membership.get("slug")
             if isinstance(slug, str):
@@ -1912,8 +1912,9 @@ def get_client_routing_instructions() -> dict[str, Any]:
         "Osäker routing: nämn 2–3 alternativ i text och låt användaren välja. Paketkort (recommend_packages, list_packages) är för när användaren vill utforska, till exempel 'vad finns för chefer' eller 'vilka arbetsflöden finns'. I ett aktivt workflow: list_package_prompts(slug, current_step=N) för orientering, sedan get_template för stegets text.",
         "Utgå från uppgiften, inte rollen. Är uppgiften tydlig: sök direkt med search_templates(query) och några allmänna, anonymiserade ord om typen av uppgift. Skicka inte role när uppgiften redan är tydlig -- rollen kan då lyfta fel paket.",
         "Välj omfång efter uppgiften: en smal, konkret leverans (till exempel skriva om ett mejl) ger en enskild mall; flera relaterade specialistbehov ger en collection; ett sammanhängande arbete i flera steg ger ett workflow; en mycket bred eller oklar större uppgift ger workflowet Superplanläge.",
-        "För flerstegsarbete: hämta list_packages(package_type='workflow') och jämför uppgiften med titel och sammanfattning. Är flera toppträffar från search_templates steg i samma workflow, föreslå hela workflowet i stället för ett enskilt steg. Stegen visas med list_package_prompts(slug), paketets introduktion med get_package(slug).",
-        "Är uppgiften oklar, eller frågar användaren vad som finns för deras roll: använd recommend_packages(role), eller list_packages om rollen är okänd.",
+        "Superplanläge: hämta faserna med list_package_prompts('superplanlage', include_prompt_text=true) och följ dem utan att nämna fasnamn; använd inte get_template för Superplans egna faser.",
+        "För flerstegsarbete: search_templates visar i packages vilka workflows en träff ingår i (workflows först). Är ett workflow tydligt rätt: starta det direkt med list_package_prompts(slug, current_step=1) och hämta steg 1 med get_template -- visa inte paketkort. list_packages(package_type='workflow') används bara när användaren vill se vilka workflows som finns eller när valet är genuint osäkert.",
+        "Är behovet oklart: ställ en klargörande fråga (eller fråga efter roll). recommend_packages(role) och list_packages är för när användaren uttryckligen vill utforska vad som finns, till exempel för sin roll.",
         "Filtret area i search_templates tar ett paket-slug från list_packages; ett okänt värde ger inga träffar och en hint.",
         "När användaren valt mall eller steg: hämta full text med get_template(template_id, context_keys) först när den ska användas.",
         "list_templates är för bläddring och är sidindelad (limit/offset). search_templates är normalvägen in.",
@@ -4580,9 +4581,9 @@ def recommend_packages(role: str) -> dict[str, Any]:
     """Suggest which prompt packages suit a given job role -- a good first step
     when the user does not yet know what to ask for. Takes a short Swedish role
     term such as 'chef' or 'kommunikator'; ask the user for their role first if
-    it is unknown. An unrecognised role returns every package with
-    role_recognized=false rather than an empty result. Present the top 3-5
-    first; the rest only if the user asks for more."""
+    it is unknown. An unrecognised role returns no packages,
+    role_recognized=false and a suggestion to call list_packages instead.
+    Present the top 3-5 first; the rest only if the user asks for more."""
     logger.info("tool_call name=recommend_packages")
     return _recommend_packages_payload(role)
 

@@ -46,7 +46,6 @@
   var LIMIT = 5;
   var state = { packages: [], suggestion: null };
   var FILTERS = [["all", "Alla"], ["workflow", "Arbetsflöden"], ["collection", "Samlingar"]];
-  var mobileQuery = window.matchMedia ? window.matchMedia("(max-width: 479px)") : null;
 
   function normalize(p) {
     var slug = p.slug || p.area;
@@ -162,12 +161,6 @@
       nodes.push(more);
     }
     app.replaceChildren.apply(app, nodes);
-  }
-
-  if (mobileQuery) {
-    var onChange = function () { render(); };
-    if (typeof mobileQuery.addEventListener === "function") mobileQuery.addEventListener("change", onChange);
-    else if (typeof mobileQuery.addListener === "function") mobileQuery.addListener(onChange);
   }
 
   PB.onData(function (data) {

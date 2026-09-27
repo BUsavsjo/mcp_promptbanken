@@ -104,7 +104,7 @@ details > summary { cursor: pointer; color: var(--pb-muted); }
       var marker = el("span", "marker", status === "done" ? "✓" : status === "current" ? "pågår" : String(number));
       marker.setAttribute("aria-hidden", "true");
       item.append(marker, el("span", "label", label));
-      var goTo = el("button", "pb-primary", "Gå till");
+      var goTo = el("button", null, "Gå till");
       goTo.type = "button";
       goTo.addEventListener("click", function () {
         PB.setState({ package: pkg.slug, started: number });

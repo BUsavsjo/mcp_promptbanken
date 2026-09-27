@@ -145,9 +145,9 @@
     teal: "#0d9488", cyan: "#0891b2", sky: "#0284c7", slate: "#475569", gray: "#6b7280"
   };
   var NAMED_ICONS = {
-    message: "💬", image: "🖼", library: "📚", sparkles: "✨", chart: "📊",
+    message: "💬", image: "🖼️", library: "📚", sparkles: "✨", chart: "📊",
     calendar: "📅", check: "✅", compass: "🧭", document: "📄", lightbulb: "💡",
-    people: "👥", shield: "🛡", target: "🎯", workflow: "➜"
+    people: "👥", shield: "🛡️", target: "🎯", workflow: "➜"
   };
 
   var PB = {

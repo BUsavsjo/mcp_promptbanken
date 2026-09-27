@@ -70,6 +70,26 @@ class TemplateCountTests(unittest.TestCase):
             result = server_mcp._recommend_packages_payload("chef")
         self.assertEqual(result["packages"][0]["template_count"], 2)
 
+    def test_template_count_falls_back_to_slug_when_id_is_absent(self):
+        base = {
+            "role_recognized": True, "matched_role": "chef", "role_match_source": "exact",
+            "recommended_areas": ["behov-till-effekt"],
+            "packages": [{"area": "behov-till-effekt", "area_label": "x", "template_count": 1}],
+        }
+        # No "id" key -- membership lookup must fall back to slug.
+        prompts = [{"slug": "p1"}]
+        memberships = {"p1": [{"slug": "behov-till-effekt", "title": "x", "package_type": "workflow", "summary": ""}]}
+        with (
+            patch.object(server_mcp._catalog, "list_published_prompts", return_value=prompts),
+            patch("server.mcp_server._catalog_area_index", return_value={}),
+            patch("server.mcp_server._catalog_package_audiences", return_value={}),
+            patch("server.mcp_server._recommend_packages", return_value=base),
+            patch("server.mcp_server._catalog_package_cards", return_value={}),
+            patch("server.mcp_server._catalog_template_packages", return_value=memberships),
+        ):
+            result = server_mcp._recommend_packages_payload("chef")
+        self.assertEqual(result["packages"][0]["template_count"], 1)
+
 
 class RoutingFirstInstructionTests(unittest.TestCase):
     def test_client_flow_puts_routing_first_and_drops_the_stale_area_rule(self):
@@ -78,6 +98,9 @@ class RoutingFirstInstructionTests(unittest.TestCase):
         self.assertIn("första arbetsfråga", flow)
         self.assertIn("current_step", flow)
         self.assertNotIn("bara de värden schemat listar", flow)
+        self.assertIn("current_step=1", flow)
+        self.assertIn("include_prompt_text=true", flow)
+        self.assertNotIn("För flerstegsarbete: hämta list_packages", flow)
 
     def test_descriptions_carry_the_routing_first_hints(self):
         self.assertIn("top 3", _tool("recommend_packages")["description"])
