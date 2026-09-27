@@ -10,6 +10,9 @@
 8. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
 ## Nästa steg
+- [x] **Routing först och mobil-UI för 1.3.0 (2026-09-27):** aktiv-rad "används nu", tre lägen i stegvisaren, 5 paket först och radlista på mobil, verkligt `template_count`, `packages` på mallar, routinginstruktioner. Deployat till dev, livekontroll 0 fel, simulerat mobiltest 6/6.
+- [ ] **Mobiltest i ChatGPT igen:** gör Refresh på connectorn och kör handoverns flöden (konsekvensanalys, medborgarmejl, steg 2 i Från behov till effekt, "vad finns för chefer").
+- [ ] **(Low) WCAG AA-kontroll av kontrasten** på stegvisarens "Nästa:"-rad och andra dämpade texter på mobil.
 - [x] **Promptbanken Open 1.3.0 byggd och deployad till mcp-dev (2026-09-27):** MCP Apps-widgets (paketkort, stegvisare, mallvy), kontraktsändringar och fem fynd från ChatGPT-testet, Superplan-skill som plugin (`plugin/`). Gren `open-1.3.0-apps`. Testrapport: `docs/superpowers/tests/2026-09-27-open-1.3.0-dev-test.md`.
 - [x] **Katalogsynk prod → dev (2026-09-27, klar, livekontroll 24/24):** ~~ kör `$key = Read-Host; $key | ssh … 'bash /tmp/pbsync/run_apply.sh'` (dev service_role-nyckel via stdin), verifiera 35 paket/225 mallar, kör sedan `scripts/check_live_open.py` igen och testa stegvisaren och Superplan live.~~
 - [ ] **1.3.0 widgets: namngivna `color_theme`/`icon_key`** ("blue", "message" …) ignoreras idag — mappa en fast lista i `bridge.js`; dölj `audience_label` när den är lika med titeln.

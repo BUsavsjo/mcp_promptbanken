@@ -1,5 +1,16 @@
 # Logg
 
+## 2026-09-27 (em) - Routing först: UI som kvittens
+
+### Gjort
+- Peters mobiltest i ChatGPT visade att widgetarna syns (paketkort och följdfråga via knapp fungerade), men att flödet blev behov → paket → mall → använd. Handover: routing först.
+- Bryggan rättad innan dess: initiering väntar på långsamma värdar (60 s) och höjden mäts som i MCP Apps-SDK:n (storleksloopen borta).
+- Spec och plan för routing först. Byggt med underagenter: 4 tasks, granskning per task och slutgranskning med en korrigeringsrunda. 254 tester gröna.
+- Deployat `3af5db1` till dev. Livekontroll 0 fel, simulerat mobiltest 6/6 PASS.
+
+### Nästa steg
+- Peter kör handoverns flöden i ChatGPT (efter Refresh av connectorn).
+
 ## 2026-09-27 - Open 1.3.0 byggd, deployad till mcp-dev och testad
 
 ### Gjort

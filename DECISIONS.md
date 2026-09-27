@@ -1,5 +1,18 @@
 # Beslut
 
+## 2026-09-27 - Promptbanken är en router för arbetssätt: UI som kvittens, inte som steg
+
+### Beslut
+- Produktprincip: beskriv behov → routa → börja arbeta. UI används för att välja, förstå, orientera sig och utforska. Upptäcka → rik UI, välja → kompakt UI, arbeta → konversation.
+- `get_template` visar alltid en kompakt rad "✓ {titel} · används nu". Detaljerna ligger bakom "Visa mallen", och det finns ingen "Använd mallen"-knapp.
+- Stegvisarens läge styrs av anropet: `current_step` → arbetsläge, annars utforska, och `include_prompt_text` → bara rubrik (Superplan). Regeln om att dölja steg utan `step_title` är borttagen.
+- Paketkort: 5 först plus "Visa fler". Under 480 px visas en radlista.
+- Routing sker med instruktioner (`client_flow`), inte med ny sökalgoritm. Tydliga workflows startar direkt med `current_step=1`.
+- `template_count` räknas från verkliga paketmedlemmar. Mallar får `packages` (alla medlemskap), och `area` är bara primärt paket.
+
+### Varför
+Mobiltestet 2026-09-27. Se specen `docs/superpowers/specs/2026-09-27-open-1.3.0-routing-first-ui-design.md`.
+
 ## 2026-09-27 - Open 1.3.0: MCP Apps-widgets, öppet area och Superplan dold
 
 ### Beslut
