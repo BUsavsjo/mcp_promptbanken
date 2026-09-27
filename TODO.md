@@ -11,7 +11,8 @@
 
 ## Nästa steg
 - [x] **Promptbanken Open 1.3.0 byggd och deployad till mcp-dev (2026-09-27):** MCP Apps-widgets (paketkort, stegvisare, mallvy), kontraktsändringar och fem fynd från ChatGPT-testet, Superplan-skill som plugin (`plugin/`). Gren `open-1.3.0-apps`. Testrapport: `docs/superpowers/tests/2026-09-27-open-1.3.0-dev-test.md`.
-- [ ] **Katalogsynk prod → dev:** kör `$key = Read-Host; $key | ssh … 'bash /tmp/pbsync/run_apply.sh'` (dev service_role-nyckel via stdin), verifiera 35 paket/225 mallar, kör sedan `scripts/check_live_open.py` igen och testa stegvisaren och Superplan live.
+- [x] **Katalogsynk prod → dev (2026-09-27, klar, livekontroll 24/24):** ~~ kör `$key = Read-Host; $key | ssh … 'bash /tmp/pbsync/run_apply.sh'` (dev service_role-nyckel via stdin), verifiera 35 paket/225 mallar, kör sedan `scripts/check_live_open.py` igen och testa stegvisaren och Superplan live.~~
+- [ ] **1.3.0 widgets: namngivna `color_theme`/`icon_key`** ("blue", "message" …) ignoreras idag — mappa en fast lista i `bridge.js`; dölj `audience_label` när den är lika med titeln.
 - [ ] **Test i riktiga värdar:** lägg till `https://mcp-dev.promptbanken.se/mcp` i ChatGPT developer mode och i Claude; kör fallen i planens Task 11 steg 5–6 och `plugin/evals/superplan-cases.md`.
 - [ ] **1.3.0 UX-fynd (låg/medel):** visuell ledtråd för paketkortens karusell; "Visa alla paket" i stegvisarens not-found-läge; `aria-label` på mallvyns prompttext-ruta.
 - [ ] **(Low) Ogiltig UTF-8 i request-kroppen ger rå HTTP 500** i stället för JSON-RPC `-32700` (även prod).
