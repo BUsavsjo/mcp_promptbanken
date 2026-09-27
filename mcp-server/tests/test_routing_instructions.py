@@ -35,7 +35,8 @@ class RoutingInstructionTests(unittest.TestCase):
         self.assertTrue("oklar" in step or "Osäker" in step)
 
     def test_role_is_not_sent_with_a_clear_task(self) -> None:
-        self.assertIn("Skicka inte role", self.text)
+        step = next(step for step in self.flow if step.startswith("Utgå från uppgiften"))
+        self.assertIn("Skicka inte role", step)
 
     def test_scope_choice_covers_prompt_collection_workflow_and_superplan(self) -> None:
         for term in ("enskild mall", "collection", "workflow", "Superplanläge"):

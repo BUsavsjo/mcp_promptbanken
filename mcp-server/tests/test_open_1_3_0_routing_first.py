@@ -42,6 +42,14 @@ class TemplatePackagesTests(unittest.TestCase):
         self.assertIn("packages", server_mcp._TEMPLATE_SUMMARY_SCHEMA["properties"])
         self.assertIn("packages", server_mcp._TEMPLATE_FULL_SCHEMA["properties"])
 
+    def test_packages_does_not_leak_into_list_package_prompts_steps(self):
+        # _PACKAGE_PROMPT_SCHEMA borrows _TEMPLATE_FULL_SCHEMA's properties, but
+        # _list_package_prompts_payload only ever projects _PACKAGE_STEP_FIELDS
+        # -- a "packages" property here would describe a field the tool never
+        # actually returns.
+        step_schema = _tool("list_package_prompts")["outputSchema"]["properties"]["prompts"]["items"]
+        self.assertNotIn("packages", step_schema["properties"])
+
 
 class TemplateCountTests(unittest.TestCase):
     def test_template_count_counts_real_members(self):

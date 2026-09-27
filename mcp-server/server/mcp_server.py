@@ -332,7 +332,7 @@ _PACKAGE_PROMPT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "description": "One prompt inside a package: a full template plus its place in the sequence.",
     "properties": {
-        **_TEMPLATE_FULL_SCHEMA["properties"],
+        **{k: v for k, v in _TEMPLATE_FULL_SCHEMA["properties"].items() if k != "packages"},
         "prompt_slug": _nullable("string"),
         "sort_order": _nullable("integer") | {"description": "The order the prompts are meant to be used in."},
         "step_title": _nullable("string"),

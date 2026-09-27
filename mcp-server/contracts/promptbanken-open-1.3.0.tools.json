@@ -1212,31 +1212,6 @@
                   ],
                   "description": "low, medium or high."
                 },
-                "packages": {
-                  "type": "array",
-                  "description": "Every package this template belongs to, workflows first.",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "slug": {
-                        "type": "string"
-                      },
-                      "title": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "package_type": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      }
-                    },
-                    "additionalProperties": true
-                  }
-                },
                 "slug": {
                   "type": [
                     "string",
