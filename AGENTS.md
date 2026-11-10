@@ -35,6 +35,14 @@ Avsluta alltid med en kort status:
 ## Teknisk kontext
 Se `CLAUDE.md` för fullständig teknisk dokumentation: repo-layout, körning, miljövariabler, Supabase-integration och kodkonventioner.
 
+## Egen testtrafik mot MCP-servern
+- Varje anrop du själv gör mot `/mcp` eller `/mcp/key` för test, kontroll eller felsökning (prod `mcp.promptbanken.se`, dev `mcp-dev.promptbanken.se`) ska skicka headern `X-Promptbanken-Analytics: off`. Annars sparas anropet i `library_usage_events` och snedvrider adminstatistiken.
+- Gäller curl, egna skript, kontraktstester och livekontroller. `mcp-server/scripts/check_live_open.py` och kontraktstest-skillen `promptbanken-mcp-contract-test` skickar den redan. Lägg till den i varje nytt skript som anropar servern.
+- `/sse` läser inte headern och kan inte räknas bort. Använd `/mcp` för egna tester när det räcker.
+- Headern är ingen hemlighet och ger ingen behörighet. Den stänger bara av statistiken för just det anropet.
+- Logga aldrig söktext från MCP-anrop. Integritetspolicyn (`privacy-mcp-en.html`, avsnitt 5.1) lovar att bara söktextens längd sparas.
+- Statistik från före 2026-11-10 innehåller egen testtrafik.
+
 ## Supabase MCP
 Projektet har Supabase MCP kopplat (`supabase`-server i `.claude/settings.json`).
 Använd Supabase MCP-tools för att:
