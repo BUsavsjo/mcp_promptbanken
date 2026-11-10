@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 import httpx
@@ -20,6 +23,29 @@ _ALLOWED_TOOL_METADATA = frozenset(
 )
 _ALLOWED_PACKAGE_TYPES = frozenset({"collection", "workflow"})
 _SAFE_SLUG = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+
+# Header our own contract checks, parity runs and live checks send so they do
+# not show up as real usage. Deliberately not a secret: opting out of
+# anonymous statistics is harmless, and a secret in a request header would be
+# written to the reverse proxy's access log.
+ANALYTICS_OPT_OUT_HEADER = "x-promptbanken-analytics"
+
+_usage_tracking_suppressed: ContextVar[bool] = ContextVar(
+    "promptbanken_usage_tracking_suppressed", default=False
+)
+
+
+def analytics_opt_out_requested(header_value: str | None) -> bool:
+    return isinstance(header_value, str) and header_value.strip().lower() == "off"
+
+
+@contextmanager
+def suppress_usage_tracking() -> Iterator[None]:
+    token = _usage_tracking_suppressed.set(True)
+    try:
+        yield
+    finally:
+        _usage_tracking_suppressed.reset(token)
 
 
 def _safe_slug(value: str | None) -> str | None:
@@ -67,6 +93,8 @@ def track_usage_event(
     Analytics failure must not fail an MCP tool call.
     """
     if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    if _usage_tracking_suppressed.get():
         return
 
     payload = {

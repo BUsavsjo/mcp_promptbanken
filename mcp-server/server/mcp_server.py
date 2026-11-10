@@ -24,7 +24,14 @@ from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
 from . import admin_auth
 from . import admin_catalog
-from .usage_events import track_usage_event
+from contextlib import nullcontext
+
+from .usage_events import (
+    ANALYTICS_OPT_OUT_HEADER,
+    analytics_opt_out_requested,
+    suppress_usage_tracking,
+    track_usage_event,
+)
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -4051,16 +4058,19 @@ async def _mcp_http_response(request: Request, tool_profile: str) -> Response:
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
     mcp_key = _mcp_key_from_request(request)
-    responses = [
-        response
-        for message in messages
-        if (response := _handle_mcp_message(message, mcp_key, tool_profile)) is not None
-    ]
+    analytics_off = analytics_opt_out_requested(request.headers.get(ANALYTICS_OPT_OUT_HEADER))
+    with suppress_usage_tracking() if analytics_off else nullcontext():
+        responses = [
+            response
+            for message in messages
+            if (response := _handle_mcp_message(message, mcp_key, tool_profile)) is not None
+        ]
     logger.info(
-        "http_request path=%s method=POST status=%s batch=%s",
+        "http_request path=%s method=POST status=%s batch=%s analytics_off=%s",
         path,
         200 if responses else 202,
         is_batch,
+        analytics_off,
     )
     if not responses:
         return Response(status_code=202)
