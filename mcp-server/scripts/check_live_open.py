@@ -13,7 +13,12 @@ sys.path.insert(0, str(ROOT))
 
 from server.mcp_server import SERVICE_VERSION  # noqa: E402
 
-_HEADERS = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/event-stream",
+    # Egen kontrolltrafik ska inte räknas som användning i library_usage_events.
+    "X-Promptbanken-Analytics": "off",
+}
 
 
 def _call(client: httpx.Client, url: str, method: str, params: dict | None = None) -> dict:

@@ -618,6 +618,15 @@ container (`promptbanken-open-dev-mcp`) och en egen dev-Supabase
 prod-katalogen. Dev-miljön startas och stoppas från admin-gränssnittet som
 tjänsten `mcp-dev`.
 
+### Egen testtrafik och statistik
+
+Egna kontroller (kontraktstest, paritetstester, `scripts/check_live_open.py`)
+ska skicka headern `X-Promptbanken-Analytics: off` mot `/mcp` och `/mcp/key`.
+Då skriver servern ingen händelse till `library_usage_events` för det anropet,
+så adminstatistiken visar riktig användning. Headern är medvetet ingen
+hemlighet: att avstå från anonym statistik är ofarligt, och en hemlig token i
+en header skulle hamna i Caddys accesslogg. `/sse` stöder inte headern.
+
 ## Client-side routing
 
 I `hosted`-läge ska klienten:
