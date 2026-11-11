@@ -12,6 +12,12 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from connect_service.data import ConnectWriteError
+from connect_service.personal import PersonalError
+from connect_service.supports import SupportCatalog
+from connect_service import work_layer as wl
+
+SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
+SERVER_VERSION = "0.3.0"
 
 
 _WRITE_TOOL_NAMES = {
@@ -117,12 +123,11 @@ def _limit(arguments: Mapping[str, object]) -> int | None:
 
 
 def _tool_definitions() -> list[dict[str, object]]:
+    return [*wl.tool_definitions(), *_library_tool_definitions()]
+
+
+def _library_tool_definitions() -> list[dict[str, object]]:
     return [
-        {
-            "name": "get_connect_context",
-            "description": "Bekräftar vem Connect är kopplad till.",
-            "inputSchema": {"type": "object", "properties": {}},
-        },
         {
             "name": "search_open_catalog",
             "description": "Söker bland publicerade Open-prompter och paket utan att läsa ut prompttexter.",
@@ -258,8 +263,10 @@ def create_app(
     authorization_server: str,
     token_verifier: TokenVerifier,
     library: Library,
+    work_layer: wl.WorkLayer | None = None,
 ) -> Starlette:
     """Skapar en fristående Connect-app med uttryckliga OAuth-beroenden."""
+    layer = work_layer or wl.WorkLayer(SupportCatalog(), library)  # type: ignore[arg-type]
     parsed_resource = urlparse(resource_url)
     app_host = parsed_resource.netloc.replace("connect-dev.", "dev.").replace("connect.", "app.")
     share_base_url = f"{parsed_resource.scheme}://{app_host}/delning/?s="
@@ -273,6 +280,20 @@ def create_app(
     async def connect_write_error(request: Request, error: Exception) -> JSONResponse:
         message = str(error) or "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
         return _error(getattr(request.state, "jsonrpc_id", None), -32020, message)
+
+    async def work_layer_input_error(request: Request, error: Exception) -> JSONResponse:
+        return _error(getattr(request.state, "jsonrpc_id", None), -32602, str(error) or "Ogiltiga verktygsargument.")
+
+    async def work_layer_not_found(request: Request, _: Exception) -> JSONResponse:
+        return _error(getattr(request.state, "jsonrpc_id", None), -32004, "Objektet finns inte eller är inte tillgängligt.")
+
+    def prompt_list(token: str) -> list[dict[str, object]]:
+        context = layer.context(token, "")
+        entries = [*context["supports"], *[way for way in context["my_ways_of_working"] if way.get("active", True)]]
+        return [
+            {"name": entry["id"], "title": entry["name"], "description": entry["use_when"]}
+            for entry in entries
+        ]
 
     async def mcp(request: Request) -> Response:
         token = _bearer_token(request)
@@ -293,21 +314,53 @@ def create_app(
         method = payload.get("method")
         params = payload.get("params", {})
 
+        if isinstance(method, str) and method.startswith("notifications/"):
+            return Response(status_code=202)
+
+        if method == "ping":
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {}})
+
         if method == "initialize":
+            requested = params.get("protocolVersion") if isinstance(params, Mapping) else None
+            version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else "2025-06-18"
             return JSONResponse(
                 {
                     "jsonrpc": "2.0",
                     "id": request_id,
                     "result": {
-                        "protocolVersion": "2025-06-18",
-                        "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "promptbanken-connect", "version": "0.2.0"},
+                        "protocolVersion": version,
+                        "capabilities": {"tools": {}, "prompts": {}},
+                        "serverInfo": {"name": "promptbanken-connect", "version": SERVER_VERSION},
+                        "instructions": wl.SERVER_INSTRUCTIONS,
                     },
                 }
             )
 
         if method == "tools/list":
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"tools": _tool_definitions()}})
+
+        if method == "prompts/list":
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"prompts": prompt_list(token)}})
+
+        if method == "prompts/get":
+            prompt_name = params.get("name") if isinstance(params, Mapping) else None
+            if not isinstance(prompt_name, str):
+                return _error(request_id, -32602, "Ogiltiga argument.")
+            support = layer.support(token, prompt_name, None)
+            text = (
+                f"Arbeta enligt arbetssättet {support['name']}. Följ metoden nedan, användarens personliga regler "
+                f"och prioriteringsordningen.\n\n{json.dumps(support, ensure_ascii=False)}"
+            )
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "description": str(support["name"]),
+                        "messages": [{"role": "user", "content": {"type": "text", "text": text}}],
+                    },
+                }
+            )
 
         if method != "tools/call" or not isinstance(params, Mapping):
             return _error(request_id, -32601, "MCP-metoden stöds inte ännu.")
@@ -323,8 +376,9 @@ def create_app(
             if not _valid_uuid(arguments.get("request_id")):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")
 
-        if name == "get_connect_context":
-            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"user_id": subject})})
+        if name in wl.TOOL_NAMES:
+            payload = _work_layer_call(layer, name, arguments, token, subject)
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result(payload)})
 
         if name == "search_open_catalog":
             query = arguments.get("query", "")
@@ -513,5 +567,41 @@ def create_app(
             Route("/.well-known/oauth-protected-resource/mcp", protected_resource_metadata),
             Route("/mcp", mcp, methods=["POST"]),
         ],
-        exception_handlers={ConnectWriteError: connect_write_error},
+        exception_handlers={
+            ConnectWriteError: connect_write_error,
+            PersonalError: work_layer_input_error,
+            wl.ToolInputError: work_layer_input_error,
+            wl.NotFound: work_layer_not_found,
+        },
     )
+
+
+def _work_layer_call(
+    layer: wl.WorkLayer, name: str, arguments: Mapping[str, object], token: str, subject: str
+) -> Mapping[str, object]:
+    if name == "get_connect_context":
+        return layer.context(token, subject)
+    if name == "get_support":
+        support_id = arguments.get("id")
+        resource = arguments.get("resource")
+        if not isinstance(support_id, str) or (resource is not None and not isinstance(resource, str)):
+            raise wl.ToolInputError("Ange id som text.")
+        return layer.support(token, support_id, resource)
+    if name == "get_open_item":
+        kind = arguments.get("kind")
+        ref = arguments.get("ref")
+        if kind not in {"prompt", "package"} or not isinstance(ref, str) or not ref.strip():
+            raise wl.ToolInputError("Ange kind (prompt eller package) och ref.")
+        return layer.open_item(token, str(kind), ref.strip())
+    if name == "save_my_profile":
+        return layer.save_profile(token, arguments)
+    if name == "save_my_way_of_working":
+        return layer.save_way(token, arguments)
+    if name == "get_my_history":
+        target = arguments.get("target")
+        if not isinstance(target, str):
+            raise wl.ToolInputError("Ange target.")
+        return layer.history(token, target)
+    if name == "restore_my_version":
+        return layer.restore(token, arguments)
+    raise wl.ToolInputError("Okänt verktyg.")

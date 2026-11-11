@@ -93,6 +93,12 @@ def test_authenticated_client_discovers_creator_library_tools():
     assert response.status_code == 200
     assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
         "get_connect_context",
+        "get_support",
+        "get_open_item",
+        "save_my_profile",
+        "save_my_way_of_working",
+        "get_my_history",
+        "restore_my_version",
         "search_open_catalog",
         "list_my_library",
         "get_my_library_prompt",

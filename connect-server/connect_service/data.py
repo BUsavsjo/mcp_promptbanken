@@ -217,6 +217,61 @@ class SupabaseConnectRepository:
         next_cursor = str(cursor + limit) if cursor + limit < len(items) else None
         return {"items": page, "next_cursor": next_cursor}
 
+    def list_connect_documents(self, *, access_token: str, categories: set[str]) -> list[Mapping[str, object]]:
+        """Egna Creator-prompter i Connects personliga kategorier, med innehåll."""
+        return [
+            {"id": str(row["id"]), "category": row.get("category"), "content": row.get("content"), "updated_at": row.get("updated_at")}
+            for row in self._rpc(access_token, "list_my_creator_prompts")
+            if row.get("category") in categories and row.get("status") != "archived"
+        ]
+
+    def get_open_item(self, *, access_token: str, kind: str, ref: str) -> Mapping[str, object] | None:
+        """Läser publicerat Open-innehåll med text, motsvarande Opens get_template och list_package_prompts."""
+        if kind == "prompt":
+            for row in self._rpc(access_token, "list_published_prompts", {"p_context_keys": ["generell"]}):
+                if ref in {str(row.get("id")), str(row.get("slug"))}:
+                    return {
+                        "kind": "prompt",
+                        "id": str(row["id"]),
+                        "slug": row.get("slug"),
+                        "title": row.get("title"),
+                        "summary": row.get("summary"),
+                        "prompt_text": row.get("prompt_text"),
+                        "example_input": row.get("example_input"),
+                        "risk_level": row.get("risk_level"),
+                        "output_format": row.get("output_format"),
+                    }
+            return None
+        if kind == "package":
+            slug = ref
+            if self._is_uuid(ref):
+                match = next(
+                    (row for row in self._rpc(access_token, "list_published_packages", {"p_context_keys": ["generell"]}) if str(row.get("id")) == ref),
+                    None,
+                )
+                if match is None:
+                    return None
+                slug = str(match.get("slug"))
+            rows = self._rpc(access_token, "list_published_package_prompts", {"p_package_slug": slug, "p_context_keys": ["generell"]})
+            if not rows:
+                return None
+            return {
+                "kind": "package",
+                "slug": slug,
+                "steps": [
+                    {
+                        "position": row.get("sort_order"),
+                        "prompt_id": str(row.get("prompt_id")),
+                        "title": row.get("step_title") or row.get("title"),
+                        "intro": row.get("step_intro"),
+                        "required": row.get("is_required"),
+                        "prompt_text": row.get("prompt_text"),
+                    }
+                    for row in sorted(rows, key=lambda row: int(row.get("sort_order") or 0))
+                ],
+            }
+        raise ValueError("Okänd typ.")
+
     def update_my_prompt(self, *, access_token: str, prompt_id: str, title: str, content: str, summary: str | None, category: str | None, request_id: str) -> Mapping[str, object]:
         return self._connect_write(access_token, "connect_update_my_prompt", {"p_content_item_id": prompt_id, "p_title": title, "p_content": content, "p_summary": summary, "p_category": category, "p_request_id": request_id})
 

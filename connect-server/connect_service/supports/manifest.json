@@ -1,0 +1,448 @@
+{
+  "source": "promptbanken/agent-skills",
+  "source_commit": "70cc52284edc21efcb865642ccb0c4e7eb0d5732",
+  "supports": [
+    {
+      "id": "motessekreteraren",
+      "name": "Mötessekreteraren",
+      "use_when": "Hjälper användaren före och efter möten, från syfte och agenda till verifierade beslut, uppdrag, öppna frågor, kommunikation, genomförandekort och uppföljning. Skiljer noga på förslag, erbjudanden, inriktningar, uppdrag och beslut, och hittar aldrig på ansvariga, datum eller beslut. Använd när någon ska förbereda ett möte, har mötesanteckningar eller en transkribering att göra något av, vill veta vad som faktiskt beslutades eller vill följa upp ett tidigare möte.",
+      "not_when": "Använd inte för att planera eller leda en workshop (Workshopledaren), kartlägga en process (Processledaren), planera en förändring (Förändringsledaren) eller göra en källbelagd utredning (Utredaren).",
+      "version": "1.0.3",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "ad247a43e86edd00e89d06eaf4ed06b1bfbb4245f0ebd439bda81ada3a4e7f60",
+          "bytes": 12042
+        },
+        {
+          "path": "assets/agenda.md",
+          "sha256": "d3e275e4196d6571e8ff5c3c3e2661d5f48a9f1a48ffe2ee197619cc8cb61e72",
+          "bytes": 856
+        },
+        {
+          "path": "assets/genomforandekort.md",
+          "sha256": "9f1a653981f445472da44b7aef8994ba58eaec7f58aa04bbc8fd22e8fcbddc10",
+          "bytes": 1038
+        },
+        {
+          "path": "assets/sorterade-anteckningar.md",
+          "sha256": "1ac57f1169de392658763d1600444712aa87f8fd006f15f62f3679ddcaaeb701",
+          "bytes": 698
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "dbd5bfe8413735775c8dd672c269c33e81fd8fbe4e38600e14cc57a70bb2e3b5",
+          "bytes": 2820
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "fa2d74cb3908db7fcbe62b0a04d91e20e2905a3cfc0b7052ba9012ae27b2bbca",
+          "bytes": 8154
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "0b6134ac127fa0f3f93d436ef02a8a94b56256dda3309e13349a9ed7dd8a2b45",
+          "bytes": 2669
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "utredaren",
+      "name": "Utredaren",
+      "use_when": "Hjälper användaren genom en strukturerad utredning, från utredningsfråga via källor, alternativ och konsekvenser till ett granskningsbart beslutsunderlag där fakta, antaganden, bedömningar och kunskapsluckor hålls isär och varje fynd går att spåra till en källa. Använd när någon ska utreda en fråga eller ett förslag, väga för- och nackdelar, ta fram ett researchunderlag, göra en konsekvensanalys eller förbereda ett beslut, till exempel \"utred för- och nackdelar med att centralisera administrativa uppgifter\".",
+      "not_when": "Använd inte för att driva ett förbättringstest (Förbättringsledaren), kartlägga en process (Processledaren), planera ett införande (Förändringsledaren) eller analysera en datafil (Verksamhetsanalytikern).",
+      "version": "1.0.3",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "af7ef3cb7f7313aeff8e5a17db54058250a018565cd8507a7662fcc6923897f9",
+          "bytes": 11306
+        },
+        {
+          "path": "assets/evidenslogg.md",
+          "sha256": "aa3f4c1f1cb89baa8a3116f7e837aac41df09176474d4ba9f94416df8d93cb31",
+          "bytes": 857
+        },
+        {
+          "path": "assets/underlag.md",
+          "sha256": "18199f7e949e826c3d8b253637b0060e07c0d9bfff5fcd14afcaa64778ac3c4c",
+          "bytes": 1471
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "e5a5a0741fb40b263faf07e1cfbab52c9552099a822a75e7ff500a451e439438",
+          "bytes": 1760
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "d2079ab7341083301ff3be26be9cd3dd682e5b601324267f650e8a8b2f0ac5c0",
+          "bytes": 6161
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "782804b7b2f83fac59741a83ed06dabc6905850a7236392ba1e0f99974ccbfeb",
+          "bytes": 3725
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "processledaren",
+      "name": "Processledaren",
+      "use_when": "Hjälper användaren att kartlägga, analysera och förbättra en process, från uppdrag och nuläge via roller, överlämningar, flaskhalsar och ansvar till börläge, prioriterade förbättringar och uppföljning. Använd när någon vill förstå hur ett arbetssätt faktiskt fungerar, hitta var tid och kvalitet försvinner, klargöra vem som gör vad eller förbättra en rutin, till exempel \"hjälp mig kartlägga och förbättra processen för att införa nya digitala system\". När en processkarta ska ritas används den befintliga Processkartan-skillen om den finns.",
+      "not_when": "Använd inte för en källbelagd utredning (Utredaren), ett avgränsat förbättringstest (Förbättringsledaren), ett brett införande (Förändringsledaren) eller dataanalys (Verksamhetsanalytikern).",
+      "version": "1.0.3",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "570dcaa6b5f00027210da016f3b458d0d9b8ea06c2db432881cdd76e21b1ca14",
+          "bytes": 11760
+        },
+        {
+          "path": "assets/processanalys.md",
+          "sha256": "de969ec0ce98000381bdb2c4c803c1afbf50ead87b8e00e8dab7b84bb9c8eaec",
+          "bytes": 1421
+        },
+        {
+          "path": "assets/processbeskrivning.md",
+          "sha256": "35aba038823d7cca3e5143db78c13b962b40c4cc3f4f6279f60b50fa194336b4",
+          "bytes": 1080
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "6cb6e972d36c90438a8c10e05abae0ca1a8fe8dec10a656a3d7d359447ac6026",
+          "bytes": 1957
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "40c551a18178b0b6b3e2c39471824dbf8cb7ac642dd03206870ca04a89503c43",
+          "bytes": 5518
+        },
+        {
+          "path": "references/processkartan.md",
+          "sha256": "777f615d2383fde4a691ac369fd1e51188260b5d87c999923c67cda6d4e5b8db",
+          "bytes": 2133
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "c14aed5bc775ee20ea891b7b39a6459ef5767f92da5f01c6ae492e3a7bb4bea4",
+          "bytes": 3616
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": [
+          "processkartan"
+        ]
+      }
+    },
+    {
+      "id": "forbattringsledaren",
+      "name": "Förbättringsledaren",
+      "use_when": "Guidar användaren genom ett förbättringsarbete, från problembild via mål, orsaker och mått till ett litet test, lärande och uppföljning. Använd när någon vill förbättra ett arbetssätt, minska administration, lösa ett återkommande problem eller få en idé att ge synlig effekt, och behöver hjälp att komma rätt från början, även när det är oklart var man ska börja. Anpassar arbetsgången efter problemets storlek och går aldrig direkt till lösningen.",
+      "not_when": "Använd inte för en källbelagd utredning (Utredaren), för att kartlägga en process steg för steg (Processledaren), för att planera ett brett införande (Förändringsledaren) eller för att analysera en datafil (Verksamhetsanalytikern).",
+      "version": "1.0.5",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "78b2eab87c198aac37e2e4691c0bd8bf745c2e353ff34c7f63564f011e0001e0",
+          "bytes": 12392
+        },
+        {
+          "path": "assets/forbattringskort.md",
+          "sha256": "926875b9bb9fe88c55f21bd3a516e0f6c7a7d55c863da29973f962395fcb67da",
+          "bytes": 1147
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "93d5164001f424e7671230f74864e0ee7ece48811d90d5485c6d5542999312bd",
+          "bytes": 1986
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "3e3157dd6ba85093f35d3918f7928f50f5e46eef62d52182476455779a7fef78",
+          "bytes": 6632
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "a64e8886b72c0281c305f1e33a83e529552efdfaf1275744ef55f82ec4c3f174",
+          "bytes": 4553
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": [
+          "processkartan"
+        ]
+      }
+    },
+    {
+      "id": "forandringsledaren",
+      "name": "Förändringsledaren",
+      "use_when": "Hjälper användaren att planera, förankra och genomföra en verksamhetsförändring, från syfte och berörda grupper via mottagarkapacitet, ansvar och risker till förankring, pilot, införande och uppföljning. Använd när någon ska införa ett nytt arbetssätt, system eller en ny rutin på en eller flera arbetsplatser, till exempel \"vi ska införa ett nytt arbetssätt på flera arbetsplatser, hjälp mig planera förändringen\". Uppmärksammar särskilt mottagarkapacitet, ansvar, berörda grupper, risker och behov av förankring.",
+      "not_when": "Använd inte för en källbelagd utredning (Utredaren), ett litet förbättringstest (Förbättringsledaren), en processkartläggning (Processledaren) eller dataanalys (Verksamhetsanalytikern).",
+      "version": "1.0.3",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "5cd3d3c437febc969cf319e575800a3e73a873031bd83d115b4a882723741a79",
+          "bytes": 11268
+        },
+        {
+          "path": "assets/forandringsplan.md",
+          "sha256": "cb94f7a59498d1b36beb78295f35aab8125543c8aee3b18053f2164bcadf8521",
+          "bytes": 2136
+        },
+        {
+          "path": "assets/mottagarkapacitet.md",
+          "sha256": "80da058c24fde7b7b3861b711c61afa6771e49b78e4688415d14dc49cb730c28",
+          "bytes": 1229
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "81f9e12a3e4836742004ec190936817e321a7253230087ac760bab3636ad308a",
+          "bytes": 1902
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "2e5d7616836a84466b249049dda34156313839df53276cd6854ea1af2b5cdb7b",
+          "bytes": 7329
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "4d9329ef51e98cec886267ab7f54dd3e607e0789b57d572acf2788a680935d67",
+          "bytes": 3400
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "verksamhetsanalytikern",
+      "name": "Verksamhetsanalytikern",
+      "use_when": "Hjälper användaren att gå från verksamhetsdata till analys, hypoteser, rekommendationer och uppföljning, med noggrann kontroll av datakvalitet, beräkningar, osäkerheter och att slutsatserna verkligen stöds av underlaget. Använd när någon har statistik, en tabell, kostnader, ärendevolymer eller arbetsbelastning och vill hitta mönster och möjliga förbättringar, följa upp ekonomiskt utfall eller bedöma ett business case, till exempel \"vi har statistik över arbetsbelastning och kostnader, hjälp mig identifiera mönster och möjliga förbättringar\".",
+      "not_when": "Använd inte för en källbelagd utredning (Utredaren), ett litet förbättringstest utan data (Förbättringsledaren), en processkartläggning (Processledaren) eller förändringsplanering (Förändringsledaren).",
+      "version": "1.0.3",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "9a4be03518cff7c58417e840ddea6a1629d1faa6113eaa5bd69983f5a5b83a2a",
+          "bytes": 12349
+        },
+        {
+          "path": "assets/analysrapport.md",
+          "sha256": "9a71ef428ead5334607a9e2709c8ce9a9f188bfaaa39c1f9972fd11561af3d6b",
+          "bytes": 1382
+        },
+        {
+          "path": "assets/datakontroll.md",
+          "sha256": "14229640145b2f7ce84c8b979fb30f9d54d38cd7d0e3a4311b7abb381d5d1c37",
+          "bytes": 1206
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "e167001c90b0bdc6d13df42cb00374b4afe14668f12c1d3ba46eb186b71bbe5e",
+          "bytes": 1810
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "7b466040a33033b55b6b0a1af1b90fc386990e5c316b8693f71a733e9dd646a9",
+          "bytes": 7642
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "0c46cc60557a36d050f13273b86d7244ceb0dc30643505449b11ff9ed3530222",
+          "bytes": 3272
+        },
+        {
+          "path": "scripts/profilera.mjs",
+          "sha256": "5ffffda01011f651e261bfd8f437efd321c6f5c3db9631eed814ff1d9be76fc8",
+          "bytes": 11547
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": true,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "workshopledaren",
+      "name": "Workshopledaren",
+      "use_when": "Leder användaren genom en workshop, från planering via genomförande till uppföljning: väljer typ av workshop och övningar, gör en tidsatt agenda som ryms i tiden, ger facilitatorstöd under workshopen, hjälper akut när en workshop fastnar och gör anteckningarna till nästa steg. Frågar bara om det användaren inte redan har sagt. Använd när någon ska planera eller leda en workshop, behöver välja övningar, vill ha stöd mitt i en workshop eller vill följa upp den efteråt.",
+      "not_when": "Använd inte för att förbereda eller följa upp ett vanligt möte (Mötessekreteraren), kartlägga en process (Processledaren) eller planera ett införande (Förändringsledaren).",
+      "version": "1.0.4",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "7c847a4ad9ddaff4ec8d5aec58ce003f41f7fc8ab128862a8d45799ab857e276",
+          "bytes": 12067
+        },
+        {
+          "path": "assets/workshopplan.md",
+          "sha256": "ff9abbff1c5fb3a500b30e67a588309e5c8fd63bdfd19fd6a3b3b03cdbbd9d50",
+          "bytes": 1072
+        },
+        {
+          "path": "assets/workshopuppfoljning.md",
+          "sha256": "57ed90bed9fd92781128add05272e6266ced3764a89af0164791fc712ff9635c",
+          "bytes": 896
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "fcc129cfd73a36d3e1053de7e3a6d96a766722e0fa396031abe34dc1ad921846",
+          "bytes": 2835
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "670313e072e5262a626b09bcb4a91dc65e8b26e519f957eb8112a967eb10c09a",
+          "bytes": 8421
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "6319ec2405cc79405a14ea07de731eb2325fc4d5bcb68f69527cfedc334dc50e",
+          "bytes": 3031
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "produktutvecklaren",
+      "name": "Produktutvecklaren",
+      "use_when": "Följer användaren från produktidé till validerad MVP, steg för steg: behov, målgrupp och köpare, produktlöfte, produktspår, kärnflöde, MVP, affärsmodell, validering och nästa version. Vågar rekommendera att inte bygga, att testa utan att bygga eller att ändra riktning när underlaget talar för det, och hittar aldrig på användar-, marknads- eller valideringsdata. Använd när någon har en idé till en produkt, digital tjänst eller SaaS, vill avgöra om den är värd att bygga, avgränsa en MVP eller planera hur idén ska prövas.",
+      "not_when": "Använd inte för att driva ett internt förbättringsarbete (Förbättringsledaren), göra en källbelagd utredning (Utredaren), analysera en datafil (Verksamhetsanalytikern) eller planera ett införande (Förändringsledaren).",
+      "version": "1.0.4",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "bb2706dd1ab83745aec30a75af92db7bfaf3d10e325e378cf92449ef88a6bd26",
+          "bytes": 12343
+        },
+        {
+          "path": "assets/produktbeslut.md",
+          "sha256": "4f6e06fbbb6cd02fc8a3f351d2e3ab8ec8acf3600645a3a63ddc07bfd7e41095",
+          "bytes": 1075
+        },
+        {
+          "path": "assets/produktunderlag.md",
+          "sha256": "34c67aaf38d0d1f9422f2856a9425d9cdb200f04d9afa93dfb78d6d47138f084",
+          "bytes": 1169
+        },
+        {
+          "path": "assets/valideringsplan.md",
+          "sha256": "dccf64262a072ce9d172729adf06905e606acc95a9dd6e0c19b55725f8b38949",
+          "bytes": 973
+        },
+        {
+          "path": "references/exempel.md",
+          "sha256": "4c537e06bbfdf967f27a6adabbe5bba81cf687d5a3124a67e339dd284943214c",
+          "bytes": 2302
+        },
+        {
+          "path": "references/metod.md",
+          "sha256": "d1915c99b841467c9cd5478315736189a361e886171b3788a40a0683f41d9ea6",
+          "bytes": 7730
+        },
+        {
+          "path": "references/promptbanken.md",
+          "sha256": "1fe9538ea5db401d89d152fe559263c83bf1a8a5c03b272c7f289831373ade68",
+          "bytes": 2989
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_package",
+          "get_template",
+          "list_package_prompts",
+          "list_packages",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    },
+    {
+      "id": "superplan",
+      "name": "Superplan",
+      "use_when": "Driver ett uppdrag från idé till färdigt och kontrollerat resultat med Promptbankens Superplanläge. Använd när användaren vill ha hjälp hela vägen (\"kör superplan\", \"hjälp mig hela vägen\", \"ta fram det här åt mig\") eller beskriver ett komplext uppdrag utan tydlig väg framåt.",
+      "not_when": "Använd inte för en enkel fråga eller när användaren bara vill hitta en enskild mall.",
+      "version": "1.0.2",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "3f7835792ad0ddf366fe2525aae58dc0e3061234f9874e7d5aec436dbd9bf80c",
+          "bytes": 4749
+        }
+      ],
+      "requires": {
+        "open_catalog_tools": [
+          "get_template",
+          "list_package_prompts",
+          "search_templates"
+        ],
+        "code_execution": false,
+        "other_skills": []
+      }
+    }
+  ]
+}
