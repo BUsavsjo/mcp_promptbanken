@@ -165,14 +165,21 @@ def apply_profile_changes(
     if not isinstance(rule_changes, Mapping):
         raise PersonalError("rules måste vara ett objekt med add, update och remove.")
     by_id = {rule["id"]: rule for rule in rules}
+
+    def missing(rule_id: object) -> PersonalError:
+        existing = "; ".join(f"{rule['id']} ”{rule['text']}”" for rule in rules) or "inga regler ännu"
+        return PersonalError(f"Hittar ingen regel med id {rule_id}. Användarens regler: {existing}.")
+
     for rule_id in rule_changes.get("remove", []) or []:
         if rule_id not in by_id:
-            raise PersonalError(f"Regeln {rule_id} finns inte.")
+            raise missing(rule_id)
         rules = [rule for rule in rules if rule["id"] != rule_id]
         by_id.pop(rule_id)
     for update in rule_changes.get("update", []) or []:
-        if not isinstance(update, Mapping) or update.get("id") not in by_id:
+        if not isinstance(update, Mapping) or "id" not in update:
             raise PersonalError("Varje uppdatering måste ange id för en befintlig regel.")
+        if update["id"] not in by_id:
+            raise missing(update["id"])
         rule = by_id[update["id"]]
         if "text" in update:
             rule["text"] = _clean_text(update["text"], "text", max_length=600)
@@ -217,7 +224,7 @@ def _clean_targets(value: object, known_targets: set[str]) -> list[str]:
 def _commit(doc: dict[str, object], new_state: Mapping[str, object], *, note: str | None) -> dict[str, object]:
     old_state = {key: doc.get(key) for key in new_state}
     if old_state == dict(new_state):
-        raise PersonalError("Ändringen ändrar ingenting.")
+        raise PersonalError("Det gäller redan. Inget har ändrats.")
     history = list(doc.get("history", []))
     if int(doc.get("version", 0)) > 0:
         history.append(
