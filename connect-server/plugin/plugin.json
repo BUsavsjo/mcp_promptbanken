@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "promptbanken-connect-dev",
+  "version": "0.3.0",
+  "description": "DEV: Ditt personliga AI-team från Promptbanken. Nio specialister, dina egna arbetssätt och personliga regler, valda efter uppgiften.",
+  "author": {
+    "name": "Promptbanken",
+    "url": "https://app.promptbanken.se"
+  },
+  "homepage": "https://app.promptbanken.se",
+  "license": "MIT",
+  "keywords": ["arbetsmetoder", "kunskapsarbete", "offentlig sektor", "connect"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Promptbanken Connect (DEV)",
+        "shortDescription": "Rätt arbetsmetod för uppgiften, med dina egna regler",
+        "developerName": "Promptbanken",
+        "category": "Productivity"
+      }
+    }
+  }
+}

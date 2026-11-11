@@ -8,7 +8,24 @@ import httpx
 
 
 class ConnectWriteError(Exception):
-    """Ett säkert, användbart fel från Connects skriv-RPC:er."""
+    """Ett säkert, användbart fel från Connects skriv-RPC:er.
+
+    kind skiljer orsakerna åt så att klienten kan förklara rätt sak för användaren:
+    quota (planens gräns), permission (inloggning/behörighet), validation (fel i
+    uppgifterna) eller technical (tillfälligt fel hos Promptbanken).
+    """
+
+    def __init__(self, message: str, kind: str = "technical") -> None:
+        super().__init__(message)
+        self.kind = kind
+
+
+WRITE_ERROR_TEXT = {
+    "quota": "Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.",
+    "permission": "Promptbanken kunde inte bekräfta din inloggning eller behörighet. Logga in på nytt i anslutningen och försök igen.",
+    "technical": "Promptbanken svarade inte som väntat. Inget har ändrats. Försök igen om en stund.",
+    "validation": "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen.",
+}
 
 
 _SEARCH_SYNONYMS = {
@@ -202,20 +219,81 @@ class SupabaseConnectRepository:
         items: list[dict[str, object]] = []
         normalized_query = query.strip().casefold()
         normalized_category = category.strip().casefold() if isinstance(category, str) and category.strip() else None
+        scores: dict[str, int] = {}
         if kind in {"all", "prompt"}:
             for row in self._rpc(access_token, "list_published_prompts", {"p_context_keys": ["generell"]}):
                 item = {"id": str(row["id"]), "kind": "prompt", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area")}
-                if self._matches_catalog_item(item, normalized_query, normalized_category):
+                score = self._catalog_score(item, normalized_query, normalized_category)
+                if score:
+                    scores[item["id"]] = score
                     items.append(item)
         if kind in {"all", "package"}:
             for row in self._rpc(access_token, "list_published_packages", {"p_context_keys": ["generell"]}):
                 item = {"id": str(row["id"]), "kind": "package", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area"), "package_type": row.get("package_type")}
-                if self._matches_catalog_item(item, normalized_query, normalized_category):
+                score = self._catalog_score(item, normalized_query, normalized_category)
+                if score:
+                    scores[item["id"]] = score
                     items.append(item)
-        items.sort(key=lambda item: (str(item.get("title") or "").casefold(), str(item["id"])))
+        # Flest matchande ord först, sedan alfabetiskt, så att flerordsfrågor ger träffar.
+        items.sort(key=lambda item: (-scores[item["id"]], str(item.get("title") or "").casefold(), str(item["id"])))
         page = items[cursor : cursor + limit]
         next_cursor = str(cursor + limit) if cursor + limit < len(items) else None
         return {"items": page, "next_cursor": next_cursor}
+
+    def list_connect_documents(self, *, access_token: str, categories: set[str]) -> list[Mapping[str, object]]:
+        """Egna Creator-prompter i Connects personliga kategorier, med innehåll."""
+        return [
+            {"id": str(row["id"]), "category": row.get("category"), "content": row.get("content"), "updated_at": row.get("updated_at")}
+            for row in self._rpc(access_token, "list_my_creator_prompts")
+            if row.get("category") in categories and row.get("status") != "archived"
+        ]
+
+    def get_open_item(self, *, access_token: str, kind: str, ref: str) -> Mapping[str, object] | None:
+        """Läser publicerat Open-innehåll med text, motsvarande Opens get_template och list_package_prompts."""
+        if kind == "prompt":
+            for row in self._rpc(access_token, "list_published_prompts", {"p_context_keys": ["generell"]}):
+                if ref in {str(row.get("id")), str(row.get("slug"))}:
+                    return {
+                        "kind": "prompt",
+                        "id": str(row["id"]),
+                        "slug": row.get("slug"),
+                        "title": row.get("title"),
+                        "summary": row.get("summary"),
+                        "prompt_text": row.get("prompt_text"),
+                        "example_input": row.get("example_input"),
+                        "risk_level": row.get("risk_level"),
+                        "output_format": row.get("output_format"),
+                    }
+            return None
+        if kind == "package":
+            slug = ref
+            if self._is_uuid(ref):
+                match = next(
+                    (row for row in self._rpc(access_token, "list_published_packages", {"p_context_keys": ["generell"]}) if str(row.get("id")) == ref),
+                    None,
+                )
+                if match is None:
+                    return None
+                slug = str(match.get("slug"))
+            rows = self._rpc(access_token, "list_published_package_prompts", {"p_package_slug": slug, "p_context_keys": ["generell"]})
+            if not rows:
+                return None
+            return {
+                "kind": "package",
+                "slug": slug,
+                "steps": [
+                    {
+                        "position": row.get("sort_order"),
+                        "prompt_id": str(row.get("prompt_id")),
+                        "title": row.get("step_title") or row.get("title"),
+                        "intro": row.get("step_intro"),
+                        "required": row.get("is_required"),
+                        "prompt_text": row.get("prompt_text"),
+                    }
+                    for row in sorted(rows, key=lambda row: int(row.get("sort_order") or 0))
+                ],
+            }
+        raise ValueError("Okänd typ.")
 
     def update_my_prompt(self, *, access_token: str, prompt_id: str, title: str, content: str, summary: str | None, category: str | None, request_id: str) -> Mapping[str, object]:
         return self._connect_write(access_token, "connect_update_my_prompt", {"p_content_item_id": prompt_id, "p_title": title, "p_content": content, "p_summary": summary, "p_category": category, "p_request_id": request_id})
@@ -274,22 +352,26 @@ class SupabaseConnectRepository:
         function_name: str,
         payload: Mapping[str, object],
     ) -> Mapping[str, object]:
-        response = self._http_client.post(
-            f"/rest/v1/rpc/{function_name}",
-            headers={
-                "apikey": self._publishable_key,
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-            json=dict(payload),
-        )
+        try:
+            response = self._http_client.post(
+                f"/rest/v1/rpc/{function_name}",
+                headers={
+                    "apikey": self._publishable_key,
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json=dict(payload),
+            )
+        except httpx.TransportError as error:
+            raise ConnectWriteError(WRITE_ERROR_TEXT["technical"], kind="technical") from error
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as error:
-            raise ConnectWriteError(self._write_error_message(error)) from error
+            message, kind = self._write_error(error)
+            raise ConnectWriteError(message, kind=kind) from error
         result = response.json()
         if not isinstance(result, Mapping):
-            raise ValueError("Supabase returnerade ett oväntat svar.")
+            raise ConnectWriteError(WRITE_ERROR_TEXT["technical"], kind="technical")
         return result
 
     def _connect_write(self, access_token: str, function_name: str, payload: Mapping[str, object]) -> Mapping[str, object]:
@@ -297,26 +379,52 @@ class SupabaseConnectRepository:
 
     @staticmethod
     def _write_error_message(error: httpx.HTTPStatusError) -> str:
-        """Översätter kända affärsregler utan att läcka databasdetaljer."""
+        return SupabaseConnectRepository._write_error(error)[0]
+
+    @staticmethod
+    def _write_error(error: httpx.HTTPStatusError) -> tuple[str, str]:
+        """Översätter fel till (meddelande, kind) utan att läcka databasdetaljer."""
         try:
             payload = error.response.json()
         except (ValueError, AttributeError):
             payload = {}
         message = payload.get("message") if isinstance(payload, Mapping) else None
-        if isinstance(message, str) and "nått gränsen på" in message:
-            return (
-                "Du har nått gränsen för privata prompts i Free-läget. "
-                "Arkivera en prompt eller uppgradera kontot."
-            )
+        code = payload.get("code") if isinstance(payload, Mapping) else None
+        status = getattr(error.response, "status_code", 0)
+        if isinstance(message, str) and "nått gränsen" in message:
+            return WRITE_ERROR_TEXT["quota"], "quota"
+        if status in {401, 403} or code in {"42501", "PGRST301", "PGRST302"}:
+            return WRITE_ERROR_TEXT["permission"], "permission"
         if isinstance(message, str) and message.startswith("Open-referenser är skrivskyddade."):
-            return message
-        return "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
+            return message, "validation"
+        # Egna RAISE EXCEPTION i Promptbankens funktioner (P0001) är skrivna för
+        # användare och avslöjar inga tabellnamn; allt annat hålls generellt.
+        if code == "P0001" and isinstance(message, str) and 0 < len(message) <= 300:
+            return message, "validation"
+        if status >= 500 or status == 0:
+            return WRITE_ERROR_TEXT["technical"], "technical"
+        return WRITE_ERROR_TEXT["validation"], "validation"
 
     @staticmethod
     def _matches_catalog_item(item: Mapping[str, object], query: str, category: str | None) -> bool:
+        return SupabaseConnectRepository._catalog_score(item, query, category) > 0
+
+    @staticmethod
+    def _catalog_score(item: Mapping[str, object], query: str, category: str | None) -> int:
+        """Antal ord i frågan som träffar titel, sammanfattning eller kategori (0 = ingen träff)."""
+        if category is not None and str(item.get("category") or "").casefold() != category:
+            return 0
+        if not query:
+            return 1
         haystack = " ".join(str(item.get(key) or "") for key in ("title", "summary", "category")).casefold()
-        search_terms = _SEARCH_SYNONYMS.get(query, (query,))
-        return (not query or any(term in haystack for term in search_terms)) and (category is None or str(item.get("category") or "").casefold() == category)
+        if query in haystack:
+            return len(query.split()) + 1
+        score = 0
+        for word in query.split():
+            terms = _SEARCH_SYNONYMS.get(word, (word,))
+            if any(term in haystack for term in terms):
+                score += 1
+        return score
 
     @staticmethod
     def _is_uuid(value: str) -> bool:

@@ -35,6 +35,9 @@ app = create_app(
         supabase_url=_configured("CONNECT_SUPABASE_URL", "https://cohyrgxeatqexkqihktu.supabase.co"),
         publishable_key=_required("CONNECT_SUPABASE_PUBLISHABLE_KEY"),
     ),
+    # Standard är de sju verktygen för specialister och personliga arbetssätt.
+    # "full" exponerar även Creator-biblioteket (prompter, paket, delningar).
+    tool_profile=_configured("CONNECT_TOOL_PROFILE", "core"),
 )
 
 
