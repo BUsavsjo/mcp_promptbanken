@@ -78,7 +78,10 @@ Status: DEV. Ingen produktionsdeploy och ingen katalogpublicering.
 | Live mot Connect DEV med riktig OAuth: `get_connect_context` | Grön: nio stöd, regler och tom profil returneras |
 | Live `get_open_item` mot dev-Supabase | Grön: Superplans fyra faser med text; prompt via slug |
 | Hälsa efter deploy (`/healthz`), `/mcp` utan token ger 401 | Grön |
-| Eval-sviten PB-CONNECT-AUTO (72 fall) | Byggd och kontrollerad, **inte körd i klient** |
+| Live lagringskedja (2026-11-11): arbetssätt skapat och uppdaterat via Connects Creator-RPC:er, med kategori; listat som `mitt:`-id; version 2 med historik oförändrad efter lagring; återställningslogiken på lagrad data; arkivering döljer det | Grön. Testdatan är arkiverad. |
+| ChatGPT, blinda fall 3 och 4 (verksamhetsanalytikern, workshopledaren) | Rätt stöd hämtat, metoden följd, och Open-översättningen användes (`search_open_catalog`) |
+| ChatGPT, fall 2 (motessekreteraren) | Rätt stöd, men inte blint: testtexten klistrades in. Körs om. |
+| Eval-sviten PB-CONNECT-AUTO (72 fall) | Byggd och kontrollerad, **bara delvis körd i klient** |
 
 ## Avvikelser mot definitionen av färdig
 
