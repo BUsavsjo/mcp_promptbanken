@@ -132,7 +132,9 @@ def test_context_without_profile_lists_nine_supports_and_rules(layer):
     assert [entry["id"] for entry in context["supports"]] == NINE
     assert context["profile"]["exists"] is False
     assert context["my_ways_of_working"] == []
-    assert context["routing_rules"] and context["improvement_rules"]
+    assert context["routing_rules"] and context["how_to_personalize"]
+    assert context["always_apply"] == [] and context["profile"]["note"]
+    assert all(entry["in_short"] for entry in context["supports"])
 
 
 def test_profile_preview_does_not_write(layer, library):
@@ -260,7 +262,9 @@ def test_duplicate_way_name_is_refused(layer):
 def test_deactivate_and_delete_way(layer, library):
     layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
     layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "active": False, "confirmed": True, "request_id": rid()})
-    assert layer.context(TOKEN, "u")["my_ways_of_working"][0]["active"] is False
+    context = layer.context(TOKEN, "u")
+    assert context["my_ways_of_working"] == []
+    assert context["inactive_ways_of_working"][0]["id"] == "mitt:leverantorssvar"
     preview = layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "delete": True})
     assert preview["status"] == "preview"
     layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "delete": True, "confirmed": True, "request_id": rid()})

@@ -7,41 +7,83 @@ indexet och hämtar sedan metoden med ett id.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from typing import Protocol
 
 from connect_service import personal
+from connect_service.data import ConnectWriteError
 from connect_service.supports import SupportCatalog
 
 logger = logging.getLogger("connect.work_layer")
 
+PERSONAL_QUOTA_MESSAGE = (
+    "Önskemålet kunde inte sparas, och inget har ändrats. Dina personliga anpassningar sparas som privata prompter i "
+    "ditt Promptbanken-bibliotek, och Free-kontot har redan nått sin gräns för privata prompter. Arkivera en prompt "
+    "du inte behöver på app.promptbanken.se, eller uppgradera kontot, och försök igen. Fram till dess kan jag följa "
+    "önskemålet i det här samtalet."
+)
+
+
+@contextmanager
+def _personal_write() -> Iterator[None]:
+    """Översätter kvotfel vid personliga anpassningar till ett begripligt besked."""
+    try:
+        yield
+    except ConnectWriteError as error:
+        if error.kind == "quota":
+            raise ConnectWriteError(PERSONAL_QUOTA_MESSAGE, kind="quota") from error
+        raise
+
 SERVER_INSTRUCTIONS = (
-    "Promptbanken Connect ger användaren ett personligt AI-team med nio specialister och användarens egna "
-    "arbetssätt. När en uppgift är mer än en enkel fråga (till exempel utreda, förbereda eller följa upp ett möte, "
-    "kartlägga en process, driva ett förbättrings- eller förändringsarbete, analysera data, planera en workshop, "
-    "utveckla en produktidé eller driva ett större uppdrag): anropa get_connect_context en gång, välj högst ett stöd "
-    "vars use_when passar uppgiften och vars not_when inte utesluter den, och hämta det med get_support(id). Följ "
-    "metoden och användarens personliga regler. Vid enkla frågor används inget stöd. Skicka aldrig användarens "
-    "ärendetext, dokument eller personuppgifter till Connects verktyg."
+    "Promptbanken Connect: användarens AI, användarens sätt att arbeta. Tre lägen. "
+    "1) Enkel fråga (fakta, förklaring, omformulering, översättning, ett enstaka mejl): svara direkt, använd inte Connect. "
+    "2) Arbete i flera steg (utreda, möte, process, förbättring, förändring, data, workshop, produktidé, större uppdrag) "
+    "eller användaren ber om en specialist vid namn: anropa get_connect_context en gång, välj själv högst ett stöd och "
+    "hämta det med get_support(id). Följ metoden och användarens regler. "
+    "3) Användaren uttrycker en återkommande önskan ('alltid', 'varje gång', 'nästa gång', 'i fortsättningen', "
+    "'så här vill jag'): följ how_to_personalize i get_connect_context. "
+    "Använd alltid användarens aktiva regler (always_apply) när Connect används. Prata vanlig svenska: nämn aldrig "
+    "verktyg, MCP, prompter eller id. Skicka aldrig användarens ärendetext, dokument eller personuppgifter till Connect."
 )
 
 ROUTING_RULES = [
-    "Välj utifrån uppgiften, inte utifrån användarens yrkesroll eller enstaka sökord.",
-    "Inget stöd vid enkla frågor: faktafrågor, korta omformuleringar, översättningar, enstaka mejl eller frågor som besvaras i ett svar.",
-    "Högst ett stöd åt gången. Läs not_when; om två stöd passar lika bra, ställ en kort fråga om vad användaren vill uppnå.",
-    "Ett aktivt eget arbetssätt (id som börjar med mitt:) går före ett gemensamt stöd när dess use_when passar uppgiften.",
-    "Säg kort vilket arbetssätt du följer första gången, men visa inte verktygsnamn eller interna steg.",
-    "get_support tar bara ett id. Skicka aldrig användarens text till verktygen för att välja stöd.",
+    "Du väljer stöd själv utifrån uppgiften. Connect väljer inget åt dig och får aldrig användarens text.",
+    "Inget stöd vid enkla frågor som besvaras i ett svar, även om ämnet låter som en specialist (\"vad är en konsekvensanalys?\" är en fråga, inte en utredning).",
+    "Ber användaren om en specialist vid namn (\"använd Utredaren\", \"som workshopledare\"): använd den, även om du hade valt en annan.",
+    "Högst ett stöd åt gången. Läs not_when. Passar två lika bra: ställ en kort fråga om vad användaren vill uppnå.",
+    "Ett aktivt eget arbetssätt (mitt:) går före en gemensam specialist när det passar uppgiften.",
+    "Superplan bara när användaren vill ha hjälp hela vägen med ett större uppdrag utan tydlig väg, inte för att ett ord förekommer.",
+    "Säg en gång, kort och på svenska, vilket arbetssätt du följer (\"Jag tar det här som en utredning.\"). Visa inga interna steg.",
 ]
 
-IMPROVEMENT_RULES = [
-    "En enstaka korrigering gäller bara den aktuella uppgiften och sparas inte.",
-    "När användaren uttryckligen visar en återkommande preferens (till exempel 'alltid', 'varje gång', 'i fortsättningen') får du fråga om den ska sparas som personlig regel.",
-    "Visa först en förhandsvisning (anropa sparverktyget utan confirmed) och spara bara efter användarens tydliga ja.",
-    "Spara aldrig personuppgifter, sekretessbelagd information eller innehåll ur användarens arbetsdokument i regler eller arbetssätt.",
-    "Föreslå att slå ihop regler som finns i possible_overlaps, men ändra inget utan godkännande.",
-    "Säger användaren nej: ändra ingenting och fråga inte igen om samma regel i samtalet.",
+HOW_TO_PERSONALIZE = [
+    "1. Tolka: vad vill användaren ska gälla framöver? En enstaka rättelse i stunden sparas inte.",
+    "2. Välj: önskemål om svar eller arbetssätt (längd, ton, ordning, struktur, vad som ska ingå) blir en personlig regel via "
+    "save_my_profile med rules.add. applies_to = [\"all\"] om det gäller allt, annars stödets id (t.ex. [\"utredaren\"] för "
+    "'mina utredningar'). Ett helt eget återkommande arbetsflöde blir ett arbetssätt via save_my_way_of_working.",
+    "3. Visa: anropa utan confirmed. Visa användaren confirm_text ordagrant, inget annat tekniskt.",
+    "4. Fråga: be om ett tydligt ja. Säger användaren nej eller tvekar: spara inget och fråga inte igen om samma sak.",
+    "5. Spara: samma anrop med confirmed: true och ett nytt request_id. Säg bara att det är sparat när svaret har verified: true.",
+    "6. Använd: regeln gäller direkt i samtalet och kommer tillbaka i always_apply eller personal_rules nästa gång.",
+    "Ändra eller stänga av: hitta regeln i profile.rules och använd rules.update (active: false stänger av, text ändrar), "
+    "eller active: false på ett arbetssätt. Samma förhandsvisning och ja gäller.",
+    "Spara aldrig personuppgifter, sekretess eller innehåll ur användarens dokument. Föreslå sammanslagning av regler i possible_overlaps, men ändra inget utan ja.",
 ]
+
+# Kort, Connect-ägd beskrivning per specialist. Metodtexten och use_when synkas
+# oförändrade från agent-skills; det här är bara en snabb orientering för valet.
+IN_SHORT = {
+    "motessekreteraren": "Före och efter möten: agenda, beslut, uppdrag, uppföljning.",
+    "utredaren": "Utreda en fråga och väga alternativ till ett beslutsunderlag med källor.",
+    "processledaren": "Kartlägga hur ett arbetsflöde går till och var det fastnar.",
+    "forbattringsledaren": "Lösa ett återkommande problem med ett litet test och mätning.",
+    "forandringsledaren": "Planera och förankra ett införande på en eller flera arbetsplatser.",
+    "verksamhetsanalytikern": "Analysera siffror, tabeller eller kostnader och dra hållbara slutsatser.",
+    "workshopledaren": "Planera, leda och följa upp en workshop eller planeringsdag med övningar.",
+    "produktutvecklaren": "Pröva en produkt- eller tjänsteidé fram till en validerad MVP.",
+    "superplan": "Driva ett större uppdrag hela vägen när vägen dit är oklar.",
+}
 
 
 class ToolInputError(ValueError):
@@ -73,9 +115,10 @@ def tool_definitions() -> list[dict[str, object]]:
         {
             "name": "get_connect_context",
             "description": (
-                "Hämta en gång i början när uppgiften är mer än en enkel fråga. Returnerar stödindex med Promptbankens nio "
-                "specialister och användarens egna arbetssätt (use_when/not_when), användarens arbetsprofil och personliga "
-                "regler samt regler för val av stöd. Tar inga argument och tar aldrig emot användarens text."
+                "Hämta en gång när uppgiften är ett arbete i flera steg, när användaren ber om en specialist vid namn, "
+                "eller när användaren vill att något ska gälla framöver ('alltid', 'nästa gång'). Inte vid enkla frågor. "
+                "Returnerar de nio specialisterna och användarens egna arbetssätt att välja bland, användarens regler "
+                "(always_apply gäller alltid) och how_to_personalize. Tar inga argument och aldrig användarens text."
             ),
             "inputSchema": {"type": "object", "properties": {}},
         },
@@ -114,9 +157,11 @@ def tool_definitions() -> list[dict[str, object]]:
         {
             "name": "save_my_profile",
             "description": (
-                "Visar en förhandsvisning av, eller sparar, ändringar i användarens arbetsprofil och personliga regler. "
-                "Anropa först utan confirmed och visa exakt vad som ändras. Spara med confirmed: true först efter "
-                "användarens uttryckliga ja. Varje sparning blir en ny version som kan återställas."
+                "Sparar hur användaren vill att du ska arbeta framöver, till exempel 'börja alltid utredningar med "
+                "problembeskrivningen' (rules.add, applies_to [\"utredaren\"]) eller 'kortare sammanfattningar' "
+                "(rules.add, applies_to [\"all\"]). Stänger av eller ändrar en regel med rules.update. "
+                "Utan confirmed: förhandsvisning med confirm_text som visas för användaren. Med confirmed: true "
+                "(efter ett uttryckligt ja) och nytt request_id: sparar och verifierar. Varje sparning blir en ny version."
             ),
             "inputSchema": {
                 "type": "object",
@@ -152,9 +197,11 @@ def tool_definitions() -> list[dict[str, object]]:
         {
             "name": "save_my_way_of_working",
             "description": (
-                "Visar en förhandsvisning av, eller sparar, ett eget arbetssätt: nytt från grunden, en anpassning av en "
-                "gemensam specialist (extends) eller en ändring av ett befintligt (id). Kan också inaktivera (active: false) "
-                "eller ta bort (delete: true). Spara med confirmed: true först efter användarens uttryckliga ja."
+                "Sparar ett helt eget, återkommande arbetsflöde ('så här vill jag göra leverantörssvar'): nytt (name, "
+                "purpose, use_when, instructions), som anpassning av en specialist (extends) eller ändring av ett "
+                "befintligt (id). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
+                "format: använd save_my_profile i stället. Utan confirmed: förhandsvisning med confirm_text. Med "
+                "confirmed: true efter ett uttryckligt ja: sparar och verifierar."
             ),
             "inputSchema": {
                 "type": "object",
@@ -231,21 +278,34 @@ class WorkLayer:
     def context(self, token: str, subject: str) -> dict[str, object]:
         profile, ways = self._load(token)
         profile_doc = profile[1] if profile else None
+        rules = profile_doc.get("rules", []) if profile_doc else []
+        supports = [{**entry, "in_short": IN_SHORT.get(str(entry["id"]), "")} for entry in self._catalog.index()]
         return {
             "user_id": subject,
             "how_to_use": SERVER_INSTRUCTIONS,
             "routing_rules": ROUTING_RULES,
-            "supports": self._catalog.index(),
-            "my_ways_of_working": [personal.way_index_entry(doc) for _, doc in ways],
+            "supports": supports,
+            "my_ways_of_working": [personal.way_index_entry(doc) for _, doc in ways if doc.get("active", True)],
+            "inactive_ways_of_working": [
+                {"id": personal.way_id(doc), "name": doc.get("name"), "version": doc.get("version")}
+                for _, doc in ways
+                if not doc.get("active", True)
+            ],
+            "always_apply": [
+                {"id": rule["id"], "text": rule["text"]}
+                for rule in rules
+                if rule.get("active", True) and "all" in rule.get("applies_to", [])
+            ],
             "profile": {
                 "exists": profile is not None,
+                "note": None if profile else "Ingen profil ännu. Den skapas automatiskt första gången användaren sparar ett önskemål.",
                 "prompt_id": profile[0] if profile else None,
                 "version": profile_doc.get("version") if profile_doc else 0,
                 "settings": profile_doc.get("profile", {}) if profile_doc else {},
-                "rules": profile_doc.get("rules", []) if profile_doc else [],
-                "possible_overlaps": personal.overlapping_rules(profile_doc.get("rules", [])) if profile_doc else [],
+                "rules": rules,
+                "possible_overlaps": personal.overlapping_rules(rules) if profile_doc else [],
             },
-            "improvement_rules": IMPROVEMENT_RULES,
+            "how_to_personalize": HOW_TO_PERSONALIZE,
             "catalog_version": self._catalog.source_commit[:12],
         }
 
@@ -318,15 +378,25 @@ class WorkLayer:
         changes_view = personal.diff(current, new_doc)
         if findings:
             return _blocked(findings, changes_view)
+        confirm_text = self._profile_confirm_text(current, new_doc, ways)
         if arguments.get("confirmed") is not True:
-            return _preview(changes_view, new_doc["version"])
+            return {**_preview(changes_view, new_doc["version"]), "confirm_text": confirm_text}
         request_id = _request_id(arguments)
         content = personal.render_profile(new_doc)
-        if profile:
-            saved = self._library.update_my_prompt(access_token=token, prompt_id=profile[0], title="Min arbetsprofil (Connect)", content=content, summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
-        else:
-            saved = self._library.create_my_prompt(access_token=token, title="Min arbetsprofil (Connect)", content=content, summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
-        return {"status": "saved", "version": new_doc["version"], "changes": changes_view, "prompt_id": saved.get("id", profile[0] if profile else None)}
+        with _personal_write():
+            if profile:
+                saved = self._library.update_my_prompt(access_token=token, prompt_id=profile[0], title="Min arbetsprofil (Connect)", content=content, summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
+            else:
+                saved = self._library.create_my_prompt(access_token=token, title="Min arbetsprofil (Connect)", content=content, summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
+        self._verify(token, "profile", new_doc["version"])
+        return {
+            "status": "saved",
+            "verified": True,
+            "version": new_doc["version"],
+            "changes": changes_view,
+            "saved_text": "Sparat. " + confirm_text.removesuffix(" Vill du spara det?"),
+            "prompt_id": saved.get("id", profile[0] if profile else None),
+        }
 
     def save_way(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
         profile, ways = self._load(token)
@@ -343,9 +413,18 @@ class WorkLayer:
             if existing is None:
                 raise ToolInputError("Ange id för arbetssättet som ska tas bort.")
             if arguments.get("confirmed") is not True:
-                return {"status": "preview", "action": "delete", "id": target_id, "name": current["name"], "message": "Arbetssättet arkiveras och slutar användas. Bekräfta med confirmed: true."}
-            self._library.archive_my_prompt(access_token=token, prompt_id=existing[0], request_id=_request_id(arguments))
-            return {"status": "deleted", "id": target_id}
+                return {
+                    "status": "preview",
+                    "action": "delete",
+                    "id": target_id,
+                    "name": current["name"],
+                    "confirm_text": f"Jag tar bort ditt arbetssätt ”{current['name']}”. Vill du det?",
+                    "message": "Arbetssättet arkiveras och slutar användas. Bekräfta med confirmed: true.",
+                }
+            with _personal_write():
+                self._library.archive_my_prompt(access_token=token, prompt_id=existing[0], request_id=_request_id(arguments))
+            self._verify(token, str(target_id), None)
+            return {"status": "deleted", "verified": True, "id": target_id, "saved_text": f"Borttaget: ”{current['name']}”."}
 
         fields = {key: arguments[key] for key in personal.WAY_FIELDS if key in arguments}
         if not fields:
@@ -357,17 +436,27 @@ class WorkLayer:
         changes_view = personal.diff(current, new_doc)
         if findings:
             return _blocked(findings, changes_view)
+        confirm_text = self._way_confirm_text(current, new_doc)
         if arguments.get("confirmed") is not True:
-            return {**_preview(changes_view, new_doc["version"]), "id": personal.way_id(new_doc)}
+            return {**_preview(changes_view, new_doc["version"]), "id": personal.way_id(new_doc), "confirm_text": confirm_text}
         request_id = _request_id(arguments)
         title = f"{new_doc['name']} (mitt arbetssätt)"[:200]
         summary = str(new_doc["purpose"])[:500]
         content = personal.render_way(new_doc)
-        if existing:
-            self._library.update_my_prompt(access_token=token, prompt_id=existing[0], title=title, content=content, summary=summary, category=personal.WAY_CATEGORY, request_id=request_id)
-        else:
-            self._library.create_my_prompt(access_token=token, title=title, content=content, summary=summary, category=personal.WAY_CATEGORY, request_id=request_id)
-        return {"status": "saved", "id": personal.way_id(new_doc), "version": new_doc["version"], "changes": changes_view}
+        with _personal_write():
+            if existing:
+                self._library.update_my_prompt(access_token=token, prompt_id=existing[0], title=title, content=content, summary=summary, category=personal.WAY_CATEGORY, request_id=request_id)
+            else:
+                self._library.create_my_prompt(access_token=token, title=title, content=content, summary=summary, category=personal.WAY_CATEGORY, request_id=request_id)
+        self._verify(token, personal.way_id(new_doc), new_doc["version"])
+        return {
+            "status": "saved",
+            "verified": True,
+            "id": personal.way_id(new_doc),
+            "version": new_doc["version"],
+            "changes": changes_view,
+            "saved_text": "Sparat. " + confirm_text.removesuffix(" Vill du spara det?"),
+        }
 
     def history(self, token: str, target: str) -> dict[str, object]:
         _, doc = self._target(token, target)
@@ -384,11 +473,78 @@ class WorkLayer:
         if arguments.get("confirmed") is not True:
             return _preview(changes_view, new_doc["version"])
         request_id = _request_id(arguments)
+        with _personal_write():
+            if target == "profile":
+                self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title="Min arbetsprofil (Connect)", content=personal.render_profile(new_doc), summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
+            else:
+                self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title=f"{new_doc['name']} (mitt arbetssätt)"[:200], content=personal.render_way(new_doc), summary=str(new_doc["purpose"])[:500], category=personal.WAY_CATEGORY, request_id=request_id)
+        self._verify(token, target, new_doc["version"])
+        return {"status": "saved", "verified": True, "target": target, "version": new_doc["version"], "restored_from": version, "changes": changes_view}
+
+    # ------------------------------------------------------------ hjälp
+
+    def _verify(self, token: str, target: str, version: int | None) -> None:
+        """Läser tillbaka efter skrivning. version None betyder att målet ska vara borta."""
+        profile, ways = self._load(token)
         if target == "profile":
-            self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title="Min arbetsprofil (Connect)", content=personal.render_profile(new_doc), summary="Personliga inställningar för Promptbanken Connect.", category=personal.PROFILE_CATEGORY, request_id=request_id)
+            actual = profile[1].get("version") if profile else None
         else:
-            self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title=f"{new_doc['name']} (mitt arbetssätt)"[:200], content=personal.render_way(new_doc), summary=str(new_doc["purpose"])[:500], category=personal.WAY_CATEGORY, request_id=request_id)
-        return {"status": "saved", "target": target, "version": new_doc["version"], "restored_from": version, "changes": changes_view}
+            actual = next((doc.get("version") for _, doc in ways if personal.way_id(doc) == target), None)
+        if actual != version:
+            raise ToolInputError(
+                "Ändringen gick inte att bekräfta och är troligen inte sparad. Hämta get_connect_context och försök "
+                "igen med ett nytt request_id. Säg inte till användaren att den är sparad."
+            )
+
+    def _target_names(self, targets: list[str], ways: list[tuple[str, dict[str, object]]]) -> str:
+        if "all" in targets:
+            return "alla uppgifter"
+        names = {entry["id"]: entry["name"] for entry in self._catalog.index()}
+        names.update({personal.way_id(doc): doc.get("name") for _, doc in ways})
+        return ", ".join(str(names.get(target, target)) for target in targets)
+
+    def _profile_confirm_text(self, current: Mapping[str, object] | None, new_doc: Mapping[str, object], ways: list[tuple[str, dict[str, object]]]) -> str:
+        old_rules = {rule["id"]: rule for rule in (current or {}).get("rules", [])}
+        new_rules = {rule["id"]: rule for rule in new_doc.get("rules", [])}
+        parts: list[str] = []
+        for rule_id, rule in new_rules.items():
+            where = self._target_names(list(rule.get("applies_to", [])), ways)
+            old = old_rules.get(rule_id)
+            if old is None:
+                parts.append(f"Ny regel: {_q(rule['text'])} – gäller {where}.")
+                continue
+            if old.get("text") != rule.get("text"):
+                parts.append(f"Ändrar regeln {_q(old['text'])} till {_q(rule['text'])}.")
+            if old.get("applies_to") != rule.get("applies_to"):
+                parts.append(f"Regeln {_q(rule['text'])} gäller nu {where}.")
+            if old.get("active", True) and not rule.get("active", True):
+                parts.append(f"Stänger av regeln {_q(rule['text'])}.")
+            elif not old.get("active", True) and rule.get("active", True):
+                parts.append(f"Slår på regeln {_q(rule['text'])} igen.")
+        for rule_id, rule in old_rules.items():
+            if rule_id not in new_rules:
+                parts.append(f"Tar bort regeln {_q(rule['text'])}.")
+        old_profile = dict((current or {}).get("profile", {}))
+        new_profile = dict(new_doc.get("profile", {}))
+        for key, label in personal.PROFILE_FIELDS.items():
+            if old_profile.get(key) != new_profile.get(key):
+                value = new_profile.get(key)
+                shown = "; ".join(value) if isinstance(value, list) else value
+                parts.append(f"{label}: {shown}." if shown else f"{label} tas bort.")
+        return " ".join(parts) + " Vill du spara det?"
+
+    def _way_confirm_text(self, current: Mapping[str, object] | None, new_doc: Mapping[str, object]) -> str:
+        name = new_doc["name"]
+        if current is None:
+            base = f" Bygger på {self._catalog.support_payload(str(new_doc['extends']))['name']}." if new_doc.get("extends") and self._catalog.has(str(new_doc["extends"])) else ""
+            use_when = str(new_doc.get("use_when") or "").strip().rstrip(".")
+            return f"Nytt arbetssätt: ”{name}”. Används när: {use_when}.{base} Vill du spara det?"
+        if current.get("active", True) and not new_doc.get("active", True):
+            return f"Stänger av ditt arbetssätt ”{name}”. Det finns kvar och kan slås på igen. Vill du spara det?"
+        if not current.get("active", True) and new_doc.get("active", True):
+            return f"Slår på ditt arbetssätt ”{name}” igen. Vill du spara det?"
+        changed = [personal.WAY_FIELDS[key].lower() for key in personal.WAY_FIELDS if current.get(key) != new_doc.get(key)]
+        return f"Ändrar ditt arbetssätt ”{name}”: {', '.join(changed)}. Vill du spara det?"
 
     def _target(self, token: str, target: str) -> tuple[str, dict[str, object]]:
         profile, ways = self._load(token)
@@ -410,6 +566,11 @@ class WorkLayer:
         actual = int(current.get("version", 0)) if current else 0
         if actual != expected:
             raise ToolInputError(f"Dokumentet har ändrats sedan du läste det (nu version {actual}). Hämta get_connect_context igen.")
+
+
+def _q(text: object) -> str:
+    """Citerar en regeltext utan dubbel punkt: ”Kortare sammanfattningar”."""
+    return "”" + str(text).strip().rstrip(".") + "”"
 
 
 def _note(arguments: Mapping[str, object]) -> str | None:

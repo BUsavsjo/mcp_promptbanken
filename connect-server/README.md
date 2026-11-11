@@ -46,6 +46,10 @@ användarens arbetsprofil, personliga regler och egna arbetssätt:
   `confirmed` och sparar med `confirmed: true`.
 - `get_my_history` och `restore_my_version` hanterar versioner.
 
+Som standard exponerar Connect bara dessa sju verktyg (`CONNECT_TOOL_PROFILE=core`).
+Med `CONNECT_TOOL_PROFILE=full` visas även de 19 Creator-verktygen för
+bibliotek, paket och delningar.
+
 Metoderna synkas oförändrade från `promptbanken/agent-skills`:
 
 ```powershell
@@ -76,6 +80,7 @@ miljön, aldrig i Git:
 | `CONNECT_TOKEN_ISSUER` | Valfri override för tokenens issuer. |
 | `CONNECT_TOKEN_AUDIENCE` | Valfri override för tokenens målgrupp. Supabases standard är `authenticated`. |
 | `CONNECT_JWKS_URL` | Valfri override för OAuth-serverns JWKS-endpoint. |
+| `CONNECT_TOOL_PROFILE` | `core` (standard, sju verktyg) eller `full` (även Creator-biblioteket). |
 
 Starta därefter med `python -m connect_service` eller `docker-compose up --build`.
 
