@@ -25,6 +25,12 @@ PERSONAL_QUOTA_MESSAGE = (
 )
 
 
+NO_HISTORY_MESSAGE = (
+    "Du har inga sparade versioner ännu. Profilen skapas första gången du sparar ett önskemål, "
+    "till exempel 'kortare sammanfattningar framöver'."
+)
+
+
 @contextmanager
 def _personal_write() -> Iterator[None]:
     """Översätter kvotfel vid personliga anpassningar till ett begripligt besked."""
@@ -459,15 +465,26 @@ class WorkLayer:
         }
 
     def history(self, token: str, target: str) -> dict[str, object]:
+        profile, ways = self._load(token)
+        if target == "profile" and profile is None:
+            return {"target": target, "versions": [], "message": NO_HISTORY_MESSAGE}
         _, doc = self._target(token, target)
-        return {"target": target, "versions": personal.history_view(doc)}
+        versions = personal.history_view(doc)
+        result: dict[str, object] = {"target": target, "versions": versions}
+        if len(versions) == 1:
+            result["message"] = "Bara nuvarande version finns. Det finns ingen tidigare version att gå tillbaka till ännu."
+        return result
 
     def restore(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
         target = arguments.get("target")
         version = arguments.get("version")
         if not isinstance(target, str) or isinstance(version, bool) or not isinstance(version, int):
             raise ToolInputError("Ange target och version.")
+        if target == "profile" and self._load(token)[0] is None:
+            raise ToolInputError(NO_HISTORY_MESSAGE)
         prompt_id, doc = self._target(token, target)
+        if not personal.history_versions(doc):
+            raise ToolInputError("Det finns ingen tidigare version att gå tillbaka till ännu.")
         new_doc = personal.restore(doc, version)
         changes_view = personal.diff(doc, new_doc)
         if arguments.get("confirmed") is not True:
@@ -554,7 +571,9 @@ class WorkLayer:
             return profile
         match = next(((prompt_id, doc) for prompt_id, doc in ways if personal.way_id(doc) == target), None)
         if match is None:
-            raise NotFound()
+            raise ToolInputError(
+                "Hittar inget eget arbetssätt med det id:t. Hämta get_connect_context för att se användarens arbetssätt."
+            )
         return match
 
     @staticmethod
