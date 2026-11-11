@@ -292,7 +292,8 @@ def test_history_and_restore_create_new_version(layer):
 
 def test_restore_unknown_version_explains_available(layer):
     layer.save_profile(TOKEN, {"profile": {"tone": "A"}, "confirmed": True, "request_id": rid()})
-    with pytest.raises(personal.PersonalError):
+    layer.save_profile(TOKEN, {"profile": {"tone": "B"}, "confirmed": True, "request_id": rid()})
+    with pytest.raises(personal.PersonalError, match="Tillgängliga"):
         layer.restore(TOKEN, {"target": "profile", "version": 7})
 
 

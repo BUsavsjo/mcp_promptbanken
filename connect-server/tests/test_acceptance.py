@@ -293,3 +293,31 @@ def test_catalog_search_mapping_points_to_get_open_item():
     from connect_service.supports import OPEN_TOOL_MAPPING
 
     assert all("search_open_catalog" not in target for target in OPEN_TOOL_MAPPING.values())
+
+
+# ------------------------------------------------------------ historik utan profil
+
+
+def test_history_without_profile_is_a_friendly_empty_answer(layer):
+    result = layer.history(TOKEN, "profile")
+    assert result["versions"] == []
+    assert result["message"].startswith("Du har inga sparade versioner ännu")
+
+
+def test_restore_without_profile_explains_instead_of_not_found(layer):
+    with pytest.raises(wl.ToolInputError, match="inga sparade versioner"):
+        layer.restore(TOKEN, {"target": "profile", "version": 1})
+
+
+def test_history_with_only_current_version_says_nothing_to_restore(layer):
+    layer.save_profile(TOKEN, {**SHORTER, "confirmed": True, "request_id": rid()})
+    result = layer.history(TOKEN, "profile")
+    assert len(result["versions"]) == 1
+    assert "ingen tidigare version" in result["message"]
+    with pytest.raises(wl.ToolInputError, match="ingen tidigare version"):
+        layer.restore(TOKEN, {"target": "profile", "version": 1})
+
+
+def test_history_for_unknown_way_points_to_the_context(layer):
+    with pytest.raises(wl.ToolInputError, match="Hittar inget eget arbetssätt"):
+        layer.history(TOKEN, "mitt:finns-inte")
