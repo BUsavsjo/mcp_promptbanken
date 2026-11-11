@@ -1,5 +1,13 @@
 # Logg
 
+## 2026-11-11 (sen kväll) - Connect DEV: aktivering och personlig AI
+
+### Gjort
+- Gren `feat/connect-dev-activation`. Rapport: `connect-server/docs/aktivering-2026-11-11.md`.
+- Prioritetsordning mellan specialister och egna arbetssätt, adaptiv tillämpning av metoderna (`how_to_apply`), tydligare fel för saknat regel-id och versionskonflikt, förhandsvisningstext vid återställning.
+- 26 nya regressionstester för de åtta scenarierna (totalt 123 gröna). Manuellt ChatGPT-protokoll.
+- Hela livscykeln verifierad live på DEV. Bedömning: READY WITH KNOWN LIMITATIONS.
+
 ## 2026-11-11 - Connect DEV förenklad (Din AI. Ditt sätt att arbeta.)
 
 ### Gjort

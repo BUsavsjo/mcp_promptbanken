@@ -56,25 +56,43 @@ SERVER_INSTRUCTIONS = (
 ROUTING_RULES = [
     "Du väljer stöd själv utifrån uppgiften. Connect väljer inget åt dig och får aldrig användarens text.",
     "Inget stöd vid enkla frågor som besvaras i ett svar, även om ämnet låter som en specialist (\"vad är en konsekvensanalys?\" är en fråga, inte en utredning).",
-    "Ber användaren om en specialist vid namn (\"använd Utredaren\", \"som workshopledare\"): använd den, även om du hade valt en annan.",
-    "Högst ett stöd åt gången. Läs not_when. Passar två lika bra: ställ en kort fråga om vad användaren vill uppnå.",
-    "Ett aktivt eget arbetssätt (mitt:) går före en gemensam specialist när det passar uppgiften.",
+    "Vid konkurrens gäller denna ordning: 1) ber användaren om en specialist eller ett eget arbetssätt vid namn, använd det. "
+    "2) Passar ett aktivt eget arbetssätt (mitt:) uppgiften, använd det, även om en specialist också passar. "
+    "3) Annars den specialist som passar bäst. 4) Passar två lika bra: ställ en kort fråga om vad användaren vill uppnå.",
+    "Ett eget arbetssätt som bygger på en specialist (extends) ersätter den specialisten när det passar. Hämta då arbetssättet, inte specialisten.",
+    "Högst ett stöd åt gången. Läs not_when.",
     "Superplan bara när användaren vill ha hjälp hela vägen med ett större uppdrag utan tydlig väg, inte för att ett ord förekommer.",
     "Säg en gång, kort och på svenska, vilket arbetssätt du följer (\"Jag tar det här som en utredning.\"). Visa inga interna steg.",
 ]
 
 HOW_TO_PERSONALIZE = [
     "1. Tolka: vad vill användaren ska gälla framöver? En enstaka rättelse i stunden sparas inte.",
-    "2. Välj: önskemål om svar eller arbetssätt (längd, ton, ordning, struktur, vad som ska ingå) blir en personlig regel via "
-    "save_my_profile med rules.add. applies_to = [\"all\"] om det gäller allt, annars stödets id (t.ex. [\"utredaren\"] för "
-    "'mina utredningar'). Ett helt eget återkommande arbetsflöde blir ett arbetssätt via save_my_way_of_working.",
+    "2. Välj: Gäller önskemålet en viss typ av uppgift som ingen specialist täcker (t.ex. 'leverantörssvar', 'veckobrev', "
+    "'så här vill jag göra X') blir det ett eget arbetssätt via save_my_way_of_working, med use_when för just den uppgiften. "
+    "Gäller det hur du svarar i allmänhet (längd, ton, struktur) blir det en personlig regel via save_my_profile rules.add "
+    "med applies_to [\"all\"]. Gäller det en specialists uppgifter ('mina utredningar') blir det en regel med stödets id "
+    "(t.ex. [\"utredaren\"]). Lägg aldrig en uppgiftsspecifik instruktion som regel med [\"all\"].",
     "3. Visa: anropa utan confirmed. Visa användaren confirm_text ordagrant, inget annat tekniskt.",
     "4. Fråga: be om ett tydligt ja. Säger användaren nej eller tvekar: spara inget och fråga inte igen om samma sak.",
     "5. Spara: samma anrop med confirmed: true och ett nytt request_id. Säg bara att det är sparat när svaret har verified: true.",
     "6. Använd: regeln gäller direkt i samtalet och kommer tillbaka i always_apply eller personal_rules nästa gång.",
     "Ändra eller stänga av: hitta regeln i profile.rules och använd rules.update (active: false stänger av, text ändrar), "
     "eller active: false på ett arbetssätt. Samma förhandsvisning och ja gäller.",
+    "Ångra ('gå tillbaka till hur det var'): get_my_history visar versionerna, restore_my_version återställer som en ny "
+    "version efter förhandsvisning (confirm_text) och ja. Finns ingen historik får användaren ett vänligt besked.",
     "Spara aldrig personuppgifter, sekretess eller innehåll ur användarens dokument. Föreslå sammanslagning av regler i possible_overlaps, men ändra inget utan ja.",
+]
+
+# Hur en metod tillämpas i samtalet. Metodtexten synkas oförändrad; det här
+# styr bara omfånget, aldrig kvalitetskraven.
+HOW_TO_APPLY = [
+    "Skala efter uppgiften. En liten eller tydlig uppgift: gå direkt till nästa användbara steg i metodens anda och svara kort. En stor eller oklar uppgift: följ fler av metodens faser.",
+    "Använd metodens faser, mallar och kontrollpunkter i bakgrunden. Visa dem inte som rubriker eller listor om användaren inte ber om det.",
+    "Beskriv inte hur du arbetar eller vilka principer metoden har (\"Så här arbetar jag …\"). Visa det genom svaret. En mening om vad du tar sikte på räcker.",
+    "Kvalitetskraven gäller alltid, oavsett längd: hitta inte på fakta, källor, siffror, ansvariga eller beslut; skilj fakta från antaganden; säg vad som är osäkert.",
+    "Fråga högst en sak i taget och bara sådant som ändrar resultatet. Gissa rimligt och säg vad du antagit i stället för att fråga om allt.",
+    "Fördjupa (fler faser, evidenslogg, mallar) när användaren ber om det eller när uppgiften är ett beslutsunderlag.",
+    "Användarens personliga regler styr form, längd och ordning. De går före metodens förvalda format men aldrig före dess kvalitets- och säkerhetsregler.",
 ]
 
 # Kort, Connect-ägd beskrivning per specialist. Metodtexten och use_when synkas
@@ -205,7 +223,8 @@ def tool_definitions() -> list[dict[str, object]]:
             "description": (
                 "Sparar ett helt eget, återkommande arbetsflöde ('så här vill jag göra leverantörssvar'): nytt (name, "
                 "purpose, use_when, instructions), som anpassning av en specialist (extends) eller ändring av ett "
-                "befintligt (id). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
+                "befintligt (id). Ett nytt kräver name, purpose, use_when och instructions (steps och quality_rules "
+                "är valfria). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
                 "format: använd save_my_profile i stället. Utan confirmed: förhandsvisning med confirm_text. Med "
                 "confirmed: true efter ett uttryckligt ja: sparar och verifierar."
             ),
@@ -340,6 +359,7 @@ class WorkLayer:
                 )
             payload["personal_rules"] = personal.applicable_rules(profile[1] if profile else None, support_id, extends)
             payload["profile"] = profile[1].get("profile", {}) if profile else {}
+            payload["how_to_apply"] = HOW_TO_APPLY
             return payload
 
         if not self._catalog.has(support_id):
@@ -361,6 +381,12 @@ class WorkLayer:
             personal.way_index_entry(doc) for _, doc in ways if doc.get("extends") == support_id and doc.get("active", True)
         ]
         payload["precedence"] = personal.PRECEDENCE
+        payload["how_to_apply"] = HOW_TO_APPLY
+        if payload["my_adaptations"]:
+            payload["adaptation_hint"] = (
+                "Användaren har ett eget arbetssätt som bygger på den här specialisten. Passar det uppgiften: hämta det "
+                "med get_support(id) och följ det i stället."
+            )
         return payload
 
     def open_item(self, token: str, kind: str, ref: str) -> Mapping[str, object]:
@@ -487,8 +513,13 @@ class WorkLayer:
             raise ToolInputError("Det finns ingen tidigare version att gå tillbaka till ännu.")
         new_doc = personal.restore(doc, version)
         changes_view = personal.diff(doc, new_doc)
+        if target == "profile":
+            detail = self._profile_confirm_text(doc, new_doc, self._load(token)[1])
+        else:
+            detail = self._way_confirm_text(doc, new_doc)
+        confirm_text = "Går tillbaka till hur det var tidigare. " + detail
         if arguments.get("confirmed") is not True:
-            return _preview(changes_view, new_doc["version"])
+            return {**_preview(changes_view, new_doc["version"]), "confirm_text": confirm_text}
         request_id = _request_id(arguments)
         with _personal_write():
             if target == "profile":
@@ -496,7 +527,15 @@ class WorkLayer:
             else:
                 self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title=f"{new_doc['name']} (mitt arbetssätt)"[:200], content=personal.render_way(new_doc), summary=str(new_doc["purpose"])[:500], category=personal.WAY_CATEGORY, request_id=request_id)
         self._verify(token, target, new_doc["version"])
-        return {"status": "saved", "verified": True, "target": target, "version": new_doc["version"], "restored_from": version, "changes": changes_view}
+        return {
+            "status": "saved",
+            "verified": True,
+            "target": target,
+            "version": new_doc["version"],
+            "restored_from": version,
+            "changes": changes_view,
+            "saved_text": "Sparat. " + confirm_text.removesuffix(" Vill du spara det?"),
+        }
 
     # ------------------------------------------------------------ hjälp
 
@@ -555,6 +594,8 @@ class WorkLayer:
         if current is None:
             base = f" Bygger på {self._catalog.support_payload(str(new_doc['extends']))['name']}." if new_doc.get("extends") and self._catalog.has(str(new_doc["extends"])) else ""
             use_when = str(new_doc.get("use_when") or "").strip().rstrip(".")
+            if use_when[:4].casefold() == "när ":
+                use_when = use_when[4:]
             return f"Nytt arbetssätt: ”{name}”. Används när: {use_when}.{base} Vill du spara det?"
         if current.get("active", True) and not new_doc.get("active", True):
             return f"Stänger av ditt arbetssätt ”{name}”. Det finns kvar och kan slås på igen. Vill du spara det?"
@@ -584,7 +625,10 @@ class WorkLayer:
             raise ToolInputError("expected_version måste vara ett heltal.")
         actual = int(current.get("version", 0)) if current else 0
         if actual != expected:
-            raise ToolInputError(f"Dokumentet har ändrats sedan du läste det (nu version {actual}). Hämta get_connect_context igen.")
+            raise ToolInputError(
+                f"Inget sparades: inställningarna har ändrats sedan de lästes (nu version {actual}, angiven {expected}). "
+                "Hämta get_connect_context, visa förhandsvisningen igen och spara först efter ett nytt ja."
+            )
 
 
 def _q(text: object) -> str:
