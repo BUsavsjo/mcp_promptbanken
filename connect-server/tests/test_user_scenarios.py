@@ -188,7 +188,7 @@ def test_scenario_7_full_lifecycle_deactivate_history_restore(layer):
     assert [entry["version"] for entry in history["versions"]] == [2, 1]
     preview = layer.restore(TOKEN, {"target": "profile", "version": 1})
     assert preview["status"] == "preview"
-    assert preview["confirm_text"] == "Går tillbaka till version 1. Slår på regeln ”Ge kortare sammanfattningar” igen. Vill du spara det?"
+    assert preview["confirm_text"] == "Går tillbaka till hur det var tidigare. Slår på regeln ”Ge kortare sammanfattningar” igen. Vill du spara det?"
     restored = layer.restore(TOKEN, {"target": "profile", "version": 1, "confirmed": True, "request_id": rid()})
     assert restored["version"] == 3 and restored["verified"] is True
     assert rule_texts(layer.context(TOKEN, "u")["always_apply"]) == {"Ge kortare sammanfattningar."}
@@ -299,3 +299,24 @@ def test_profiles_saved_by_earlier_versions_still_load_and_apply(library):
 def test_storage_schema_is_unchanged():
     assert personal.SCHEMA == 1
     assert json.loads(json.dumps(personal.empty_profile()))["connect_type"] == "profile"
+
+
+def test_personalization_guide_routes_task_specific_wishes_to_own_ways():
+    guide = " ".join(wl.HOW_TO_PERSONALIZE)
+    assert "leverantörssvar" in guide and "save_my_way_of_working" in guide
+    assert "Lägg aldrig en uppgiftsspecifik instruktion som regel med" in guide
+
+
+def test_methods_do_not_announce_their_own_working_principles(layer):
+    joined = " ".join(layer.support(TOKEN, "utredaren", None)["how_to_apply"])
+    assert "Beskriv inte hur du arbetar" in joined
+
+
+def test_new_way_confirm_text_does_not_repeat_nar(layer):
+    preview = layer.save_way(TOKEN, {**SUPPLIER, "use_when": "När användaren ska svara en leverantör."})
+    assert "Används när: användaren ska svara en leverantör." in preview["confirm_text"]
+
+
+def test_way_tool_description_names_required_fields():
+    tool = next(t for t in wl.tool_definitions() if t["name"] == "save_my_way_of_working")
+    assert "kräver name, purpose, use_when och instructions" in tool["description"]

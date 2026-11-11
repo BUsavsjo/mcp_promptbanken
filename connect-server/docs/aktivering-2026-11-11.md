@@ -55,9 +55,47 @@ flerordssökning och vänlig historik utan profil.
 | Återställ version 2 | Förhandsvisning "Går tillbaka till version 2. Slår på regeln ”Kortare sammanfattningar” igen. Vill du spara det?", sparad och verifierad som version 4 |
 | Ny kontext | `always_apply` innehåller r1 igen |
 
+### Blinda klienttester i Claude (subagenter, en ny konversation per fall)
+
+Varje fall kördes av en separat agent som bara fick användarens meddelande
+och Connect DEV som installerad koppling. Agenten valde själv om och hur
+Connect skulle användas. Detta mäter Claude, inte ChatGPT.
+
+| Fall | Resultat |
+| --- | --- |
+| 1 Enkel fråga, N1 omskrivning, N2 översättning | Godkänt: inget Connect-anrop |
+| 2 Utredning, 3 workshop, 4 dataanalys | Godkänt: rätt specialist, inga tekniska ord |
+| 5 Global regel (ja) | Godkänt: `confirm_text` ordagrant, sparat först efter ja, verifierat |
+| 6 Specialistregel (ja) | Godkänt: omfång Utredaren |
+| 7 Nej till sparning | Godkänt: inget sparat, ingen ny fråga, önskemålet följt i samtalet |
+| 8 Utredning i ny konversation | Godkänt: båda reglerna tillämpade, problembeskrivning först |
+| 9 Workshop i ny konversation | Godkänt: global regel med, utredningsregeln läckte inte |
+| 10 Visa sparade regler | Godkänt: två regler, inte den nekade |
+| 11 Eget arbetssätt (ja) | **Underkänt först** (sparades som global regel), godkänt efter rättning |
+| 12 Använd arbetssättet i ny konversation | Godkänt: arbetssättet valdes före specialister, alla steg följda |
+| 13 Stäng av regel | Godkänt: avstängd, inte borttagen |
+| 14 Ångra | Godkänt, men `confirm_text` visade "version 8"; rättat |
+| 15a Ta bort regel, 15b ta bort arbetssätt | Godkänt |
+
+Första körningen av fall 5 stoppades av Claude Codes behörighetskontroll
+redan vid förhandsvisningen ("Unrequested Commit in a Connected App"), eftersom
+förhandsvisning och sparning går genom samma verktyg. Klienter kan alltså
+behandla förhandsvisningen som en skrivning. Testet fortsatte efter att
+användaren gav tillstånd för de tre spara-verktygen.
+
+### Rättat efter klienttesterna
+
+- `how_to_personalize`: en önskan om en viss typ av uppgift blir ett eget
+  arbetssätt, aldrig en regel för alla uppgifter.
+- Återställning visar inte versionsnummer för användaren.
+- `how_to_apply`: beskriv inte metodens principer ("Så här arbetar jag …").
+- `save_my_way_of_working`: beskrivningen anger obligatoriska fält;
+  `confirm_text` upprepar inte "när".
+
 ### Manuellt i ChatGPT
 
-Inte genomfört i denna iteration. Protokoll: `docs/chatgpt-testprotokoll.md`.
+ChatGPT-testet med kontot `wenstrompeter` stoppades av Free-kvoten. Se
+`docs/kvot-felsokning-2026-11-11.md`. Protokoll: `docs/chatgpt-testprotokoll.md`.
 
 ## Beroende av ChatGPT:s automatiska verktygsval
 

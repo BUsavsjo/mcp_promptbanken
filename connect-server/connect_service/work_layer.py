@@ -67,9 +67,11 @@ ROUTING_RULES = [
 
 HOW_TO_PERSONALIZE = [
     "1. Tolka: vad vill användaren ska gälla framöver? En enstaka rättelse i stunden sparas inte.",
-    "2. Välj: önskemål om svar eller arbetssätt (längd, ton, ordning, struktur, vad som ska ingå) blir en personlig regel via "
-    "save_my_profile med rules.add. applies_to = [\"all\"] om det gäller allt, annars stödets id (t.ex. [\"utredaren\"] för "
-    "'mina utredningar'). Ett helt eget återkommande arbetsflöde blir ett arbetssätt via save_my_way_of_working.",
+    "2. Välj: Gäller önskemålet en viss typ av uppgift som ingen specialist täcker (t.ex. 'leverantörssvar', 'veckobrev', "
+    "'så här vill jag göra X') blir det ett eget arbetssätt via save_my_way_of_working, med use_when för just den uppgiften. "
+    "Gäller det hur du svarar i allmänhet (längd, ton, struktur) blir det en personlig regel via save_my_profile rules.add "
+    "med applies_to [\"all\"]. Gäller det en specialists uppgifter ('mina utredningar') blir det en regel med stödets id "
+    "(t.ex. [\"utredaren\"]). Lägg aldrig en uppgiftsspecifik instruktion som regel med [\"all\"].",
     "3. Visa: anropa utan confirmed. Visa användaren confirm_text ordagrant, inget annat tekniskt.",
     "4. Fråga: be om ett tydligt ja. Säger användaren nej eller tvekar: spara inget och fråga inte igen om samma sak.",
     "5. Spara: samma anrop med confirmed: true och ett nytt request_id. Säg bara att det är sparat när svaret har verified: true.",
@@ -86,6 +88,7 @@ HOW_TO_PERSONALIZE = [
 HOW_TO_APPLY = [
     "Skala efter uppgiften. En liten eller tydlig uppgift: gå direkt till nästa användbara steg i metodens anda och svara kort. En stor eller oklar uppgift: följ fler av metodens faser.",
     "Använd metodens faser, mallar och kontrollpunkter i bakgrunden. Visa dem inte som rubriker eller listor om användaren inte ber om det.",
+    "Beskriv inte hur du arbetar eller vilka principer metoden har (\"Så här arbetar jag …\"). Visa det genom svaret. En mening om vad du tar sikte på räcker.",
     "Kvalitetskraven gäller alltid, oavsett längd: hitta inte på fakta, källor, siffror, ansvariga eller beslut; skilj fakta från antaganden; säg vad som är osäkert.",
     "Fråga högst en sak i taget och bara sådant som ändrar resultatet. Gissa rimligt och säg vad du antagit i stället för att fråga om allt.",
     "Fördjupa (fler faser, evidenslogg, mallar) när användaren ber om det eller när uppgiften är ett beslutsunderlag.",
@@ -220,7 +223,8 @@ def tool_definitions() -> list[dict[str, object]]:
             "description": (
                 "Sparar ett helt eget, återkommande arbetsflöde ('så här vill jag göra leverantörssvar'): nytt (name, "
                 "purpose, use_when, instructions), som anpassning av en specialist (extends) eller ändring av ett "
-                "befintligt (id). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
+                "befintligt (id). Ett nytt kräver name, purpose, use_when och instructions (steps och quality_rules "
+                "är valfria). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
                 "format: använd save_my_profile i stället. Utan confirmed: förhandsvisning med confirm_text. Med "
                 "confirmed: true efter ett uttryckligt ja: sparar och verifierar."
             ),
@@ -513,7 +517,7 @@ class WorkLayer:
             detail = self._profile_confirm_text(doc, new_doc, self._load(token)[1])
         else:
             detail = self._way_confirm_text(doc, new_doc)
-        confirm_text = f"Går tillbaka till version {version}. " + detail
+        confirm_text = "Går tillbaka till hur det var tidigare. " + detail
         if arguments.get("confirmed") is not True:
             return {**_preview(changes_view, new_doc["version"]), "confirm_text": confirm_text}
         request_id = _request_id(arguments)
@@ -590,6 +594,8 @@ class WorkLayer:
         if current is None:
             base = f" Bygger på {self._catalog.support_payload(str(new_doc['extends']))['name']}." if new_doc.get("extends") and self._catalog.has(str(new_doc["extends"])) else ""
             use_when = str(new_doc.get("use_when") or "").strip().rstrip(".")
+            if use_when[:4].casefold() == "när ":
+                use_when = use_when[4:]
             return f"Nytt arbetssätt: ”{name}”. Används när: {use_when}.{base} Vill du spara det?"
         if current.get("active", True) and not new_doc.get("active", True):
             return f"Stänger av ditt arbetssätt ”{name}”. Det finns kvar och kan slås på igen. Vill du spara det?"
