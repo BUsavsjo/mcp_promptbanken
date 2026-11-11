@@ -18,8 +18,8 @@ SUPPORTS_DIR = Path(__file__).resolve().parent / "supports"
 # under andra namn, så modellen får en översättning i stället för att källtexten
 # skrivs om.
 OPEN_TOOL_MAPPING = {
-    "search_templates": "search_open_catalog (kind: prompt)",
-    "list_packages": "search_open_catalog (kind: package)",
+    "search_templates": "Connect söker inte i katalogen. Använd get_open_item (kind: prompt) med slug eller id ur metodens references/promptbanken.md; finns ingen passande mall, fortsätt med metoden utan.",
+    "list_packages": "Connect söker inte i katalogen. Använd get_open_item (kind: package) med paketets slug ur metodens references/promptbanken.md.",
     "get_template": "get_open_item (kind: prompt, id eller slug)",
     "get_package": "get_open_item (kind: package, slug)",
     "list_package_prompts": "get_open_item (kind: package, slug) – svaret innehåller stegens prompt_text i ordning",

@@ -284,7 +284,7 @@ class PromptQuotaLibrary(Library):
     def create_my_prompt(self, **kwargs):
         from connect_service.data import ConnectWriteError
 
-        raise ConnectWriteError("Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.")
+        raise ConnectWriteError("Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.", kind="quota")
 
 
 def test_write_limit_returns_a_structured_mcp_error_instead_of_an_upstream_failure():
@@ -320,4 +320,5 @@ def test_write_limit_returns_a_structured_mcp_error_instead_of_an_upstream_failu
     assert response.json()["error"] == {
         "code": -32020,
         "message": "Du har nått gränsen för privata prompts i Free-läget. Arkivera en prompt eller uppgradera kontot.",
+        "data": {"kind": "quota"},
     }

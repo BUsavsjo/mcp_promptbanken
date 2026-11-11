@@ -94,8 +94,11 @@ def _tool_result(payload: Mapping[str, object]) -> dict[str, object]:
     }
 
 
-def _error(request_id: object, code: int, message: str) -> JSONResponse:
-    return JSONResponse({"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}})
+def _error(request_id: object, code: int, message: str, data: Mapping[str, object] | None = None) -> JSONResponse:
+    error: dict[str, object] = {"code": code, "message": message}
+    if data:
+        error["data"] = dict(data)
+    return JSONResponse({"jsonrpc": "2.0", "id": request_id, "error": error})
 
 
 def _valid_uuid(value: object) -> bool:
@@ -122,7 +125,14 @@ def _limit(arguments: Mapping[str, object]) -> int | None:
     return value
 
 
-def _tool_definitions() -> list[dict[str, object]]:
+TOOL_PROFILES = ("core", "full")
+
+
+def _tool_definitions(profile: str = "full") -> list[dict[str, object]]:
+    """core = de sju verktygen för specialister och personliga arbetssätt.
+    full = även Creator-biblioteket (prompter, paket, delningar)."""
+    if profile == "core":
+        return wl.tool_definitions()
     return [*wl.tool_definitions(), *_library_tool_definitions()]
 
 
@@ -264,9 +274,14 @@ def create_app(
     token_verifier: TokenVerifier,
     library: Library,
     work_layer: wl.WorkLayer | None = None,
+    tool_profile: str = "full",
 ) -> Starlette:
     """Skapar en fristående Connect-app med uttryckliga OAuth-beroenden."""
+    if tool_profile not in TOOL_PROFILES:
+        raise ValueError(f"Okänd verktygsprofil: {tool_profile}")
     layer = work_layer or wl.WorkLayer(SupportCatalog(), library)  # type: ignore[arg-type]
+    exposed_tools = _tool_definitions(tool_profile)
+    exposed_names = {str(tool["name"]) for tool in exposed_tools}
     parsed_resource = urlparse(resource_url)
     app_host = parsed_resource.netloc.replace("connect-dev.", "dev.").replace("connect.", "app.")
     share_base_url = f"{parsed_resource.scheme}://{app_host}/delning/?s="
@@ -279,7 +294,8 @@ def create_app(
 
     async def connect_write_error(request: Request, error: Exception) -> JSONResponse:
         message = str(error) or "Ändringen kunde inte genomföras. Kontrollera uppgifterna och försök igen."
-        return _error(getattr(request.state, "jsonrpc_id", None), -32020, message)
+        kind = getattr(error, "kind", "technical")
+        return _error(getattr(request.state, "jsonrpc_id", None), -32020, message, {"kind": kind})
 
     async def work_layer_input_error(request: Request, error: Exception) -> JSONResponse:
         return _error(getattr(request.state, "jsonrpc_id", None), -32602, str(error) or "Ogiltiga verktygsargument.")
@@ -337,7 +353,7 @@ def create_app(
             )
 
         if method == "tools/list":
-            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"tools": _tool_definitions()}})
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"tools": exposed_tools}})
 
         if method == "prompts/list":
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"prompts": prompt_list(token)}})
@@ -369,6 +385,8 @@ def create_app(
         arguments = _arguments(params)
         if not isinstance(name, str) or arguments is None:
             return _error(request_id, -32602, "Ogiltiga verktygsargument.")
+        if name not in exposed_names:
+            return _error(request_id, -32601, f"Verktyget {name} finns inte i den här Connect-anslutningen.")
 
         if name in _WRITE_TOOL_NAMES:
             if arguments.get("confirmed") is not True:
@@ -495,6 +513,13 @@ def create_app(
             category = arguments.get("category")
             if (not _valid_uuid(prompt_id) or not isinstance(title, str) or not title.strip() or not isinstance(content, str) or not content.strip() or (summary is not None and not isinstance(summary, str)) or (category is not None and not isinstance(category, str))):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")
+            if name == "update_my_prompt" and ("summary" not in arguments or "category" not in arguments):
+                # Fält som inte skickas med ska behållas, inte tömmas.
+                existing = library.get_library_prompt(access_token=token, prompt_id=prompt_id) or {}
+                if "summary" not in arguments:
+                    summary = existing.get("summary")
+                if "category" not in arguments:
+                    category = existing.get("category")
             prompt = getattr(library, name)(access_token=token, prompt_id=prompt_id, title=title, content=content, summary=summary, category=category, request_id=str(arguments["request_id"]))
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"prompt": prompt})})
 

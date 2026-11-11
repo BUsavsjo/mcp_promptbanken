@@ -1,5 +1,20 @@
 # Logg
 
+## 2026-11-11 - Connect DEV förenklad (Din AI. Ditt sätt att arbeta.)
+
+### Gjort
+- Gren `feat/connect-dev-simplify`. Nuläge och beslut i `connect-server/docs/forenkling-2026-11-11.md`.
+- Tydligare instruktion i tre lägen (enkel fråga, arbete i flera steg, önskan som ska gälla framöver), uttryckligt val av specialist, kort beskrivning per specialist, inga löften om automatisk aktivering.
+- Personalisering genom samtal: `how_to_personalize`, läsbar `confirm_text`, verifiering efter sparning (`verified: true`), `always_apply` i kontexten, inaktiva arbetssätt separat.
+- Felklassning: kvot, behörighet, validering, tekniskt (`error.data.kind`). Begripligt kvotbesked för personliga anpassningar.
+- Rättat: återanvänt request_id rapporterades som sparat; `update_my_prompt` tömde sammanfattningen; katalogsökning med flera ord gav noll träffar.
+- 88 tester gröna, varav 19 acceptanstester. Driftsatt på Connect DEV som `promptbanken-connect:simplify-candidate`.
+- Kväll: Connect exponerar som standard bara sju kärnverktyg (`CONNECT_TOOL_PROFILE=core`); de 19 Creator-verktygen finns kvar bakom `full`. Katalogsökning i metoderna går via `get_open_item`. 93 tester gröna. Testkontot på dev har `max_prompts = 100` (testinställning).
+
+### Nästa steg
+- Produktbeslut B1 (räknas personliga anpassningar mot Free-kvoten?).
+- Manuellt klientprov i ny ChatGPT-konversation utan att nämna Promptbanken.
+
 ## 2026-09-05 - Connect läser Creator-biblioteket, deployat
 
 ### Gjort

@@ -10,6 +10,8 @@
 8. [ ] **(Low)** Rate limit på `save_workspace_prompt` skyddar inte mot spam av helt ogiltiga nyckelhashar (de avvisas innan räknarens SELECT körs i `save_prompt_for_key`) — skyddar korrekt mot en giltig nyckel som missbrukas, vilket är huvudscenariot. Överväg IP-baserad eller Caddy-nivå-begränsning om ogiltig-nyckel-spam blir ett verkligt problem.
 
 ## Nästa steg
+- [ ] **Connect produktbeslut B1:** ska Connect-profilen (och ev. egna arbetssätt) räknas mot Free-gränsen på 3 privata prompter? Se `connect-server/docs/forenkling-2026-11-11.md`.
+- [ ] **Connect ChatGPT-prov utan att nämna Promptbanken:** dokumentera om Connect anropas för scenario 1–5. Uteblivet anrop är klientbeteende, inte backendfel.
 - [ ] **Connect klientprov (hög prioritet):** genomför en riktig authorization-code-med-PKCE-runda mot `https://connect.promptbanken.se/mcp`. Kontrollera registrerad klient, redirect-adress och samtyckesuppgifter före godkännande.
 - [ ] **Connect beta-skrivningar:** bygg Pro-entitlement per verktyg, idempotens, `confirm: true` för förändringar och delningar samt ändringslogg. OAuth-token räcker inte som dataskydd.
 - [ ] **Supabase migrationshistorik:** matcha de tre remote-only versionerna 20260901184823, 20260902131739 och 20260905150750 med deras källmigreringar. supabase db push --linked är blockerat tills historiken är samstämmig; Connects migration 20260905100000 är redan manuellt applicerad och markerad som applied.

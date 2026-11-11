@@ -1,5 +1,16 @@
 # Beslut
 
+## 2026-11-11 - Connect väljer inte stöd, modellen gör det
+
+### Beslut
+Connect fortsätter att låta AI-klientens modell välja specialist. Connect ger bättre underlag (tre lägen, kort beskrivning, uttryckligt val vid namn) men ingen serverstyrd routing och inga löften om automatisk aktivering.
+
+### Skäl
+Om ChatGPT eller Claude anropar Connect avgörs av klienten. Användarens text ska aldrig skickas till Connect.
+
+### Öppet produktbeslut (B1)
+Personliga anpassningar sparas som privata Creator-prompter och räknas mot Free-gränsen på 3. Ett Free-konto med tre prompter kan inte spara en enda regel. Rekommendation: undanta Connect-profilen (en per användare) från räkningen. Kräver migrering i `promptbanken`; inte genomfört. Till dess visar Connect ett begripligt kvotbesked.
+
 ## 2026-09-05 - Promptbanken Connect byggs som en separat OAuth-tjänst
 
 ### Beslut
