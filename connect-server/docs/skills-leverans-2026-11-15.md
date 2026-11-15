@@ -92,3 +92,30 @@ syntes tekniska ord, sparades något utan ja. Fler fall:
 - Ingen ZIP-export ännu; SKILL.md och filerna är förberedda för
   `scripts/skills/package-skill.mjs`.
 - Codex-granskning kunde inte köras (Codex-kontot avvisar standardmodellen).
+
+## Milstolpe 1 – Creator Beta (uppdrag 01–05), 2026-11-15
+
+Driftsatt: Connect DEV `promptbanken-connect:m1-candidate` (0.5.0),
+dev.promptbanken.se (Admin och Mina Skills). Rollback Connect:
+`cp docker-compose.yml.before-m1 docker-compose.yml && docker-compose up -d`.
+Databas: `promptbanken` migration `20261116090000_skill_review_and_publish`
+(DEV). Open MCP är oförändrat.
+
+| Uppdrag | Leverans |
+| --- | --- |
+| 01 Integrera | Skills är en tredje inskickstyp i den befintliga granskningskön (`content_snapshots`, `open_submission`). Ingen parallell lagring; inskicket är en fryst version, originalet förblir privat. |
+| 02 Submit | `submit_my_skill` (Connect och webb): förhandsvisning, uttryckligt ja, idempotent, gransknings-id. Spridning till AI-tjänster kräver rättighetsintyg. |
+| 03 Status | `get_my_skill_submissions` (väntar, ändringar begärda med återkoppling, godkänd, publicerad, avslagen, tillbakadragen), `withdraw_my_skill_submission`, reviderad version som ny revision i samma ärende. |
+| 04 Admin | Creator-granskningen visar SKILL.md, filer, beroenden och externa länkar. Godkänn skapar katalogpost som utkast – ingen automatisk publicering. Ny sektion "Skills i katalogen" med Publicera/Avpublicera. AI-förgranskningen stöder inte skills (knappen dold). |
+| 05 Publicering | `catalog_skills` + `catalog_skill_versions` pekar på frysta inskick. `list_published_skills` / `get_published_skill` (webbkatalog i Mina Skills, Connect via `list_published_skills`, `get_support("katalog:<slug>")`, `get_open_item(kind: skill)`). Connect visar bara skills med spridningssamtycke. |
+| Loggning | Connect loggar `tool_call name=… target=…` och `tool_result … version=…`; aldrig argument eller text. |
+
+Tester: DB 15/15 (`verify_skill_review_dev.sql`) + 20/20, Connect pytest
+161/161, promptbanken `npm test` 369/369 + bygge, live mot Connect DEV 15/15
+(annan användare hittar och hämtar publicerad version 1; det privata
+originalet nås inte; nytt inskick påverkar inte katalogen förrän det
+publicerats), webbflödet skapare → admin godkänn → publicera → katalog
+verifierat i webbläsare med syntetiska konton.
+
+Ej gjort: klienttest av inskick/katalog i ChatGPT; AI-förgranskning av
+skills; jämförelse mot Agensi; ZIP-export.
