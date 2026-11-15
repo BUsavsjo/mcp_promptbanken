@@ -240,6 +240,10 @@ CORE = {
     "create_my_skill",
     "update_my_skill",
     "set_my_skill_active",
+    "submit_my_skill",
+    "get_my_skill_submissions",
+    "withdraw_my_skill_submission",
+    "list_published_skills",
 }
 
 
@@ -292,7 +296,7 @@ def test_core_profile_still_saves_and_uses_a_new_way_of_working(library):
 
 def test_full_profile_keeps_the_library_tools(library):
     tools = _rpc(_core_client(library, "full"), "tools/list")["result"]["tools"]
-    assert len(tools) == 32
+    assert len(tools) == 36
 
 
 def test_catalog_search_mapping_points_to_get_open_item():

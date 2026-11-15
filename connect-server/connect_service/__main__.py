@@ -1,8 +1,14 @@
 """Lokal startpunkt för den fristående Connect-tjänsten."""
 
+import logging
 import os
 
 import uvicorn
+
+# Tjänstens egna loggrader (verktygsnamn, stöd-id, version). De innehåller
+# aldrig verktygsargument, användartext eller tokens.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 from .app import create_app
 from .auth import SupabaseJwtVerifier

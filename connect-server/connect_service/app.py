@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 import json
+import logging
+import re
 from typing import Protocol
 from urllib.parse import urlparse
 from uuid import UUID
@@ -17,7 +19,19 @@ from connect_service.supports import SupportCatalog
 from connect_service import work_layer as wl
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = "0.5.0"
+
+tool_logger = logging.getLogger("connect.tools")
+_SAFE_TARGET = re.compile(r"^(?:skill:|mitt:|katalog:)?[a-z0-9][a-z0-9-]{0,63}$")
+
+
+def _log_target(arguments: Mapping[str, object]) -> str:
+    """Bara stöd-id i ett säkert format loggas, aldrig fri text eller argumentvärden."""
+    for key in ("id", "target", "ref"):
+        value = arguments.get(key)
+        if isinstance(value, str) and _SAFE_TARGET.match(value):
+            return value
+    return "-"
 
 
 _WRITE_TOOL_NAMES = {
@@ -398,8 +412,11 @@ def create_app(
             if not _valid_uuid(arguments.get("request_id")):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")
 
+        tool_logger.info("tool_call name=%s target=%s", name, _log_target(arguments))
         if name in wl.TOOL_NAMES:
             payload = _work_layer_call(layer, name, arguments, token, subject)
+            if isinstance(payload, Mapping) and payload.get("version") is not None:
+                tool_logger.info("tool_result name=%s target=%s version=%s status=%s", name, _log_target(arguments), payload.get("version"), payload.get("status", "-"))
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result(payload)})
 
         if name == "search_open_catalog":
@@ -619,8 +636,8 @@ def _work_layer_call(
     if name == "get_open_item":
         kind = arguments.get("kind")
         ref = arguments.get("ref")
-        if kind not in {"prompt", "package"} or not isinstance(ref, str) or not ref.strip():
-            raise wl.ToolInputError("Ange kind (prompt eller package) och ref.")
+        if kind not in {"prompt", "package", "skill"} or not isinstance(ref, str) or not ref.strip():
+            raise wl.ToolInputError("Ange kind (prompt, package eller skill) och ref.")
         return layer.open_item(token, str(kind), ref.strip())
     if name == "save_my_profile":
         return layer.save_profile(token, arguments)
@@ -645,4 +662,12 @@ def _work_layer_call(
         return layer.update_skill(token, arguments)
     if name == "set_my_skill_active":
         return layer.set_skill_active(token, arguments)
+    if name == "submit_my_skill":
+        return layer.submit_skill(token, arguments)
+    if name == "get_my_skill_submissions":
+        return layer.skill_submissions(token, arguments)
+    if name == "withdraw_my_skill_submission":
+        return layer.withdraw_submission(token, arguments)
+    if name == "list_published_skills":
+        return layer.published_skills(token)
     raise wl.ToolInputError("Okänt verktyg.")

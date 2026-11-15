@@ -160,3 +160,49 @@ def privacy_values(spec: Mapping[str, object]) -> list[object]:
         if isinstance(item, Mapping):
             values.append(item.get("content"))
     return values
+
+
+# ---------------------------------------------------------------- inskick och katalog
+
+CATALOG_PREFIX = "katalog:"
+
+_STATE_LABELS = {
+    "review": "Väntar på granskning",
+    "changes_requested": "Ändringar begärda",
+    "rejected": "Avslagen",
+    "withdrawn": "Tillbakadragen",
+}
+
+
+def submission_status_label(row: Mapping[str, object]) -> str:
+    state = str(row.get("state") or "")
+    if state == "published":
+        if row.get("catalog_status") == "published" and row.get("catalog_published_version"):
+            return "Godkänd och publicerad i katalogen"
+        return "Godkänd, inte publicerad ännu"
+    return _STATE_LABELS.get(state, state)
+
+
+def confirm_text_submit(name: object, version: int, distribution: bool) -> str:
+    spread = (
+        "Den får spridas via Promptbanken till AI-tjänster som ChatGPT när den publiceras."
+        if distribution
+        else "Den publiceras bara på promptbanken.se, inte till andra AI-tjänster."
+    )
+    return (
+        f"Jag skickar ”{name}”, version {version}, till Promptbankens granskning. {spread} "
+        "Din skill förblir privat och kan fortsätta ändras. Vill du skicka den?"
+    )
+
+
+def catalog_entry(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "id": CATALOG_PREFIX + str(row.get("slug")),
+        "name": row.get("name"),
+        "purpose": _short(row.get("description"), 200),
+        "use_when": _short(row.get("use_when"), 240),
+        "not_when": _short(row.get("not_when"), 160),
+        "version": row.get("version"),
+        "creator": row.get("creator_display_name"),
+        "source": "promptbanken_catalog",
+    }

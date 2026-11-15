@@ -398,6 +398,37 @@ class SupabaseConnectRepository:
             access_token, "set_my_skill_active", {"p_skill_id": skill_id, "p_active": active, "p_request_id": request_id}
         )
 
+    # ------------------------------------------------------------ inskick och katalog
+
+    def submit_my_skill(self, *, access_token: str, skill_id: str, consent_distribution: bool, rights_attested: bool, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(
+            access_token,
+            "submit_my_skill",
+            {"p_skill_id": skill_id, "p_consent_distribution": consent_distribution, "p_rights_attested": rights_attested, "p_request_id": request_id},
+        )
+
+    def withdraw_my_skill_submission(self, *, access_token: str, submission_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "withdraw_my_skill_submission", {"p_submission_id": submission_id, "p_request_id": request_id})
+
+    def list_my_skill_submissions(self, *, access_token: str, skill_id: str | None = None) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_my_skill_submissions", {"p_skill_id": skill_id} if skill_id else {})
+
+    def list_published_skills(self, *, access_token: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_published_skills")
+
+    def get_published_skill(self, *, access_token: str, slug: str, version: int | None = None, file_path: str | None = None) -> Mapping[str, object] | None:
+        payload: dict[str, object] = {"p_slug": slug}
+        if version is not None:
+            payload["p_version"] = version
+        if file_path is not None:
+            payload["p_file_path"] = file_path
+        try:
+            return self._rpc_object(access_token, "get_published_skill", payload)
+        except ConnectWriteError as error:
+            if error.kind == "validation":
+                return None
+            raise
+
     def _rpc(
         self,
         access_token: str,
