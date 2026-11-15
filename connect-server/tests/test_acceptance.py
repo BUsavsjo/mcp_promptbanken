@@ -234,6 +234,12 @@ CORE = {
     "save_my_way_of_working",
     "get_my_history",
     "restore_my_version",
+    "list_my_skills",
+    "get_my_skill",
+    "validate_my_skill",
+    "create_my_skill",
+    "update_my_skill",
+    "set_my_skill_active",
 }
 
 
@@ -262,7 +268,7 @@ def _rpc(client, method, params=None):
     ).json()
 
 
-def test_core_profile_lists_exactly_the_seven_tools(library):
+def test_core_profile_lists_exactly_the_core_tools(library):
     tools = _rpc(_core_client(library), "tools/list")["result"]["tools"]
     assert {tool["name"] for tool in tools} == CORE
 
@@ -286,7 +292,7 @@ def test_core_profile_still_saves_and_uses_a_new_way_of_working(library):
 
 def test_full_profile_keeps_the_library_tools(library):
     tools = _rpc(_core_client(library, "full"), "tools/list")["result"]["tools"]
-    assert len(tools) == 26
+    assert len(tools) == 32
 
 
 def test_catalog_search_mapping_points_to_get_open_item():

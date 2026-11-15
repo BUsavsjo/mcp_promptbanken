@@ -154,7 +154,8 @@ def test_scenario_6_own_way_preview_save_and_listing(layer, library):
 
 def test_scenario_6_own_way_takes_precedence_over_specialist(layer):
     rules = " ".join(wl.ROUTING_RULES)
-    assert "Passar ett aktivt eget arbetssätt (mitt:) uppgiften, använd det, även om en specialist också passar" in rules
+    assert "Passar en aktiv egen skill (skill:) eller ett aktivt eget arbetssätt (mitt:) uppgiften" in rules
+    assert "använd det, även om en specialist också passar" in rules
     adapted = {**SUPPLIER, "name": "Mina utredningar", "use_when": "Utredningar i min förvaltning", "extends": "utredaren"}
     layer.save_way(TOKEN, yes(adapted))
     support = layer.support(TOKEN, "utredaren", None)

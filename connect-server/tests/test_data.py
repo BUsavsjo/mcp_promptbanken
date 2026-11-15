@@ -274,3 +274,79 @@ def test_hr_search_matches_related_swedish_catalog_terms():
         "hr",
         None,
     )
+
+
+# ------------------------------------------------------------ egna skills
+
+
+def test_skill_writes_send_confirmation_request_id_and_spec():
+    client = RecordingHttpClient([{"id": "s1", "slug": "offertgranskaren", "version": 1}, {"id": "s1", "version": 2}, {"id": "s1", "is_active": False}])
+    repo = repository(client)
+    spec = {"name": "Offertgranskaren"}
+    repo.create_my_skill(access_token="oauth-access-token", spec=spec, request_id="r1")
+    repo.update_my_skill(access_token="oauth-access-token", skill_id="s1", spec=spec, expected_version=1, note="n", request_id="r2")
+    repo.set_my_skill_active(access_token="oauth-access-token", skill_id="s1", active=False, request_id="r3")
+    assert [call["path"] for call in client.calls] == [
+        "/rest/v1/rpc/create_my_skill",
+        "/rest/v1/rpc/update_my_skill",
+        "/rest/v1/rpc/set_my_skill_active",
+    ]
+    assert client.calls[0]["json"] == {"p_spec": spec, "p_request_id": "r1", "p_confirmed": True}
+    assert client.calls[1]["json"] == {"p_skill_id": "s1", "p_spec": spec, "p_expected_version": 1, "p_note": "n", "p_request_id": "r2", "p_confirmed": True}
+    assert client.calls[2]["json"] == {"p_skill_id": "s1", "p_active": False, "p_request_id": "r3", "p_confirmed": True}
+    assert all(call["headers"] == headers() for call in client.calls)
+
+
+def test_skill_reads_use_slug_version_and_file_path():
+    client = RecordingHttpClient([[{"id": "s1"}], {"id": "s1", "version": 1}, {"path": "references/a.md", "content": "x"}])
+    repo = repository(client)
+    assert repo.list_my_skills(access_token="oauth-access-token") == [{"id": "s1"}]
+    repo.get_my_skill(access_token="oauth-access-token", slug="offertgranskaren", version=1)
+    repo.get_my_skill(access_token="oauth-access-token", skill_id="s1", file_path="references/a.md")
+    assert client.calls[1]["json"] == {"p_include_files": True, "p_slug": "offertgranskaren", "p_version": 1}
+    assert client.calls[2]["json"] == {"p_include_files": True, "p_skill_id": "s1", "p_file_path": "references/a.md"}
+
+
+class FailingResponse:
+    def __init__(self, status, payload):
+        self.status_code = status
+        self.payload = payload
+
+    def json(self):
+        return self.payload
+
+    def raise_for_status(self):
+        import httpx
+
+        raise httpx.HTTPStatusError("fel", request=None, response=self)
+
+
+class FailingClient:
+    def __init__(self, status, payload):
+        self.response = FailingResponse(status, payload)
+
+    def post(self, path, *, headers, json):
+        return self.response
+
+
+def test_missing_skill_reads_as_none_and_errors_are_classified():
+    from connect_service.data import ConnectWriteError
+
+    missing = repository(FailingClient(400, {"code": "P0001", "message": "Skillen hittades inte eller tillhör inte dig."}))
+    assert missing.get_my_skill(access_token="t", slug="annans") is None
+
+    conflict = repository(FailingClient(400, {"code": "P0001", "message": "Versionskonflikt: skillen är nu version 3."}))
+    with pytest.raises(ConnectWriteError) as error:
+        conflict.update_my_skill(access_token="t", skill_id="s1", spec={}, expected_version=1, note=None, request_id="r")
+    assert error.value.kind == "conflict"
+
+    quota = repository(FailingClient(400, {"code": "P0001", "message": "Du har nått gränsen på 5 egna skills för free-planen."}))
+    with pytest.raises(ConnectWriteError) as error:
+        quota.create_my_skill(access_token="t", spec={}, request_id="r")
+    assert error.value.kind == "quota" and "egna skills" in str(error.value)
+
+    long_message = "Skillen kunde inte sparas: " + "Ogiltig sökväg: references/x. " * 20
+    invalid = repository(FailingClient(400, {"code": "P0001", "message": long_message}))
+    with pytest.raises(ConnectWriteError) as error:
+        invalid.create_my_skill(access_token="t", spec={}, request_id="r")
+    assert error.value.kind == "validation" and str(error.value) == long_message

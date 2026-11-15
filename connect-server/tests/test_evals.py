@@ -27,7 +27,7 @@ def test_expected_supports_exist():
     known = set(SupportCatalog().ids())
     for case in load()["cases"]:
         expected = case.get("expected")
-        assert expected is None or expected in known or expected.startswith("mitt:")
+        assert expected is None or expected in known or expected.startswith(("mitt:", "skill:"))
 
 
 def test_scoring_detects_target_misses(tmp_path):

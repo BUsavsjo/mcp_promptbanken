@@ -23,7 +23,7 @@ def score(cases_path: Path, results_path: Path) -> dict[str, object]:
     by_id = {result["id"]: result for result in results["results"]}
     targets = suite["targets"]
 
-    positive = [case for case in suite["cases"] if case["group"] in {"positive", "boundary", "personal_reuse", "personal_combine", "personal_conflict"} and case.get("expected")]
+    positive = [case for case in suite["cases"] if case["group"] in {"positive", "boundary", "personal_reuse", "personal_combine", "personal_conflict", "skill_reuse", "skill_named", "skill_irrelevant"} and case.get("expected")]
     negative = [case for case in suite["cases"] if "expected" in case and case["expected"] is None]
     manual = [case for case in suite["cases"] if case.get("check")]
 

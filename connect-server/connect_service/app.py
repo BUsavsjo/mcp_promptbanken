@@ -17,7 +17,7 @@ from connect_service.supports import SupportCatalog
 from connect_service import work_layer as wl
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-SERVER_VERSION = "0.3.0"
+SERVER_VERSION = "0.4.0"
 
 
 _WRITE_TOOL_NAMES = {
@@ -305,7 +305,11 @@ def create_app(
 
     def prompt_list(token: str) -> list[dict[str, object]]:
         context = layer.context(token, "")
-        entries = [*context["supports"], *[way for way in context["my_ways_of_working"] if way.get("active", True)]]
+        entries = [
+            *context.get("my_skills", []),
+            *context["supports"],
+            *[way for way in context["my_ways_of_working"] if way.get("active", True)],
+        ]
         return [
             {"name": entry["id"], "title": entry["name"], "description": entry["use_when"]}
             for entry in entries
@@ -629,4 +633,16 @@ def _work_layer_call(
         return layer.history(token, target)
     if name == "restore_my_version":
         return layer.restore(token, arguments)
+    if name == "list_my_skills":
+        return layer.list_skills(token)
+    if name == "get_my_skill":
+        return layer.get_skill(token, arguments)
+    if name == "validate_my_skill":
+        return layer.validate_skill(token, arguments)
+    if name == "create_my_skill":
+        return layer.create_skill(token, arguments)
+    if name == "update_my_skill":
+        return layer.update_skill(token, arguments)
+    if name == "set_my_skill_active":
+        return layer.set_skill_active(token, arguments)
     raise wl.ToolInputError("Okänt verktyg.")

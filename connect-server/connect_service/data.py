@@ -325,6 +325,79 @@ class SupabaseConnectRepository:
     def extend_my_share(self, *, access_token: str, share_id: str, expires_at: str, request_id: str) -> Mapping[str, object]:
         return self._connect_write(access_token, "connect_extend_my_share", {"p_share_id": share_id, "p_expires_at": expires_at, "p_request_id": request_id})
 
+    # ------------------------------------------------------------ egna skills
+
+    def list_my_skills(self, *, access_token: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_my_skills")
+
+    def get_my_skill(
+        self,
+        *,
+        access_token: str,
+        skill_id: str | None = None,
+        slug: str | None = None,
+        version: int | None = None,
+        file_path: str | None = None,
+        include_files: bool = True,
+    ) -> Mapping[str, object] | None:
+        """Läser en egen skill. None betyder att den inte finns eller inte tillhör användaren."""
+        payload: dict[str, object] = {"p_include_files": include_files}
+        if skill_id is not None:
+            payload["p_skill_id"] = skill_id
+        if slug is not None:
+            payload["p_slug"] = slug
+        if version is not None:
+            payload["p_version"] = version
+        if file_path is not None:
+            payload["p_file_path"] = file_path
+        try:
+            return self._rpc_object(access_token, "get_my_skill", payload)
+        except ConnectWriteError as error:
+            if error.kind == "validation":
+                return None
+            raise
+
+    def list_my_skill_versions(self, *, access_token: str, skill_id: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_my_skill_versions", {"p_skill_id": skill_id})
+
+    def validate_my_skill(
+        self, *, access_token: str, spec: Mapping[str, object], skill_id: str | None = None
+    ) -> Mapping[str, object]:
+        payload: dict[str, object] = {"p_spec": dict(spec)}
+        if skill_id is not None:
+            payload["p_skill_id"] = skill_id
+        return self._rpc_object(access_token, "validate_my_skill", payload)
+
+    def create_my_skill(self, *, access_token: str, spec: Mapping[str, object], request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "create_my_skill", {"p_spec": dict(spec), "p_request_id": request_id})
+
+    def update_my_skill(
+        self,
+        *,
+        access_token: str,
+        skill_id: str,
+        spec: Mapping[str, object],
+        expected_version: int,
+        note: str | None,
+        request_id: str,
+    ) -> Mapping[str, object]:
+        return self._connect_write(
+            access_token,
+            "update_my_skill",
+            {
+                "p_skill_id": skill_id,
+                "p_spec": dict(spec),
+                "p_expected_version": expected_version,
+                "p_note": note,
+                "p_request_id": request_id,
+            },
+        )
+
+    def set_my_skill_active(self, *, access_token: str, skill_id: str, active: bool, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(
+            access_token, "set_my_skill_active", {"p_skill_id": skill_id, "p_active": active, "p_request_id": request_id}
+        )
+
     def _rpc(
         self,
         access_token: str,
@@ -391,6 +464,23 @@ class SupabaseConnectRepository:
         message = payload.get("message") if isinstance(payload, Mapping) else None
         code = payload.get("code") if isinstance(payload, Mapping) else None
         status = getattr(error.response, "status_code", 0)
+        if isinstance(message, str) and "egna skills" in message:
+            return (
+                message.rstrip(".") + ". Inaktiverade skills räknas också. Förbättra en befintlig skill i stället, "
+                "eller uppgradera kontot.",
+                "quota",
+            )
+        if isinstance(message, str) and message.startswith("Versionskonflikt"):
+            return message, "conflict"
+        # Kvottexter från 20261111230000_connect_personal_quota (körd på DEV).
+        if isinstance(message, str) and "egna arbetssätt" in message:
+            return (
+                message.rstrip(".") + ". Ta bort ett arbetssätt du inte använder och försök igen. "
+                "Avstängda arbetssätt räknas också.",
+                "quota",
+            )
+        if isinstance(message, str) and "redan en arbetsprofil" in message:
+            return WRITE_ERROR_TEXT["technical"], "technical"
         if isinstance(message, str) and "nått gränsen" in message:
             return WRITE_ERROR_TEXT["quota"], "quota"
         if status in {401, 403} or code in {"42501", "PGRST301", "PGRST302"}:
@@ -399,6 +489,8 @@ class SupabaseConnectRepository:
             return message, "validation"
         # Egna RAISE EXCEPTION i Promptbankens funktioner (P0001) är skrivna för
         # användare och avslöjar inga tabellnamn; allt annat hålls generellt.
+        if code == "P0001" and isinstance(message, str) and message.startswith("Skillen kunde inte sparas") and len(message) <= 4000:
+            return message, "validation"
         if code == "P0001" and isinstance(message, str) and 0 < len(message) <= 300:
             return message, "validation"
         if status >= 500 or status == 0:
