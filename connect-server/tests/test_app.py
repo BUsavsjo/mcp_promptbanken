@@ -128,6 +128,7 @@ def test_authenticated_client_discovers_creator_library_tools():
             "unfollow_open_package",
         "add_open_prompt_to_library",
         "add_open_package_to_library",
+        "copy_open_prompt_to_library",
         "create_my_share",
         "revoke_my_share",
         "extend_my_share",

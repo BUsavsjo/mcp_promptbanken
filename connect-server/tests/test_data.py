@@ -45,6 +45,7 @@ def test_list_library_uses_creator_rpcs_and_hides_prompt_body():
         [{"id": "00000000-0000-0000-0000-000000000001", "title": "Creator", "summary": "Egen", "content": "hemlig text", "status": "draft", "updated_at": "2026-09-05T10:00:00Z"}],
         [{"id": "00000000-0000-0000-0000-000000000002", "title": "Valvet", "summary": "Sparad", "status": "draft", "is_library_reference": True, "updated_at": "2026-09-05T11:00:00Z"}],
         [{"id": "00000000-0000-0000-0000-000000000003", "title": "Paket", "summary": "Tre steg", "status": "draft", "is_library_reference": False, "updated_at": "2026-09-05T12:00:00Z"}],
+        [{"library_item_id": "00000000-0000-0000-0000-000000000002", "kind": "prompt", "catalog_status": "published", "catalog_updated_at": "2026-09-01T00:00:00Z", "followed_at": "2026-09-05T11:00:00Z"}],
     ])
 
     result = repository(client).list_library(access_token="oauth-access-token", kind="all", limit=2)
@@ -59,7 +60,66 @@ def test_list_library_uses_creator_rpcs_and_hides_prompt_body():
         {"path": "/rest/v1/rpc/list_my_creator_prompts", "headers": headers(), "json": {}},
         {"path": "/rest/v1/rpc/list_my_library_prompts", "headers": headers(), "json": {}},
         {"path": "/rest/v1/rpc/list_my_creator_package_drafts", "headers": headers(), "json": {}},
+        {"path": "/rest/v1/rpc/list_my_followed_catalog_items", "headers": headers(), "json": {}},
     ]
+    assert result[1]["follow_status"] == "following" and "updated_since_followed" not in result[1]
+
+
+def test_list_library_marks_updated_and_unpublished_follows():
+    ref_a, ref_b = "00000000-0000-0000-0000-00000000000a", "00000000-0000-0000-0000-00000000000b"
+    client = RecordingHttpClient([
+        [],
+        [
+            {"id": ref_a, "title": "Ändrad", "status": "draft", "is_library_reference": True, "updated_at": "2026-09-05T11:00:00Z"},
+            {"id": ref_b, "title": "Borttagen", "status": "draft", "is_library_reference": True, "updated_at": "2026-09-05T10:00:00Z"},
+        ],
+        [
+            {"library_item_id": ref_a, "kind": "prompt", "catalog_status": "published", "catalog_updated_at": "2026-10-01T00:00:00+00:00", "followed_at": "2026-09-05T11:00:00+00:00"},
+            {"library_item_id": ref_b, "kind": "prompt", "catalog_status": "draft", "catalog_updated_at": None, "followed_at": "2026-09-05T10:00:00+00:00"},
+        ],
+    ])
+    result = {item["id"]: item for item in repository(client).list_library(access_token="oauth-access-token", kind="prompt", limit=10)}
+    assert result[ref_a]["updated_since_followed"] is True and "ändrats" in result[ref_a]["note"]
+    assert result[ref_b]["follow_status"] == "unpublished" and "inte längre publicerat" in result[ref_b]["note"]
+
+
+def test_get_library_prompt_explains_an_unpublished_original():
+    prompt_id = "00000000-0000-0000-0000-000000000001"
+    client = RecordingHttpClient([
+        [{"id": prompt_id, "title": "Gammal", "summary": "", "content": "", "module": "valvet", "status": "draft", "is_library_reference": True, "source_prompt_id": "00000000-0000-0000-0000-000000000099"}],
+        [],
+    ])
+    result = repository(client).get_library_prompt(access_token="oauth-access-token", prompt_id=prompt_id)
+    assert result["content"] is None and result["follow_status"] == "unpublished"
+
+
+def test_search_finds_skills_and_bundles_with_access_and_without_content():
+    client = RecordingHttpClient([
+        [],
+        [],
+        [
+            {"kind": "skill", "slug": "offertgranskaren", "name": "Offertgranskaren", "summary": "Granskar offerter", "use_when": "konsekvensanalys av offerter", "version": 2, "creator_display_name": "Test", "offer": {"access_model": "free"}, "access": "free", "distribution_allowed": True},
+            {"kind": "bundle", "slug": "upphandling", "name": "Upphandlingspaket", "summary": "Allt för upphandling", "version": 1, "offer": {"access_model": "paid", "price_amount_ore": 49900, "fictive": True}, "access": "locked", "distribution_allowed": True},
+            {"kind": "skill", "slug": "bara-webb", "name": "Upphandling webb", "summary": "upphandling", "access": "free", "distribution_allowed": False},
+        ],
+    ])
+    result = repository(client).search_open_catalog(access_token="oauth-access-token", query="upphandling", kind="all", category=None, limit=10, cursor=0)
+    items = {item["slug"]: item for item in result["items"]}
+    assert set(items) == {"upphandling"}
+    assert items["upphandling"]["access"] == "paid" and items["upphandling"]["price_sek"] == 499.0
+    assert "items" not in items["upphandling"] and "skill_md" not in str(items)
+    client = RecordingHttpClient([[], [], [
+        {"kind": "skill", "slug": "offertgranskaren", "name": "Offertgranskaren", "summary": "Granskar offerter", "use_when": "konsekvensanalys", "access": "free", "distribution_allowed": True},
+    ]])
+    result = repository(client).search_open_catalog(access_token="oauth-access-token", query="konsekvensanalys", kind="all", category=None, limit=10, cursor=0)
+    assert result["items"][0]["id"] == "katalog:offertgranskaren" and result["items"][0]["access"] == "free"
+
+
+def test_copy_open_prompt_returns_an_editable_copy_with_its_source():
+    client = RecordingHttpClient([{"id": "00000000-0000-0000-0000-0000000000c1", "title": "Kopia", "status": "draft", "source_template_id": "00000000-0000-0000-0000-000000000099"}])
+    result = repository(client).copy_open_prompt_to_library(access_token="oauth-access-token", prompt_id="00000000-0000-0000-0000-000000000099", request_id="00000000-0000-0000-0000-0000000000r1")
+    assert result["source_prompt_id"] == "00000000-0000-0000-0000-000000000099" and result["is_library_reference"] is False
+    assert client.calls[0]["path"] == "/rest/v1/rpc/copy_published_prompt_to_valvet"
 
 
 def test_get_library_prompt_resolves_live_reference_content():
@@ -195,7 +255,7 @@ def test_search_open_catalog_filters_published_prompt_metadata_without_returning
     )
 
     assert result == {
-        "items": [{"id": "00000000-0000-0000-0000-000000000080", "kind": "prompt", "title": "Beslutsunderlag", "summary": "Gör ett underlag", "category": "Ledning"}],
+        "items": [{"id": "00000000-0000-0000-0000-000000000080", "kind": "prompt", "slug": None, "title": "Beslutsunderlag", "summary": "Gör ett underlag", "category": "Ledning", "access": "free"}],
         "next_cursor": None,
     }
     assert client.calls == [

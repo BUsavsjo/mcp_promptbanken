@@ -68,8 +68,8 @@ ROUTING_RULES = [
     "not_when inte emot, använd det, även om en specialist också passar. "
     "3) Annars den specialist som passar bäst. 4) Passar två lika bra: ställ en kort fråga om vad användaren vill uppnå.",
     "En egen skill används bara när den passar uppgiften. Att den finns är inget skäl att använda den.",
-    "Publika metoder ur Open hämtas bara när en metod hänvisar till dem (get_open_item).",
-    "Skill ur Promptbankens katalog: list_published_skills, sedan get_support(katalog:-id).",
+    "Publika metoder ur Open hämtas när en metod hänvisar till dem (get_open_item).",
+    "Passar inget eget eller ingen specialist en större uppgift: search_open_catalog, välj efter relevans, inte pris. Skill därifrån: get_support(id).",
     "Ett eget arbetssätt som bygger på en specialist (extends) ersätter den specialisten när det passar. Hämta då arbetssättet, inte specialisten.",
     "Högst ett stöd åt gången. Läs not_when.",
     "Superplan bara när användaren vill ha hjälp hela vägen med ett större uppdrag utan tydlig väg, inte för att ett ord förekommer.",
@@ -520,6 +520,26 @@ def skill_tool_definitions() -> list[dict[str, object]]:
 
 TOOL_NAMES = {tool["name"] for tool in tool_definitions()}
 
+
+
+def _locked_product(product_id: str, meta: Mapping[str, object], label: str) -> dict[str, object]:
+    """Betald produkt utan åtkomst: bara publik metadata, inga instruktioner eller innehåll."""
+    offer = meta.get("offer") if isinstance(meta.get("offer"), Mapping) else {}
+    ore = offer.get("price_amount_ore")
+    return {
+        "id": product_id,
+        "name": meta.get("name"),
+        "description": meta.get("description") or meta.get("summary"),
+        "creator": meta.get("creator_display_name"),
+        "version": meta.get("version"),
+        "access": "paid",
+        "price_sek": (int(ore) / 100) if isinstance(ore, int) else None,
+        "price_is_fictive": bool(offer.get("fictive", True)),
+        "note": (
+            f"Det här är en betald produkt och användaren har inte åtkomst, så {label} kan inte användas. Köp finns inte "
+            "ännu. Säg det kort och hjälp användaren ändå, med en gratis metod eller utan stöd."
+        ),
+    }
 
 class WorkLayer:
     def __init__(self, catalog: SupportCatalog, library: PersonalLibrary) -> None:
@@ -1378,6 +1398,8 @@ class WorkLayer:
         bundle = self._library.get_published_bundle(access_token=token, slug=ref.removeprefix(sk.CATALOG_PREFIX))
         if bundle is None:
             raise NotFound()
+        if bundle.get("access") == "locked":
+            return _locked_product(str(bundle.get("slug") or ref), bundle, "bundlen")
         result = dict(bundle)
         result["items"] = [
             {**dict(item), "use_with": (sk.CATALOG_PREFIX + str(item["slug"])) if item.get("kind") == "skill" and item.get("slug") else None}
@@ -1404,6 +1426,8 @@ class WorkLayer:
         skill = self._library.get_published_skill(access_token=token, slug=slug)
         if skill is None or not skill.get("distribution_allowed"):
             raise NotFound()
+        if skill.get("access") == "locked":
+            return _locked_product(support_id, skill, "arbetssättet")
         if resource:
             item = self._library.get_published_skill(access_token=token, slug=slug, file_path=resource)
             if item is None:

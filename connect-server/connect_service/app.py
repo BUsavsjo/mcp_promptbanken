@@ -37,6 +37,7 @@ def _log_target(arguments: Mapping[str, object]) -> str:
 _WRITE_TOOL_NAMES = {
     "add_open_prompt_to_library",
     "add_open_package_to_library",
+    "copy_open_prompt_to_library",
     "create_my_prompt",
     "update_my_prompt",
     "archive_my_prompt",
@@ -144,7 +145,19 @@ TOOL_PROFILES = ("core", "full")
 
 # Egna prompter ingår i standardprofilen: Creator säger att prompter kan skapas
 # direkt från AI:n via Connect.
-CORE_LIBRARY_TOOLS = ("list_my_library", "get_my_library_prompt", "create_my_prompt", "update_my_prompt")
+CORE_LIBRARY_TOOLS = (
+    "list_my_library",
+    "get_my_library_prompt",
+    "create_my_prompt",
+    "update_my_prompt",
+    # Bygguppdrag 16: hela katalogen och Open i Connect, utan Opens egna verktyg.
+    "search_open_catalog",
+    "add_open_prompt_to_library",
+    "add_open_package_to_library",
+    "copy_open_prompt_to_library",
+    "unfollow_open_prompt",
+    "unfollow_open_package",
+)
 
 
 def _tool_definitions(profile: str = "full") -> list[dict[str, object]]:
@@ -160,8 +173,17 @@ def _library_tool_definitions() -> list[dict[str, object]]:
     return [
         {
             "name": "search_open_catalog",
-            "description": "Söker bland publicerade Open-prompter och paket utan att läsa ut prompttexter.",
-            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "default": ""}, "kind": {"type": "string", "enum": ["all", "prompt", "package"], "default": "all"}, "category": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "cursor": {"type": "string"}}},
+            "description": (
+                "Söker i hela Promptbankens publicerade katalog: prompter, paket (samlingar och workflows), arbetssätt "
+                "(skills) och bundles, gratis och betalda. Används vid en större uppgift när inget eget arbetssätt eller "
+                "ingen specialist passar, eller när användaren ber om något ur katalogen. query ska vara några allmänna "
+                "ämnesord (t.ex. 'konsekvensanalys', 'projektledning'), aldrig text, namn eller detaljer ur användarens "
+                "ärende eller dokument. Svaret innehåller bara metadata. access: free går att använda, owned är "
+                "användarens egen, paid är betald och kan inte användas utan köp (köp finns inte ännu): nämn den högst "
+                "som ett alternativ och hjälp ändå. Använda: arbetssätt med get_support(id), prompt eller bundle med "
+                "get_open_item(kind, slug). Följa eller kopiera bara efter användarens uttryckliga ja."
+            ),
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "default": "", "maxLength": 100}, "kind": {"type": "string", "enum": ["all", "prompt", "package", "skill", "bundle"], "default": "all"}, "category": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "cursor": {"type": "string"}}},
         },
         {
             "name": "list_my_library",
@@ -265,13 +287,29 @@ def _library_tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "add_open_prompt_to_library",
-            "description": "Sparar en publicerad Open-prompt som en levande referens i ditt bibliotek efter uttrycklig bekräftelse.",
+            "description": (
+                "Följer en publicerad Open-prompt: sparar en levande referens (ingen kopia) i användarens bibliotek, så att "
+                "användaren alltid får senaste versionen men inte kan ändra den. Fråga först och anropa bara efter ett "
+                "uttryckligt ja (confirmed: true, nytt request_id). prompt_id är id från search_open_catalog."
+            ),
             "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
         },
         {
             "name": "add_open_package_to_library",
-            "description": "Sparar ett publicerat Open-paket som en levande referens i ditt bibliotek efter uttrycklig bekräftelse.",
+            "description": (
+                "Följer ett publicerat Open-paket som en levande referens i användarens bibliotek. Fråga först och anropa "
+                "bara efter ett uttryckligt ja (confirmed: true, nytt request_id)."
+            ),
             "inputSchema": {"type": "object", "properties": {"package_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["package_id", "confirmed", "request_id"]},
+        },
+        {
+            "name": "copy_open_prompt_to_library",
+            "description": (
+                "Gör en egen, redigerbar kopia av en publicerad Open-prompt i användarens bibliotek. Kopian får en "
+                "spårbar koppling till originalet men följer inte ändringar, och originalet påverkas aldrig. Använd när "
+                "användaren vill ändra prompten. Fråga först och anropa bara efter ett uttryckligt ja."
+            ),
+            "inputSchema": {"type": "object", "properties": {"prompt_id": {"type": "string", "format": "uuid"}, "confirmed": {"type": "boolean"}, "request_id": {"type": "string", "format": "uuid"}}, "required": ["prompt_id", "confirmed", "request_id"]},
         },
         {
             "name": "create_my_share",
@@ -437,7 +475,8 @@ def create_app(
             cursor_value = arguments.get("cursor", "0")
             if (
                 not isinstance(query, str)
-                or kind not in {"all", "prompt", "package"}
+                or kind not in {"all", "prompt", "package", "skill", "bundle"}
+                or len(query) > 100
                 or (category is not None and not isinstance(category, str))
                 or limit is None
                 or not isinstance(cursor_value, str)
@@ -580,7 +619,7 @@ def create_app(
             package = getattr(library, method_name)(access_token=token, package_id=package_id, request_id=str(arguments["request_id"]))
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": _tool_result({"package": package})})
 
-        if name == "add_open_prompt_to_library":
+        if name in {"add_open_prompt_to_library", "copy_open_prompt_to_library"}:
             prompt_id = arguments.get("prompt_id")
             if not _valid_uuid(prompt_id):
                 return _error(request_id, -32602, "Ogiltiga verktygsargument.")

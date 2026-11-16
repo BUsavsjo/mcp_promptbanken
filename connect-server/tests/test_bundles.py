@@ -150,6 +150,21 @@ def test_published_bundle_points_to_catalog_skills(layer):
         layer.open_item(TOKEN, "bundle", "saknas")
 
 
+def test_locked_paid_bundle_returns_only_metadata(layer, library):
+    library.get_published_bundle = lambda **kw: {"slug": "betald", "name": "Betald", "summary": "s", "version": 1, "item_count": 3,
+                                                 "offer": {"access_model": "paid", "price_amount_ore": 9900, "fictive": True}, "access": "locked"}
+    result = layer.open_item(TOKEN, "bundle", "betald")
+    assert result["access"] == "paid" and result["price_sek"] == 99.0 and "items" not in result
+    assert "kan inte användas" in result["note"]
+
+
+def test_locked_paid_skill_never_returns_instructions(layer, library):
+    library.get_published_skill = lambda **kw: {"slug": "betald", "name": "Betald", "description": "d", "version": 1,
+                                                "distribution_allowed": True, "offer": {"access_model": "paid", "price_amount_ore": 100, "fictive": True}, "access": "locked"}
+    result = layer.support(TOKEN, "katalog:betald", None)
+    assert result["access"] == "paid" and "instructions" not in result and "files" not in result
+
+
 def test_tools_list_names_own_active_ways_of_working(library):
     from tests.test_work_layer import call, http_client
 

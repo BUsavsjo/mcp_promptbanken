@@ -44,6 +44,23 @@ class HttpClient(Protocol):
         """Utför ett POST-anrop mot Supabase REST API."""
 
 
+UNPUBLISHED_NOTE = (
+    "Originalet är inte längre publicerat i Promptbanken, så innehållet kan inte hämtas. Säg det till användaren och "
+    "erbjud att sluta följa det. Inget annat i biblioteket påverkas."
+)
+
+
+def _timestamp(value: object):
+    from datetime import datetime
+
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 class SupabaseConnectRepository:
     """Läser Creator-data med anroparens OAuth-token; ingen service-nyckel används."""
 
@@ -78,7 +95,30 @@ class SupabaseConnectRepository:
                 if row.get("status") != "archived"
             )
 
+        if any(entry.get("is_library_reference") for entry in entries):
+            statuses = {
+                str(row.get("library_item_id")): row
+                for row in self._rpc(access_token, "list_my_followed_catalog_items")
+            }
+            entries = [self._with_follow_status(entry, statuses.get(str(entry.get("id")))) for entry in entries]
+
         return sorted(entries, key=lambda item: str(item.get("updated_at", "")), reverse=True)[:limit]
+
+    @staticmethod
+    def _with_follow_status(entry: Mapping[str, object], status: Mapping[str, object] | None) -> Mapping[str, object]:
+        if not entry.get("is_library_reference") or status is None:
+            return entry
+        result = dict(entry)
+        if status.get("catalog_status") != "published":
+            result["follow_status"] = "unpublished"
+            result["note"] = UNPUBLISHED_NOTE
+            return result
+        result["follow_status"] = "following"
+        updated, followed = _timestamp(status.get("catalog_updated_at")), _timestamp(status.get("followed_at"))
+        if updated is not None and followed is not None and updated > followed:
+            result["updated_since_followed"] = True
+            result["note"] = "Originalet har ändrats sedan användaren började följa det. Användaren får alltid den senaste versionen."
+        return result
 
     def get_library_prompt(
         self, *, access_token: str, prompt_id: str
@@ -104,7 +144,7 @@ class SupabaseConnectRepository:
             {"p_content_item_id": prompt_id, "p_context_keys": ["generell"]},
         )
         if not live_rows:
-            return None
+            return {**prompt, "content": None, "follow_status": "unpublished", "note": UNPUBLISHED_NOTE}
         live = live_rows[0]
         prompt.update(
             {
@@ -222,15 +262,25 @@ class SupabaseConnectRepository:
         scores: dict[str, int] = {}
         if kind in {"all", "prompt"}:
             for row in self._rpc(access_token, "list_published_prompts", {"p_context_keys": ["generell"]}):
-                item = {"id": str(row["id"]), "kind": "prompt", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area")}
+                item = {"id": str(row["id"]), "kind": "prompt", "slug": row.get("slug"), "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area"), "access": "free"}
                 score = self._catalog_score(item, normalized_query, normalized_category)
                 if score:
                     scores[item["id"]] = score
                     items.append(item)
         if kind in {"all", "package"}:
             for row in self._rpc(access_token, "list_published_packages", {"p_context_keys": ["generell"]}):
-                item = {"id": str(row["id"]), "kind": "package", "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area"), "package_type": row.get("package_type")}
+                item = {"id": str(row["id"]), "kind": "package", "slug": row.get("slug"), "title": row.get("title"), "summary": row.get("summary"), "category": row.get("area"), "package_type": row.get("package_type"), "access": "free"}
                 score = self._catalog_score(item, normalized_query, normalized_category)
+                if score:
+                    scores[item["id"]] = score
+                    items.append(item)
+        if kind in {"all", "skill", "bundle"} and normalized_category is None:
+            wanted = {"skill", "bundle"} if kind == "all" else {kind}
+            for row in self._rpc(access_token, "list_catalog_products"):
+                if row.get("kind") not in wanted or not row.get("distribution_allowed", True):
+                    continue
+                item = self._product_item(row)
+                score = self._catalog_score(item, normalized_query, None)
                 if score:
                     scores[item["id"]] = score
                     items.append(item)
@@ -312,6 +362,11 @@ class SupabaseConnectRepository:
 
     def add_open_prompt_to_library(self, *, access_token: str, prompt_id: str, request_id: str) -> Mapping[str, object]:
         return self._connect_write(access_token, "connect_add_catalog_prompt_to_library", {"p_prompt_id": prompt_id, "p_request_id": request_id})
+
+    def copy_open_prompt_to_library(self, *, access_token: str, prompt_id: str, request_id: str) -> Mapping[str, object]:
+        """Egen, redigerbar kopia med spårbar källa (source_template_id). Originalet påverkas inte."""
+        row = self._rpc_object(access_token, "copy_published_prompt_to_valvet", {"p_prompt_id": prompt_id, "p_context_keys": ["generell"]})
+        return {"id": row.get("id"), "title": row.get("title"), "status": row.get("status"), "source_prompt_id": row.get("source_template_id"), "is_library_reference": False}
 
     def add_open_package_to_library(self, *, access_token: str, package_id: str, request_id: str) -> Mapping[str, object]:
         return self._connect_write(access_token, "connect_add_catalog_package_to_library", {"p_package_id": package_id, "p_request_id": request_id})
@@ -591,13 +646,39 @@ class SupabaseConnectRepository:
         return SupabaseConnectRepository._catalog_score(item, query, category) > 0
 
     @staticmethod
+    def _product_item(row: Mapping[str, object]) -> dict[str, object]:
+        """Skill eller bundle i sökresultatet: bara publik metadata, aldrig instruktioner."""
+        kind = str(row.get("kind"))
+        slug = str(row.get("slug"))
+        offer = row.get("offer") if isinstance(row.get("offer"), Mapping) else {}
+        access = {"free": "free", "owned": "owned", "locked": "paid"}.get(str(row.get("access")), "paid")
+        item: dict[str, object] = {
+            "id": f"katalog:{slug}" if kind == "skill" else slug,
+            "kind": kind,
+            "slug": slug,
+            "title": row.get("name"),
+            "summary": row.get("summary"),
+            "category": None,
+            "use_when": row.get("use_when"),
+            "creator": row.get("creator_display_name"),
+            "version": row.get("version"),
+            "access": access,
+        }
+        if offer.get("access_model") == "paid":
+            ore = offer.get("price_amount_ore")
+            item["price_sek"] = (int(ore) / 100) if isinstance(ore, int) else None
+            item["price_is_fictive"] = bool(offer.get("fictive", True))
+            item["purchase"] = "Köp finns inte ännu. Priset är ett fiktivt testpris."
+        return item
+
+    @staticmethod
     def _catalog_score(item: Mapping[str, object], query: str, category: str | None) -> int:
         """Antal ord i frågan som träffar titel, sammanfattning eller kategori (0 = ingen träff)."""
         if category is not None and str(item.get("category") or "").casefold() != category:
             return 0
         if not query:
             return 1
-        haystack = " ".join(str(item.get(key) or "") for key in ("title", "summary", "category")).casefold()
+        haystack = " ".join(str(item.get(key) or "") for key in ("title", "summary", "category", "use_when")).casefold()
         if query in haystack:
             return len(query.split()) + 1
         score = 0

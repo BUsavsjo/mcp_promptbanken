@@ -227,6 +227,12 @@ def test_multi_word_catalog_search_finds_and_ranks_items():
 
 
 CORE = {
+    "search_open_catalog",
+    "add_open_prompt_to_library",
+    "add_open_package_to_library",
+    "copy_open_prompt_to_library",
+    "unfollow_open_prompt",
+    "unfollow_open_package",
     "get_connect_context",
     "get_support",
     "get_open_item",
@@ -303,7 +309,7 @@ def test_core_profile_still_saves_and_uses_a_new_way_of_working(library):
 
 def test_full_profile_keeps_the_library_tools(library):
     tools = _rpc(_core_client(library, "full"), "tools/list")["result"]["tools"]
-    assert len(tools) == 39
+    assert len(tools) == 40
 
 
 def test_catalog_search_mapping_points_to_get_open_item():
