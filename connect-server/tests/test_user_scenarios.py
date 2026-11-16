@@ -103,7 +103,7 @@ def test_scenario_3_global_rule_preview_then_save_reaches_every_specialist(layer
 def test_scenario_3_global_rule_also_reaches_own_ways_of_working(layer):
     layer.save_profile(TOKEN, yes(GLOBAL))
     layer.save_way(TOKEN, yes(SUPPLIER))
-    assert "Ge kortare sammanfattningar." in rule_texts(layer.support(TOKEN, "mitt:leverantorssvar", None)["personal_rules"])
+    assert "Ge kortare sammanfattningar." in rule_texts(layer.support(TOKEN, "skill:leverantorssvar", None)["personal_rules"])
 
 
 # ------------------------------------------------------------ 4. specialistregel
@@ -124,7 +124,7 @@ def test_scenario_4_specialist_rule_is_scoped_and_does_not_leak(layer):
 def test_scenario_4_specialist_rule_does_not_leak_into_unrelated_own_way(layer):
     layer.save_profile(TOKEN, yes(INVESTIGATION))
     layer.save_way(TOKEN, yes(SUPPLIER))
-    assert layer.support(TOKEN, "mitt:leverantorssvar", None)["personal_rules"] == []
+    assert layer.support(TOKEN, "skill:leverantorssvar", None)["personal_rules"] == []
 
 
 # ------------------------------------------------------------ 5. byte av specialist
@@ -146,10 +146,10 @@ def test_scenario_6_own_way_preview_save_and_listing(layer, library):
     preview = layer.save_way(TOKEN, SUPPLIER)
     assert preview["confirm_text"].startswith("Nytt arbetssätt: ”Leverantörssvar”. Används när: Användaren vill formulera")
     assert ".." not in preview["confirm_text"]
-    assert library.writes == []
+    assert library.writes == [] and library.skill_writes == []
     layer.save_way(TOKEN, yes(SUPPLIER))
-    ways = layer.context(TOKEN, "u")["my_ways_of_working"]
-    assert ways[0]["id"] == "mitt:leverantorssvar" and ways[0]["use_when"] == SUPPLIER["use_when"]
+    ways = layer.context(TOKEN, "u")["my_skills"]
+    assert ways[0]["id"] == "skill:leverantorssvar" and ways[0]["use_when"] == SUPPLIER["use_when"]
 
 
 def test_scenario_6_own_way_takes_precedence_over_specialist(layer):
@@ -159,17 +159,17 @@ def test_scenario_6_own_way_takes_precedence_over_specialist(layer):
     adapted = {**SUPPLIER, "name": "Mina utredningar", "use_when": "Utredningar i min förvaltning", "extends": "utredaren"}
     layer.save_way(TOKEN, yes(adapted))
     support = layer.support(TOKEN, "utredaren", None)
-    assert support["my_adaptations"][0]["id"] == "mitt:mina-utredningar"
+    assert support["my_adaptations"][0]["id"] == "skill:mina-utredningar"
     assert "följ det i stället" in support["adaptation_hint"]
-    own = layer.support(TOKEN, "mitt:mina-utredningar", None)
+    own = layer.support(TOKEN, "skill:mina-utredningar", None)
     assert own["base_method"]["id"] == "utredaren" and own["how_to_apply"]
 
 
 def test_scenario_6_inactive_own_way_is_not_offered(layer):
     adapted = {**SUPPLIER, "name": "Mina utredningar", "use_when": "Utredningar", "extends": "utredaren"}
     layer.save_way(TOKEN, yes(adapted))
-    layer.save_way(TOKEN, yes({"id": "mitt:mina-utredningar", "active": False}))
-    assert layer.context(TOKEN, "u")["my_ways_of_working"] == []
+    layer.save_way(TOKEN, yes({"id": "skill:mina-utredningar", "active": False}))
+    assert layer.context(TOKEN, "u")["my_skills"] == []
     support = layer.support(TOKEN, "utredaren", None)
     assert support["my_adaptations"] == [] and "adaptation_hint" not in support
 
@@ -237,7 +237,7 @@ def test_scenario_8_new_conversation_sees_saved_rules_and_ways(layer, library):
     fresh = wl.WorkLayer(SupportCatalog(), library)  # ingen delad minnesbild utöver lagringen
     context = fresh.context(TOKEN, "u")
     assert rule_texts(context["always_apply"]) == {"Ge kortare sammanfattningar."}
-    assert [way["id"] for way in context["my_ways_of_working"]] == ["mitt:leverantorssvar"]
+    assert [way["id"] for way in context["my_skills"]] == ["skill:leverantorssvar"]
     assert "Börja alltid utredningar med en problembeskrivning." in rule_texts(fresh.support(TOKEN, "utredaren", None)["personal_rules"])
 
 
@@ -320,4 +320,5 @@ def test_new_way_confirm_text_does_not_repeat_nar(layer):
 
 def test_way_tool_description_names_required_fields():
     tool = next(t for t in wl.tool_definitions() if t["name"] == "save_my_way_of_working")
-    assert "kräver name, purpose, use_when och instructions" in tool["description"]
+    assert "kräver name, purpose, use_when, not_when och instructions" in tool["description"]
+    assert "sparas som en privat skill" in tool["description"]

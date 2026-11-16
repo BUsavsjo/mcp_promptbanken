@@ -400,6 +400,25 @@ class SupabaseConnectRepository:
 
     # ------------------------------------------------------------ inskick och katalog
 
+    def submit_to_promptbanken(self, *, access_token: str, kind: str, product_id: str, consent_distribution: bool, rights_attested: bool, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(
+            access_token,
+            "submit_to_promptbanken",
+            {"p_kind": kind, "p_id": product_id, "p_consent_distribution": consent_distribution,
+             "p_rights_attested": rights_attested, "p_request_id": request_id},
+        )
+
+    def list_my_submissions(self, *, access_token: str, kind: str | None = None, product_id: str | None = None) -> list[Mapping[str, object]]:
+        payload: dict[str, object] = {}
+        if kind:
+            payload["p_kind"] = kind
+        if product_id:
+            payload["p_id"] = product_id
+        return self._rpc(access_token, "list_my_submissions", payload)
+
+    def withdraw_my_submission(self, *, access_token: str, submission_id: str, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "withdraw_my_submission", {"p_submission_id": submission_id, "p_request_id": request_id})
+
     def submit_my_skill(self, *, access_token: str, skill_id: str, consent_distribution: bool, rights_attested: bool, request_id: str) -> Mapping[str, object]:
         return self._connect_write(
             access_token,

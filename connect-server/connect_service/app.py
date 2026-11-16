@@ -19,7 +19,7 @@ from connect_service.supports import SupportCatalog
 from connect_service import work_layer as wl
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-SERVER_VERSION = "0.5.0"
+SERVER_VERSION = "0.6.0"
 
 tool_logger = logging.getLogger("connect.tools")
 _SAFE_TARGET = re.compile(r"^(?:skill:|mitt:|katalog:)?[a-z0-9][a-z0-9-]{0,63}$")
@@ -662,12 +662,12 @@ def _work_layer_call(
         return layer.update_skill(token, arguments)
     if name == "set_my_skill_active":
         return layer.set_skill_active(token, arguments)
-    if name == "submit_my_skill":
-        return layer.submit_skill(token, arguments)
-    if name == "get_my_skill_submissions":
-        return layer.skill_submissions(token, arguments)
-    if name == "withdraw_my_skill_submission":
-        return layer.withdraw_submission(token, arguments)
+    if name == "submit_to_promptbanken":
+        return layer.submit(token, arguments)
+    if name == "get_submission_status":
+        return layer.submission_status(token, arguments)
+    if name == "withdraw_submission":
+        return layer.withdraw(token, arguments)
     if name == "list_published_skills":
         return layer.published_skills(token)
     raise wl.ToolInputError("Okänt verktyg.")

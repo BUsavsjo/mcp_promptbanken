@@ -173,9 +173,9 @@ def test_7_saying_no_leaves_nothing_behind(layer, library):
     layer.save_profile(TOKEN, SHORTER)  # förhandsvisning, användaren säger nej
     layer.save_way(
         TOKEN,
-        {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Leverantörsfrågor.", "instructions": "Kort och vänligt."},
+        {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Leverantörsfrågor.", "not_when": "Avtalstvister.", "instructions": "Kort och vänligt."},
     )
-    assert library.writes == [] and library.rows == {}
+    assert library.writes == [] and library.rows == {} and library.skill_writes == []
     assert layer.context(TOKEN, "u")["profile"]["exists"] is False
 
 
@@ -187,14 +187,14 @@ def test_8_user_can_turn_off_a_rule_and_a_way_of_working(layer):
     layer.save_profile(TOKEN, {**off, "confirmed": True, "request_id": rid()})
     assert layer.context(TOKEN, "u")["always_apply"] == []
 
-    way = {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Leverantörsfrågor.", "instructions": "Kort och vänligt."}
+    way = {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Leverantörsfrågor.", "not_when": "Avtalstvister.", "instructions": "Kort och vänligt."}
     layer.save_way(TOKEN, {**way, "confirmed": True, "request_id": rid()})
-    preview = layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "active": False})
+    preview = layer.save_way(TOKEN, {"id": "skill:leverantorssvar", "active": False})
     assert "kan slås på igen" in preview["confirm_text"]
-    layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "active": False, "confirmed": True, "request_id": rid()})
+    layer.save_way(TOKEN, {"id": "skill:leverantorssvar", "active": False, "confirmed": True, "request_id": rid()})
     context = layer.context(TOKEN, "u")
-    assert context["my_ways_of_working"] == []
-    assert context["inactive_ways_of_working"] == [{"id": "mitt:leverantorssvar", "name": "Leverantörssvar", "version": 2}]
+    assert context["my_skills"] == []
+    assert context["inactive_skills"] == [{"id": "skill:leverantorssvar", "name": "Leverantörssvar"}]
 
 
 # ------------------------------------------------------------ friktion i katalogen
@@ -240,9 +240,9 @@ CORE = {
     "create_my_skill",
     "update_my_skill",
     "set_my_skill_active",
-    "submit_my_skill",
-    "get_my_skill_submissions",
-    "withdraw_my_skill_submission",
+    "submit_to_promptbanken",
+    "get_submission_status",
+    "withdraw_submission",
     "list_published_skills",
 }
 
@@ -285,13 +285,13 @@ def test_core_profile_refuses_library_tools(library):
 
 def test_core_profile_still_saves_and_uses_a_new_way_of_working(library):
     client = _core_client(library)
-    way = {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Jag ska svara en leverantör.", "instructions": "Tacka, svara kort, avsluta med nästa steg."}
+    way = {"name": "Leverantörssvar", "purpose": "Svara leverantörer.", "use_when": "Jag ska svara en leverantör.", "not_when": "Avtalstvister.", "instructions": "Tacka, svara kort, avsluta med nästa steg."}
     preview = _rpc(client, "tools/call", {"name": "save_my_way_of_working", "arguments": way})
     assert "Nytt arbetssätt: ”Leverantörssvar”" in preview["result"]["structuredContent"]["confirm_text"]
     saved = _rpc(client, "tools/call", {"name": "save_my_way_of_working", "arguments": {**way, "confirmed": True, "request_id": rid()}})
     assert saved["result"]["structuredContent"]["verified"] is True
     context = _rpc(client, "tools/call", {"name": "get_connect_context", "arguments": {}})["result"]["structuredContent"]
-    assert context["my_ways_of_working"][0]["id"] == "mitt:leverantorssvar"
+    assert context["my_skills"][0]["id"] == "skill:leverantorssvar"
 
 
 def test_full_profile_keeps_the_library_tools(library):

@@ -25,6 +25,7 @@ SPEC_FIELDS = (
     "language",
     "dependencies",
     "files",
+    "extends",
 )
 
 FIELD_LABELS = {
@@ -39,6 +40,7 @@ FIELD_LABELS = {
     "language": "språk",
     "dependencies": "beroenden",
     "files": "filer",
+    "extends": "bygger på",
 }
 
 # Kontextbudget för skill-indexet i get_connect_context (tecken i JSON).
@@ -70,6 +72,8 @@ def index_entry(row: Mapping[str, object], *, compact: bool = False) -> dict[str
         "version": row.get("version"),
         "source": SOURCE,
     }
+    if row.get("extends"):
+        entry["extends"] = row["extends"]
     return entry
 
 
@@ -128,6 +132,21 @@ def spec_from_skill(skill: Mapping[str, object]) -> dict[str, object]:
     return spec
 
 
+def way_to_skill(fields: Mapping[str, object]) -> dict[str, object]:
+    """Fält från save_my_way_of_working till skillens fält. purpose blir description."""
+    mapping = {
+        "name": "name",
+        "purpose": "description",
+        "use_when": "use_when",
+        "not_when": "not_when",
+        "instructions": "instructions",
+        "steps": "steps",
+        "quality_rules": "quality_rules",
+        "extends": "extends",
+    }
+    return {target: fields[source] for source, target in mapping.items() if source in fields}
+
+
 def changed_fields(before: Mapping[str, object] | None, after: Mapping[str, object]) -> list[str]:
     before = before or {}
     return [key for key in SPEC_FIELDS if before.get(key) != after.get(key) and key != "slug"]
@@ -174,6 +193,9 @@ _STATE_LABELS = {
 }
 
 
+KIND_LABELS = {"prompt": "prompt", "skill": "skill", "package": "paket"}
+
+
 def submission_status_label(row: Mapping[str, object]) -> str:
     state = str(row.get("state") or "")
     if state == "published":
@@ -183,15 +205,17 @@ def submission_status_label(row: Mapping[str, object]) -> str:
     return _STATE_LABELS.get(state, state)
 
 
-def confirm_text_submit(name: object, version: int, distribution: bool) -> str:
+def confirm_text_submit(name: object, version: int | None, distribution: bool, kind: str = "skill") -> str:
     spread = (
         "Den får spridas via Promptbanken till AI-tjänster som ChatGPT när den publiceras."
         if distribution
         else "Den publiceras bara på promptbanken.se, inte till andra AI-tjänster."
     )
+    what = f"din {KIND_LABELS.get(kind, kind)}"
+    version_text = f", version {version}," if version else ""
     return (
-        f"Jag skickar ”{name}”, version {version}, till Promptbankens granskning. {spread} "
-        "Din skill förblir privat och kan fortsätta ändras. Vill du skicka den?"
+        f"Jag skickar ”{name}”{version_text} till Promptbankens granskning. {spread} "
+        f"Originalet förblir privat och kan fortsätta ändras. Vill du skicka {what}?"
     )
 
 

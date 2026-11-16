@@ -101,7 +101,7 @@ HOW_TO_MANAGE_SKILLS = [
     "Förbättra: get_my_skill, föreslå ändringen, update_my_skill med changes (bara ändrade fält, hela nya värdet) och "
     "expected_version utan confirmed, visa confirm_text, spara efter ja. Tidigare versioner finns kvar.",
     "Slå av eller på: set_my_skill_active med samma förhandsvisning och ja.",
-    "Publicera: submit_my_skill (fråga om spridning och rättigheter, förhandsvisning, ja). Status: get_my_skill_submissions.",
+    "Publicera: submit_to_promptbanken (fråga om spridning och rättigheter, förhandsvisning, ja). Status: get_submission_status.",
     "Säg 'sparat' bara vid verified: true. Personliga regler skrivs aldrig in i skillen. Inga personuppgifter, inget ur "
     "användarens dokument, ingen kod.",
 ]
@@ -262,12 +262,13 @@ def tool_definitions() -> list[dict[str, object]]:
         {
             "name": "save_my_way_of_working",
             "description": (
-                "Sparar ett helt eget, återkommande arbetsflöde ('så här vill jag göra leverantörssvar'): nytt (name, "
-                "purpose, use_when, instructions), som anpassning av en specialist (extends) eller ändring av ett "
-                "befintligt (id). Ett nytt kräver name, purpose, use_when och instructions (steps och quality_rules "
-                "är valfria). active: false stänger av, delete: true tar bort. För en enstaka önskan om svar eller "
-                "format: använd save_my_profile i stället. Utan confirmed: förhandsvisning med confirm_text. Med "
-                "confirmed: true efter ett uttryckligt ja: sparar och verifierar."
+                "Sparar ett helt eget, återkommande arbetsflöde ('så här vill jag göra leverantörssvar'). Nya arbetssätt "
+                "sparas som en privat skill (skill:-id), även som anpassning av en specialist (extends). Ett nytt kräver "
+                "name, purpose, use_when, not_when och instructions (steps och quality_rules är valfria). Ändra ett "
+                "befintligt med dess id (skill:- eller äldre mitt:-id). active: false stänger av. Ett äldre mitt:-arbetssätt "
+                "kan göras om till skill med convert_to_skill: true. För en enstaka önskan om svar eller format: använd "
+                "save_my_profile i stället. Utan confirmed: förhandsvisning med confirm_text. Med confirmed: true efter "
+                "ett uttryckligt ja: sparar och verifierar."
             ),
             "inputSchema": {
                 "type": "object",
@@ -283,6 +284,7 @@ def tool_definitions() -> list[dict[str, object]]:
                     "extends": {"type": "string", "description": "Id för gemensam specialist som arbetssättet bygger på."},
                     "active": {"type": "boolean"},
                     "delete": {"type": "boolean"},
+                    "convert_to_skill": {"type": "boolean", "description": "Gör om ett äldre mitt:-arbetssätt till en skill. Det gamla stängs av men finns kvar."},
                     "note": {"type": "string"},
                     "expected_version": {"type": "integer"},
                     "confirmed": _CONFIRMED,
@@ -403,32 +405,43 @@ def skill_tool_definitions() -> list[dict[str, object]]:
             },
         },
         {
-            "name": "submit_my_skill",
+            "name": "submit_to_promptbanken",
             "description": (
-                "Skickar den aktuella versionen av en egen skill till Promptbankens granskning för publicering i katalogen. "
-                "Originalet förblir privat och kan fortsätta ändras. Utan confirmed: förhandsvisning. Med confirmed: true "
-                "efter ett uttryckligt ja och nytt request_id: skickar och ger ett gransknings-id. consent_distribution: får "
-                "skillen spridas via Promptbanken till AI-tjänster som ChatGPT. rights_attested: innehållet är användarens eget."
+                "Skickar en egen prompt eller skill (arbetssätt) till Promptbankens granskning för publicering. Den aktuella "
+                "versionen låses som granskningsunderlag; originalet förblir privat och kan fortsätta ändras. Inget publiceras "
+                "automatiskt. Utan confirmed: förhandsvisning. Med confirmed: true efter ett uttryckligt ja och nytt request_id: "
+                "skickar och ger ett gransknings-id. consent_distribution: får innehållet spridas via Promptbanken till "
+                "AI-tjänster som ChatGPT. rights_attested: innehållet är användarens eget."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["skill", "prompt"]},
+                    "id": {"type": "string", "description": "skill:-id, eller promptens id."},
                     "consent_distribution": {"type": "boolean"},
                     "rights_attested": {"type": "boolean"},
                     "confirmed": _CONFIRMED,
                     "request_id": _REQUEST_ID,
                 },
-                "required": ["id"],
+                "required": ["kind", "id"],
             },
         },
         {
-            "name": "get_my_skill_submissions",
-            "description": "Visar status för inskick av egna skills: väntar på granskning, ändringar begärda (med återkoppling), godkänd, publicerad, avslagen eller tillbakadragen.",
-            "inputSchema": {"type": "object", "properties": {"id": {"type": "string", "description": "skill:-id. Utelämna för alla."}}},
+            "name": "get_submission_status",
+            "description": (
+                "Visar status för användarens inskick (prompter och skills): väntar på granskning, ändringar begärda med "
+                "återkoppling, godkänd, publicerad, avslagen eller tillbakadragen."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["skill", "prompt"]},
+                    "id": {"type": "string", "description": "skill:-id eller promptens id. Utelämna för alla."},
+                },
+            },
         },
         {
-            "name": "withdraw_my_skill_submission",
+            "name": "withdraw_submission",
             "description": "Drar tillbaka ett inskick som väntar på granskning. Utan confirmed: förhandsvisning.",
             "inputSchema": {
                 "type": "object",
@@ -581,6 +594,8 @@ class WorkLayer:
         payload["profile"] = profile_doc.get("profile", {}) if profile_doc else {}
         payload["my_adaptations"] = [
             personal.way_index_entry(doc) for _, doc in ways if doc.get("extends") == support_id and doc.get("active", True)
+        ] + [
+            sk.index_entry(row) for row in self._skills(token) if row.get("extends") == support_id and row.get("is_active", True)
         ]
         payload["precedence"] = personal.PRECEDENCE
         payload["how_to_apply"] = HOW_TO_APPLY
@@ -639,6 +654,17 @@ class WorkLayer:
         }
 
     def save_way(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        """Nya arbetssätt sparas som skills. Äldre mitt:-arbetssätt kan fortfarande ändras eller göras om."""
+        target = arguments.get("id")
+        if target is None:
+            return self._save_way_as_skill(token, arguments)
+        if isinstance(target, str) and target.startswith(sk.SKILL_PREFIX):
+            return self._update_way_skill(token, arguments)
+        if arguments.get("convert_to_skill") is True:
+            return self._convert_way(token, arguments)
+        return self._save_legacy_way(token, arguments)
+
+    def _save_legacy_way(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
         profile, ways = self._load(token)
         target_id = arguments.get("id")
         existing = None
@@ -810,6 +836,14 @@ class WorkLayer:
             "precedence": personal.PRECEDENCE,
             "how_to_apply": HOW_TO_APPLY,
         }
+        extends = skill.get("extends")
+        if extends and self._catalog.has(str(extends)):
+            base = self._catalog.support_payload(str(extends))
+            payload["base_method"] = base
+            payload["how_to_combine"] = (
+                f"Följ grundmetoden {base['name']} och lägg arbetssättet ovanpå. " + personal.PRECEDENCE
+            )
+            payload["personal_rules"] = personal.applicable_rules(profile_doc, sid, str(extends))
         if not skill.get("is_active", True):
             payload["inactive_note"] = (
                 "Skillen är avstängd för automatiskt val. Använd den bara om användaren bad om den vid namn."
@@ -1008,76 +1042,163 @@ class WorkLayer:
 
     # ------------------------------------------------------------ inskick och katalog
 
-    def submit_skill(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
-        skill = self._require_skill(token, arguments.get("id"), include_files=False)
-        sid = sk.skill_id(skill.get("slug"))
+    def _resolve_product(self, token: str, kind: object, ident: object) -> tuple[str, str, str, int | None]:
+        """(kind, uuid, namn, version) för en egen prompt eller skill."""
+        if kind == "skill":
+            skill = self._require_skill(token, ident, include_files=False)
+            return "skill", str(skill["id"]), str(skill.get("name")), int(skill.get("version") or 1)
+        if kind == "prompt":
+            if not isinstance(ident, str) or not _is_uuid(ident):
+                raise ToolInputError("Ange promptens id (uuid) från Creator.")
+            getter = getattr(self._library, "get_library_prompt", None)
+            prompt = getter(access_token=token, prompt_id=ident) if getter else None
+            if prompt is None or prompt.get("is_library_reference"):
+                raise NotFound()
+            return "prompt", ident, str(prompt.get("title")), None
+        raise ToolInputError("Ange kind: skill eller prompt.")
+
+    def submit(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        kind, product_id, name, version = self._resolve_product(token, arguments.get("kind"), arguments.get("id"))
         distribution = arguments.get("consent_distribution", False)
         rights = arguments.get("rights_attested", False)
         if not isinstance(distribution, bool) or not isinstance(rights, bool):
             raise ToolInputError("consent_distribution och rights_attested måste vara true eller false.")
         if distribution and not rights:
             raise ToolInputError("Spridning till AI-tjänster kräver att användaren intygar att innehållet är användarens eget (rights_attested).")
-        confirm_text = sk.confirm_text_submit(skill.get("name"), int(skill.get("version") or 1), distribution)
+        confirm_text = sk.confirm_text_submit(name, version, distribution, kind)
+        public_id = sk.skill_id(arguments.get("id")) if kind == "skill" and not str(arguments.get("id", "")).startswith(sk.SKILL_PREFIX) else arguments.get("id")
         if arguments.get("confirmed") is not True:
-            pending = [row for row in self._library.list_my_skill_submissions(access_token=token, skill_id=str(skill["id"])) if row.get("state") == "review"]
+            pending = [row for row in self._library.list_my_submissions(access_token=token, kind=kind, product_id=product_id) if row.get("state") == "review"]
             result: dict[str, object] = {
-                "status": "preview", "id": sid, "version": skill.get("version"), "confirm_text": confirm_text,
+                "status": "preview", "kind": kind, "id": public_id, "version": version, "confirm_text": confirm_text,
                 "message": "Inget är skickat. Visa confirm_text och skicka med confirmed: true och nytt request_id efter ett ja.",
             }
             if pending:
                 result["note"] = "Ett tidigare inskick väntar redan på granskning. Dra tillbaka det först om den här versionen ska granskas i stället."
             return result
-        sent = self._library.submit_my_skill(
-            access_token=token, skill_id=str(skill["id"]), consent_distribution=distribution,
+        sent = self._library.submit_to_promptbanken(
+            access_token=token, kind=kind, product_id=product_id, consent_distribution=distribution,
             rights_attested=rights, request_id=_request_id(arguments),
         )
         submission_id = str(sent.get("id"))
-        rows = self._library.list_my_skill_submissions(access_token=token, skill_id=str(skill["id"]))
+        rows = self._library.list_my_submissions(access_token=token, kind=kind, product_id=product_id)
         if not any(str(row.get("submission_id")) == submission_id for row in rows):
             raise ToolInputError("Inskicket gick inte att bekräfta. Säg inte till användaren att det är skickat.")
+        version_text = f", version {version}" if version else ""
         return {
-            "status": "submitted", "verified": True, "id": sid, "submission_id": submission_id,
-            "version": sent.get("version"), "revision": sent.get("revision"),
-            "saved_text": f"Skickat till granskning: ”{skill.get('name')}”, version {sent.get('version')}. "
-            f"Gransknings-id: {submission_id}. Din skill förblir privat och kan fortsätta ändras.",
+            "status": "submitted", "verified": True, "kind": kind, "id": public_id, "submission_id": submission_id,
+            "version": version, "revision": sent.get("revision"),
+            "saved_text": f"Skickat till granskning: ”{name}”{version_text}. Gransknings-id: {submission_id}. "
+            "Originalet förblir privat och kan fortsätta ändras.",
         }
 
-    def skill_submissions(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
-        skill_uuid = None
+    def submission_status(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        kind = arguments.get("kind")
+        product_id = None
         if arguments.get("id") is not None:
-            skill_uuid = str(self._require_skill(token, arguments.get("id"), include_files=False)["id"])
-        rows = self._library.list_my_skill_submissions(access_token=token, skill_id=skill_uuid)
-        items = [
-            {
+            kind, product_id, _name, _version = self._resolve_product(token, kind or ("skill" if str(arguments.get("id")).startswith(sk.SKILL_PREFIX) else "prompt"), arguments.get("id"))
+        elif kind is not None and kind not in {"skill", "prompt"}:
+            raise ToolInputError("kind måste vara skill eller prompt.")
+        rows = self._library.list_my_submissions(access_token=token, kind=kind, product_id=product_id)
+        items = []
+        for row in rows:
+            row_kind = row.get("kind")
+            catalog_id = None
+            if row.get("catalog_slug"):
+                catalog_id = (sk.CATALOG_PREFIX if row_kind == "skill" else "") + str(row["catalog_slug"])
+            items.append({
                 "submission_id": str(row.get("submission_id")),
-                "skill": sk.skill_id(row.get("slug")),
+                "kind": row_kind,
                 "name": row.get("name"),
                 "version": row.get("version"),
                 "revision": row.get("revision"),
                 "status": sk.submission_status_label(row),
                 "state": row.get("state"),
                 "feedback": row.get("review_note"),
-                "catalog_id": sk.CATALOG_PREFIX + str(row["catalog_slug"]) if row.get("catalog_slug") else None,
+                "catalog_id": catalog_id,
                 "submitted_at": row.get("created_at"),
-            }
-            for row in rows
-        ]
+            })
         return {"items": items} if items else {"items": [], "message": "Inga inskick ännu."}
 
-    def withdraw_submission(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+    def withdraw(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
         submission_id = arguments.get("submission_id")
         if not isinstance(submission_id, str) or not _is_uuid(submission_id):
-            raise ToolInputError("Ange submission_id från get_my_skill_submissions.")
-        row = next((r for r in self._library.list_my_skill_submissions(access_token=token) if str(r.get("submission_id")) == submission_id), None)
+            raise ToolInputError("Ange submission_id från get_submission_status.")
+        row = next((r for r in self._library.list_my_submissions(access_token=token) if str(r.get("submission_id")) == submission_id), None)
         if row is None:
             raise NotFound()
         if row.get("state") != "review":
             raise ToolInputError("Bara inskick som väntar på granskning kan dras tillbaka.")
-        confirm_text = f"Jag drar tillbaka inskicket av ”{row.get('name')}”, version {row.get('version')}. Vill du det?"
+        confirm_text = f"Jag drar tillbaka inskicket av ”{row.get('name')}”. Vill du det?"
         if arguments.get("confirmed") is not True:
             return {"status": "preview", "submission_id": submission_id, "confirm_text": confirm_text}
-        self._library.withdraw_my_skill_submission(access_token=token, submission_id=submission_id, request_id=_request_id(arguments))
+        self._library.withdraw_my_submission(access_token=token, submission_id=submission_id, request_id=_request_id(arguments))
         return {"status": "withdrawn", "verified": True, "submission_id": submission_id, "saved_text": "Inskicket är tillbakadraget."}
+
+    # ------------------------------------------------------------ arbetssätt som skills
+
+    def _save_way_as_skill(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        if arguments.get("delete") is True or arguments.get("convert_to_skill") is True:
+            raise ToolInputError("Ange id för arbetssättet.")
+        fields = sk.way_to_skill(arguments)
+        missing = [key for key in ("name", "purpose", "use_when", "not_when", "instructions") if not arguments.get(key)]
+        if missing:
+            raise ToolInputError("Ett nytt arbetssätt behöver " + ", ".join(missing) + ". not_when beskriver när det inte ska användas.")
+        extends = fields.get("extends")
+        if extends and not self._catalog.has(str(extends)):
+            raise ToolInputError("extends måste vara ett av: " + ", ".join(sorted(self._catalog.ids())) + ".")
+        result = self.create_skill(token, {"skill": fields, "confirmed": arguments.get("confirmed"), "request_id": arguments.get("request_id")})
+        doc = {"name": fields.get("name"), "use_when": fields.get("use_when"), "extends": extends}
+        way_text = self._way_confirm_text(None, doc)
+        if result.get("status") == "preview":
+            result["confirm_text"] = way_text
+        elif result.get("status") == "saved":
+            result["saved_text"] = "Sparat. " + way_text.removesuffix(" Vill du spara det?")
+        return result
+
+    def _update_way_skill(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        if arguments.get("delete") is True:
+            return self.set_skill_active(token, {"id": arguments["id"], "active": False, "confirmed": arguments.get("confirmed"), "request_id": arguments.get("request_id")})
+        changes = sk.way_to_skill(arguments)
+        if "active" in arguments and not changes:
+            return self.set_skill_active(token, {"id": arguments["id"], "active": arguments["active"], "confirmed": arguments.get("confirmed"), "request_id": arguments.get("request_id")})
+        expected = arguments.get("expected_version")
+        if expected is None:
+            expected = int(self._require_skill(token, arguments["id"], include_files=False).get("version") or 0)
+        return self.update_skill(token, {"id": arguments["id"], "changes": changes, "expected_version": expected,
+                                         "note": arguments.get("note"), "confirmed": arguments.get("confirmed"),
+                                         "request_id": arguments.get("request_id")})
+
+    def _convert_way(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        _profile, ways = self._load(token)
+        found = next(((prompt_id, doc) for prompt_id, doc in ways if personal.way_id(doc) == arguments.get("id")), None)
+        if found is None:
+            raise NotFound()
+        prompt_id, doc = found
+        spec = sk.way_to_skill({**doc, **{k: v for k, v in arguments.items() if k in ("not_when",)}})
+        if not spec.get("not_when"):
+            raise ToolInputError("Ange not_when (när arbetssättet inte ska användas) för att göra om det till en skill.")
+        confirm_text = (
+            f"Jag gör om ditt arbetssätt ”{doc.get('name')}” till en skill. Det gamla stängs av men finns kvar. Vill du det?"
+        )
+        if arguments.get("confirmed") is not True:
+            preview = self.create_skill(token, {"skill": spec})
+            if preview.get("status") != "preview":
+                return preview
+            return {**preview, "confirm_text": confirm_text}
+        created = self.create_skill(token, {"skill": spec, "confirmed": True, "request_id": arguments.get("request_id")})
+        if created.get("status") != "saved":
+            return created
+        from uuid import UUID, uuid5
+
+        derived = str(uuid5(UUID(str(arguments["request_id"])), "deactivate-way"))
+        if doc.get("active", True):
+            off = personal.apply_way_changes(doc, {"active": False}, note="Gjordes om till skill", support_ids=set(self._catalog.ids()))
+            self._library.update_my_prompt(access_token=token, prompt_id=prompt_id, title=f"{off['name']} (mitt arbetssätt)"[:200],
+                                           content=personal.render_way(off), summary=str(off["purpose"])[:500],
+                                           category=personal.WAY_CATEGORY, request_id=derived)
+        return {**created, "replaced": arguments.get("id"),
+                "saved_text": f"Klart. ”{doc.get('name')}” är nu en skill. Det gamla arbetssättet är avstängt men finns kvar."}
 
     def published_skills(self, token: str) -> dict[str, object]:
         rows = self._library.list_published_skills(access_token=token)

@@ -9,7 +9,7 @@ from connect_service.app import create_app
 from connect_service.supports import SupportCatalog
 from connect_service.work_layer import NotFound, ToolInputError, WorkLayer
 
-TOKEN = "test-access-token"
+from tests.fakes import TOKEN  # noqa: E402
 NINE = [
     "motessekreteraren",
     "utredaren",
@@ -23,45 +23,7 @@ NINE = [
 ]
 
 
-class MemoryLibrary:
-    """Efterliknar Creator-RPC:erna: privata prompter per användare, idempotens per request_id."""
-
-    def __init__(self) -> None:
-        self.rows: dict[str, dict[str, object]] = {}
-        self.writes: list[str] = []
-        self._seen: dict[str, dict[str, object]] = {}
-
-    def list_connect_documents(self, *, access_token, categories):
-        assert access_token == TOKEN
-        return [dict(row) for row in self.rows.values() if row["category"] in categories and row["status"] != "archived"]
-
-    def create_my_prompt(self, *, access_token, title, content, summary, category, request_id):
-        if request_id in self._seen:
-            return self._seen[request_id]
-        prompt_id = str(uuid.uuid4())
-        self.rows[prompt_id] = {"id": prompt_id, "title": title, "content": content, "summary": summary, "category": category, "status": "draft", "updated_at": f"{len(self.writes):04d}"}
-        self.writes.append("create")
-        self._seen[request_id] = {"id": prompt_id}
-        return self._seen[request_id]
-
-    def update_my_prompt(self, *, access_token, prompt_id, title, content, summary, category, request_id):
-        if request_id in self._seen:
-            return self._seen[request_id]
-        row = self.rows[prompt_id]
-        row.update({"title": title, "content": content, "summary": summary, "category": category, "updated_at": f"{len(self.writes):04d}"})
-        self.writes.append("update")
-        self._seen[request_id] = {"id": prompt_id}
-        return self._seen[request_id]
-
-    def archive_my_prompt(self, *, access_token, prompt_id, request_id):
-        self.rows[prompt_id]["status"] = "archived"
-        self.writes.append("archive")
-        return {"id": prompt_id, "status": "archived"}
-
-    def get_open_item(self, *, access_token, kind, ref):
-        if kind == "package" and ref == "superplanlage":
-            return {"kind": "package", "slug": ref, "steps": [{"position": 1, "title": "Riktning", "prompt_text": "Fas 1"}]}
-        return None
+from tests.fakes import MemoryLibrary  # noqa: E402
 
 
 def rid() -> str:
@@ -210,16 +172,19 @@ SUPPLIER_WAY = {
 
 
 def test_create_way_from_scratch_and_reuse_in_new_conversation(layer, library):
+    # Nya arbetssätt sparas som skills (Creator 2.0).
     preview = layer.save_way(TOKEN, dict(SUPPLIER_WAY))
-    assert preview["status"] == "preview" and preview["id"] == "mitt:leverantorssvar"
-    assert library.writes == []
+    assert preview["status"] == "preview" and preview["id"] == "skill:leverantorssvar"
+    assert preview["confirm_text"].startswith("Nytt arbetssätt: ”Leverantörssvar”.")
+    assert library.writes == [] and library.skill_writes == []
     saved = layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
-    assert saved["status"] == "saved"
+    assert saved["status"] == "saved" and saved["id"] == "skill:leverantorssvar"
 
     fresh = WorkLayer(SupportCatalog(), library)
     context = fresh.context(TOKEN, "u")
-    assert context["my_ways_of_working"][0]["id"] == "mitt:leverantorssvar"
-    support = fresh.support(TOKEN, "mitt:leverantorssvar", None)
+    assert context["my_skills"][0]["id"] == "skill:leverantorssvar"
+    assert context["my_ways_of_working"] == []
+    support = fresh.support(TOKEN, "skill:leverantorssvar", None)
     assert "Skilj alltid krav från önskemål." in support["instructions"]
     assert "Krav och önskemål står under egna rubriker." in support["instructions"]
 
@@ -232,35 +197,45 @@ def test_way_extending_specialist_combines_with_base_and_rules(layer):
             "name": "Mina korta utredningar",
             "purpose": "Korta beslutsunderlag.",
             "use_when": "När jag utreder en fråga och behöver ett kort beslutsunderlag.",
+            "not_when": "Inte för långa utredningar med många källor.",
             "instructions": "Max två sidor. Sammanfattning först.",
             "extends": "utredaren",
             "confirmed": True,
             "request_id": rid(),
         },
     )
-    support = layer.support(TOKEN, "mitt:mina-korta-utredningar", None)
+    support = layer.support(TOKEN, "skill:mina-korta-utredningar", None)
     assert support["base_method"]["id"] == "utredaren"
     assert support["base_method"]["instructions"].startswith("---\nname: utredaren")
     assert "säkerhets- och integritetsregler" in support["how_to_combine"]
     assert support["personal_rules"] == [{"id": "r1", "text": "Rekommendationen först."}]
-    assert layer.support(TOKEN, "utredaren", None)["my_adaptations"][0]["id"] == "mitt:mina-korta-utredningar"
+    assert layer.support(TOKEN, "utredaren", None)["my_adaptations"][0]["id"] == "skill:mina-korta-utredningar"
 
 
 def test_way_rejects_unknown_base_and_missing_fields(layer):
-    with pytest.raises(personal.PersonalError):
+    with pytest.raises(ToolInputError):
         layer.save_way(TOKEN, {**SUPPLIER_WAY, "extends": "okänd"})
-    with pytest.raises(personal.PersonalError):
+    with pytest.raises(ToolInputError):
         layer.save_way(TOKEN, {"name": "Halvfärdig"})
+    with pytest.raises(ToolInputError):
+        layer.save_way(TOKEN, {key: value for key, value in SUPPLIER_WAY.items() if key != "not_when"})
 
 
 def test_duplicate_way_name_is_refused(layer):
+    from connect_service.data import ConnectWriteError
+
     layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
-    with pytest.raises(ToolInputError):
+    with pytest.raises((ToolInputError, ConnectWriteError)):
         layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
 
 
+def legacy_way(layer, fields):
+    """Ett äldre mitt:-arbetssätt, skapat som före Creator 2.0 (bakåtkompatibilitet)."""
+    return layer._save_legacy_way(TOKEN, {**fields, "confirmed": True, "request_id": rid()})
+
+
 def test_deactivate_and_delete_way(layer, library):
-    layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
+    legacy_way(layer, SUPPLIER_WAY)
     layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "active": False, "confirmed": True, "request_id": rid()})
     context = layer.context(TOKEN, "u")
     assert context["my_ways_of_working"] == []
@@ -272,11 +247,34 @@ def test_deactivate_and_delete_way(layer, library):
     assert library.writes[-1] == "archive"
 
 
+def test_new_way_as_skill_can_be_turned_off_and_on(layer, library):
+    layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
+    assert layer.save_way(TOKEN, {"id": "skill:leverantorssvar", "active": False})["status"] == "preview"
+    layer.save_way(TOKEN, {"id": "skill:leverantorssvar", "active": False, "confirmed": True, "request_id": rid()})
+    context = layer.context(TOKEN, "u")
+    assert context["my_skills"] == [] and context["inactive_skills"][0]["id"] == "skill:leverantorssvar"
+    layer.save_way(TOKEN, {"id": "skill:leverantorssvar", "instructions": "Ny instruktion.", "confirmed": True, "request_id": rid()})
+    assert layer.get_skill(TOKEN, {"id": "skill:leverantorssvar"})["version"] == 2
+
+
+def test_legacy_way_can_be_converted_to_skill_without_losing_it(layer, library):
+    legacy_way(layer, SUPPLIER_WAY)
+    preview = layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "convert_to_skill": True})
+    assert preview["status"] == "preview" and "gör om" in preview["confirm_text"]
+    assert library.skill_writes == []
+    done = layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "convert_to_skill": True, "confirmed": True, "request_id": rid()})
+    assert done["id"] == "skill:leverantorssvar" and done["replaced"] == "mitt:leverantorssvar"
+    context = layer.context(TOKEN, "u")
+    assert context["my_ways_of_working"] == []
+    assert context["inactive_ways_of_working"][0]["id"] == "mitt:leverantorssvar"
+    assert context["my_skills"][0]["id"] == "skill:leverantorssvar"
+
+
 # ------------------------------------------------------------ versioner
 
 
 def test_history_and_restore_create_new_version(layer):
-    layer.save_way(TOKEN, {**SUPPLIER_WAY, "confirmed": True, "request_id": rid()})
+    legacy_way(layer, SUPPLIER_WAY)
     layer.save_way(TOKEN, {"id": "mitt:leverantorssvar", "instructions": "Ny instruktion.", "note": "Kortare", "confirmed": True, "request_id": rid()})
     history = layer.history(TOKEN, "mitt:leverantorssvar")["versions"]
     assert [entry["version"] for entry in history] == [2, 1]
