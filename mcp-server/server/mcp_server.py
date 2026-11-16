@@ -24,7 +24,14 @@ from .hosted_guard import HostedMetadataGuard
 from . import catalog as _catalog
 from . import admin_auth
 from . import admin_catalog
-from .usage_events import track_usage_event
+from contextlib import nullcontext
+
+from .usage_events import (
+    ANALYTICS_OPT_OUT_HEADER,
+    analytics_opt_out_requested,
+    suppress_usage_tracking,
+    track_usage_event,
+)
 from .pro_templates import list_pro_templates as _fetch_pro_templates
 from .pro_templates import list_private_prompts as _fetch_private_prompts
 from .pro_templates import list_shared_prompts as _fetch_shared_prompts
@@ -43,6 +50,8 @@ from .vault import activate_package as _vault_activate_package
 from .vault import deactivate_package as _vault_deactivate_package
 from .vault import copy_template as _vault_copy_template
 from .package_recommendations import recommend as _recommend_packages
+from .package_recommendations import role_focus_areas as _role_focus_areas
+from .search_ranking import rank as _rank_templates
 from .risk_checker import RiskChecker
 from .skill_repository import InvalidSkillIdError, SkillRepository
 from .skill_router import SkillRouter
@@ -361,23 +370,35 @@ _TOOLS_WITH_OUTPUT_SCHEMA = frozenset(_PUBLIC_OPEN_TOOL_NAMES)
 
 _CATALOG_AREA_CACHE_TTL_SECONDS = 60
 _catalog_area_cache: dict[tuple[str, ...], tuple[float, dict[str, dict[str, str | None]]]] = {}
+# Byggs i samma varv som områdesindexet: varje mall kan ingå i flera paket,
+# medan områdesindexet bara behåller ett område per mall.
+_catalog_template_packages_cache: dict[tuple[str, ...], dict[str, list[dict[str, Any]]]] = {}
 _static_skill_metadata_cache: dict[str, dict[str, Any]] | None = None
 
 _CATALOG_PROMPT_COUNT_CACHE_TTL_SECONDS = 300
 _catalog_prompt_count_cache: tuple[float, int] | None = None
 
-_CATALOG_AREA_SLUG_CACHE_TTL_SECONDS = 300
-_catalog_area_slug_cache: tuple[float, list[str]] | None = None
+_CATALOG_AUDIENCE_CACHE_TTL_SECONDS = 300
+_catalog_audience_cache: tuple[float, dict[str, str]] | None = None
 
-# Used only when the catalog cannot be reached -- see _open_catalog_areas.
-_FALLBACK_CATALOG_AREAS = (
+_PROMPTBANKEN_OPEN_1_2_2_AREAS = (
+    "anti-slop",
     "arbetsbank",
+    "bemot-argument",
     "beslutsberedning",
     "forandringsledning",
+    "hall-traden",
     "kommunikation",
     "ledarskap",
     "processer",
+    "sag-emot-mig",
+    "skarpare-funktionskrav",
+    "skola-undervisning-larare",
+    "superplanlage",
+    "supportarenden",
+    "vardagspaket",
     "visuellt",
+    "workshop-och-facilitering",
 )
 
 
@@ -404,40 +425,43 @@ def _open_catalog_prompt_count() -> int | None:
     return count
 
 
-def _open_catalog_areas() -> list[str]:
-    """Områdena i den öppna katalogen, som search_templates faktiskt filtrerar
-    på. Cachat 5 min.
+def _catalog_package_audiences() -> dict[str, str]:
+    """Paketens målgrupp ("Vem det är för") per slug, cachat 5 min.
 
-    Områdena är paketens slugs och växer när nya paket publiceras. Den
-    hårdkodade listan i tool-schemat hade sju värden medan katalogen hade
-    sjutton, så tio områden gick inte att filtrera på alls. Faller tillbaka på
-    den kända listan om katalogen inte kan nås -- tools/list får aldrig gå
-    sönder för att katalogen är nere.
+    Rollrekommendationerna läser roller ur målgruppen ovanpå den statiska
+    kartan, så ett paket som publiceras med admin-MCP når rätt yrken utan
+    kodändring. Kan katalogen inte nås gäller bara kartan -- rekommendationer
+    får aldrig gå sönder på detta.
     """
-    global _catalog_area_slug_cache
+    global _catalog_audience_cache
     now = time.monotonic()
-    if _catalog_area_slug_cache and now - _catalog_area_slug_cache[0] < _CATALOG_AREA_SLUG_CACHE_TTL_SECONDS:
-        return _catalog_area_slug_cache[1]
+    if _catalog_audience_cache and now - _catalog_audience_cache[0] < _CATALOG_AUDIENCE_CACHE_TTL_SECONDS:
+        return _catalog_audience_cache[1]
 
     try:
-        areas = sorted(
-            {
-                str(package["slug"])
-                for package in _catalog.list_published_packages()
-                if isinstance(package.get("slug"), str) and package.get("slug")
-            }
-        )
-    except Exception:  # noqa: BLE001 - tools/list får aldrig krascha på detta
-        logger.warning("open_catalog_areas_failed", exc_info=True)
-        if _catalog_area_slug_cache:
-            return _catalog_area_slug_cache[1]
-        return list(_FALLBACK_CATALOG_AREAS)
+        packages = _catalog.list_published_packages()
+    except _catalog.CatalogNotConfigured:
+        return {}
+    except Exception:  # noqa: BLE001 - rekommendationer får aldrig krascha på detta
+        logger.warning("catalog_package_audiences_failed", exc_info=True)
+        return _catalog_audience_cache[1] if _catalog_audience_cache else {}
 
-    if not areas:
-        return list(_FALLBACK_CATALOG_AREAS)
+    audiences = {
+        package["slug"]: str(package["audience_label"])
+        for package in packages
+        if isinstance(package.get("slug"), str) and package.get("audience_label")
+    }
+    _catalog_audience_cache = (now, audiences)
+    return audiences
 
-    _catalog_area_slug_cache = (now, areas)
-    return areas
+
+def _open_catalog_areas() -> list[str]:
+    """Det granskade area-filtret i Promptbanken Open 1.2.2.
+
+    Tool-schemat är ett versionslåst externt kontrakt. Nya publicerade paket
+    får därför inte automatiskt lägga till enumvärden i ``tools/list``.
+    """
+    return list(_PROMPTBANKEN_OPEN_1_2_2_AREAS)
 
 
 def _normalize_context_keys(context_keys: list[str] | None) -> list[str]:
@@ -532,6 +556,7 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
         return cached[1]
 
     index: dict[str, dict[str, str | None]] = {}
+    memberships: dict[str, list[dict[str, Any]]] = {}
     packages = _catalog.list_published_packages(context_keys=list(normalized_contexts))
     for package in packages:
         area = package.get("slug")
@@ -539,6 +564,12 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
             continue
         area_label = package.get("title") or package.get("audience_label") or area
         package_context = package.get("context_key")
+        membership = {
+            "slug": area,
+            "package_type": package.get("package_type"),
+            "title": package.get("title"),
+            "summary": package.get("summary"),
+        }
         for prompt in _catalog.list_published_package_prompts(area, context_keys=list(normalized_contexts)):
             meta = {
                 "area": area,
@@ -547,13 +578,28 @@ def _catalog_area_index(context_keys: list[str] | None = None) -> dict[str, dict
             }
             prompt_id = _catalog_prompt_identifier(prompt)
             prompt_slug = _catalog_prompt_slug(prompt)
-            if prompt_id:
-                index[prompt_id] = meta
-            if prompt_slug:
-                index[prompt_slug] = meta
+            for key in {prompt_id, prompt_slug} - {None}:
+                index[key] = meta
+                memberships.setdefault(key, []).append(membership)
 
     _catalog_area_cache[normalized_contexts] = (now, index)
+    _catalog_template_packages_cache[normalized_contexts] = memberships
     return index
+
+
+def _catalog_template_packages(context_keys: list[str] | None = None) -> dict[str, list[dict[str, Any]]]:
+    """Paketen varje mall ingår i, per mall-id -- för att search_templates ska
+    kunna se när flera träffar är steg i samma workflow. Kan katalogen inte nås
+    rankas sökningen utan paketkontext i stället för att fallera."""
+    normalized_contexts = tuple(_normalize_context_keys(context_keys))
+    try:
+        _catalog_area_index(list(normalized_contexts))
+    except _catalog.CatalogNotConfigured:
+        return {}
+    except Exception:  # noqa: BLE001 - sökningen får aldrig krascha på detta
+        logger.warning("catalog_template_packages_failed", exc_info=True)
+        return {}
+    return _catalog_template_packages_cache.get(normalized_contexts, {})
 
 
 def _catalog_prompt_area_meta(
@@ -681,72 +727,27 @@ def _search_templates_payload(
         return catalog_payload
     templates = catalog_payload["templates"]
 
-    def _search_text(value: Any) -> str:
-        if isinstance(value, list):
-            return " ".join(_search_text(item) for item in value)
-        if value is None:
-            return ""
-        return str(value)
-
-    role_bonus_areas: set[str] = set()
+    role_areas: set[str] = set()
+    recognized = False
     recommendation: dict[str, Any] | None = None
     if role:
-        recommendation = _recommend_packages(role, templates)
-        if recommendation["role_recognized"]:
-            role_bonus_areas = {p["area"] for p in recommendation["packages"]}
+        audiences = _catalog_package_audiences()
+        recommendation = _recommend_packages(role, templates, audiences)
+        recognized, focus_areas = _role_focus_areas(role, templates, audiences)
+        role_areas = set(focus_areas)
 
-    raw_tokens = re.findall(r"\w+", query.lower(), flags=re.UNICODE)
-    # Two characters, not three: "AI", "HR" and "IT" are exactly the terms
-    # people search this catalogue for. The two-letter Swedish function words
-    # are handled by STOPWORDS instead of by a blunt length cut.
-    tokens = [tok for tok in raw_tokens if len(tok) >= 2 and SkillRouter._normalize(tok) not in SkillRouter.STOPWORDS]
-
-    # A query the tokenizer discarded entirely -- a single letter, or nothing
-    # but stopwords -- carries no signal. Report nothing rather than falling
-    # through to "no filter", which used to return the whole catalogue.
-    if raw_tokens and not tokens:
-        return {"total_matches": 0, "returned": 0, "templates": []}
-
-    # Short tokens have to match a whole word. Plain substring matching is
-    # what makes "IT" hit "politik" and "kvalitet"; longer tokens keep it, so
-    # Swedish compounds and inflections ("mall" -> "mallar") still match.
-    matchers = [
-        (re.compile(rf"\b{re.escape(tok)}\b", flags=re.UNICODE).search if len(tok) <= 3 else None, tok)
-        for tok in tokens
-    ]
-
-    def _hits(needle_matcher: Any, tok: str, haystack: str) -> bool:
-        return bool(needle_matcher(haystack)) if needle_matcher else tok in haystack
-
-    scored: list[tuple[int, dict[str, Any]]] = []
-    for t in templates:
-        if area and t.get("area") != area:
-            continue
-        if risk_level and t.get("risk_level") != risk_level:
-            continue
-        if tokens:
-            strong = (_search_text(t.get("title")) + " " + _search_text(t.get("tags"))).lower()
-            weak = " ".join(
-                [
-                    _search_text(t.get("syfte")),
-                    _search_text(t.get("output_format")),
-                    _search_text(t.get("area_label")),
-                    _search_text(t.get("tone_hint")),
-                ]
-            ).lower()
-            score = sum(
-                2 if _hits(matcher, tok, strong) else 1 if _hits(matcher, tok, weak) else 0
-                for matcher, tok in matchers
-            )
-            if score <= 0:
-                continue
-        else:
-            score = 0
-        if t.get("area") in role_bonus_areas:
-            score += 5
-        scored.append((score, t))
-
-    matches = [t for _, t in sorted(scored, key=lambda pair: pair[0], reverse=True)]
+    # Rollen rankar, den filtrerar aldrig -- det är vad 1.2.2-beskrivningen
+    # lovar. En fråga som bara består av funktionsord ger inga träffar hellre
+    # än hela katalogen.
+    matches = _rank_templates(
+        templates,
+        query,
+        area=area,
+        risk_level=risk_level,
+        role_areas=role_areas,
+        role_recognized=recognized,
+        template_packages=_catalog_template_packages(context_keys) if query.strip() else None,
+    )
     clamped_limit = max(1, min(limit, len(templates) or 1))
     limited = matches[:clamped_limit]
 
@@ -1350,7 +1351,7 @@ def _recommend_packages_payload(role: str) -> dict[str, Any]:
     prompts = _catalog.list_published_prompts(context_keys=context_keys)
     area_index = _catalog_area_index(context_keys)
     templates = [_catalog_prompt_to_template_summary(p, area_index=area_index) for p in prompts]
-    return _recommend_packages(role, templates)
+    return _recommend_packages(role, templates, _catalog_package_audiences())
 
 
 def _save_workspace_prompt_payload(
@@ -1826,13 +1827,17 @@ def get_client_routing_instructions() -> dict[str, Any]:
         "klienten fyller i och sammanfogar prompt_text/intro_text, parameter_schema, "
         "default_bindings och binding_overrides själv, lokalt."
     )
+    # Uppgiften routas före rollen. Att börja i recommend_packages(role) så fort
+    # rollen var känd gav rollpaket i stället för researchworkflowet i
+    # routingtestet 2026-09-14, trots att uppgiften var tydlig.
     catalog_client_flow = [
-        "Börja med recommend_packages(role) om användarens roll är känd; annars fråga efter roll eller visa alla paket med list_packages.",
-        "Använd search_templates(query, role, area, risk_level, context_keys) för att hitta relevanta publika mallar utan att hämta allt innehåll.",
-        "Använd area från list_packages eller recommend_packages för områdesfilter, till exempel kommunikation eller beslutsberedning.",
-        "När användaren valt mall: hämta full text med get_template(template_id, context_keys).",
+        "Utgå från uppgiften, inte rollen. Är uppgiften tydlig: sök direkt med search_templates(query) och några allmänna, anonymiserade ord om typen av uppgift. Skicka inte role när uppgiften redan är tydlig -- rollen kan då lyfta fel paket.",
+        "Välj omfång efter uppgiften: en smal, konkret leverans (till exempel skriva om ett mejl) ger en enskild mall; flera relaterade specialistbehov ger en collection; ett sammanhängande arbete i flera steg ger ett workflow; en mycket bred eller oklar större uppgift ger workflowet Superplanläge.",
+        "För flerstegsarbete: hämta list_packages(package_type='workflow') och jämför uppgiften med titel och sammanfattning. Är flera toppträffar från search_templates steg i samma workflow, föreslå hela workflowet i stället för ett enskilt steg. Stegen visas med list_package_prompts(slug), paketets introduktion med get_package(slug).",
+        "Är uppgiften oklar, eller frågar användaren vad som finns för deras roll: använd recommend_packages(role), eller list_packages om rollen är okänd.",
+        "Filtret area i search_templates tar bara de värden schemat listar. Nyare paket nås via query eller list_packages, inte via area.",
+        "När användaren valt mall eller steg: hämta full text med get_template(template_id, context_keys) först när den ska användas.",
         "list_templates är för bläddring och är sidindelad (limit/offset). search_templates är normalvägen in.",
-        "För arbetsflöden: visa paket med list_packages, hämta paketinfo med get_package och stegen med list_package_prompts. Stegen innehåller id och titel -- hämta varje stegs prompttext med get_template(id) när steget ska användas.",
         "Servern levererar bara rådata -- prompt_text/intro_text, parameter_schema, default_bindings och binding_overrides. Klienten gör all ifyllning, tolkning och sammanfogning lokalt; servern renderar aldrig en färdig prompt.",
         "Om klienten behöver användarens faktiska ärendetext ska den infogas lokalt efter riskkontroll. Skicka inte personuppgifter eller sekretess till den öppna MCP-servern.",
         "Valvet-, personliga workspace- och skrivverktyg kräver autentiserad MCP-nyckel och ska inte förväntas i den öppna connectorn.",
@@ -4053,16 +4058,19 @@ async def _mcp_http_response(request: Request, tool_profile: str) -> Response:
         return JSONResponse(_json_rpc_error(None, -32600, "Invalid Request"), status_code=400)
 
     mcp_key = _mcp_key_from_request(request)
-    responses = [
-        response
-        for message in messages
-        if (response := _handle_mcp_message(message, mcp_key, tool_profile)) is not None
-    ]
+    analytics_off = analytics_opt_out_requested(request.headers.get(ANALYTICS_OPT_OUT_HEADER))
+    with suppress_usage_tracking() if analytics_off else nullcontext():
+        responses = [
+            response
+            for message in messages
+            if (response := _handle_mcp_message(message, mcp_key, tool_profile)) is not None
+        ]
     logger.info(
-        "http_request path=%s method=POST status=%s batch=%s",
+        "http_request path=%s method=POST status=%s batch=%s analytics_off=%s",
         path,
         200 if responses else 202,
         is_batch,
+        analytics_off,
     )
     if not responses:
         return Response(status_code=202)

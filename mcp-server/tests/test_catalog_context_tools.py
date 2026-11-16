@@ -347,17 +347,39 @@ class CatalogContextToolsTests(unittest.TestCase):
         self.assertEqual(inflected["total_matches"], 1)
         self.assertEqual(inflected["templates"][0]["id"], "politik")
 
-    def test_area_enum_follows_the_published_catalogue(self) -> None:
-        """The hardcoded enum listed 7 areas while the live catalogue had 17,
-        so ten areas could not be filtered on at all."""
-        packages = [{"slug": "anti-slop"}, {"slug": "kommunikation"}, {"slug": "hall-traden"}]
-        with patch("server.mcp_server._catalog.list_published_packages", return_value=packages):
-            server_mcp._catalog_area_slug_cache = None
+    def test_area_enum_stays_frozen_for_promptbanken_open_1_2_2(self) -> None:
+        """Publishing a package must not silently change the reviewed tool schema."""
+        packages = [{"slug": "anti-slop"}, {"slug": "hr"}]
+        with patch(
+            "server.mcp_server._catalog.list_published_packages",
+            return_value=packages,
+        ) as list_published_packages:
             definitions = {tool["name"]: tool for tool in _tool_definitions_for_profile("public")}
-            server_mcp._catalog_area_slug_cache = None
+        list_published_packages.assert_not_called()
 
         area_enum = definitions["search_templates"]["inputSchema"]["properties"]["area"]["enum"]
-        self.assertEqual(area_enum, ["anti-slop", "hall-traden", "kommunikation"])
+        self.assertEqual(
+            area_enum,
+            [
+                "anti-slop",
+                "arbetsbank",
+                "bemot-argument",
+                "beslutsberedning",
+                "forandringsledning",
+                "hall-traden",
+                "kommunikation",
+                "ledarskap",
+                "processer",
+                "sag-emot-mig",
+                "skarpare-funktionskrav",
+                "skola-undervisning-larare",
+                "superplanlage",
+                "supportarenden",
+                "vardagspaket",
+                "visuellt",
+                "workshop-och-facilitering",
+            ],
+        )
 
     def test_list_templates_pages_instead_of_returning_everything(self) -> None:
         """Browsing returned all 102 templates in one call. It is paginated

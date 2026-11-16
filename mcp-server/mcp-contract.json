@@ -3,6 +3,7 @@
   "baseUrl": "https://mcp.promptbanken.se",
   "toolGroups": {
     "public": {
+      "definitionSnapshot": "contracts/promptbanken-open-1.2.2.tools.json",
       "tools": [
         "health_check",
         "get_client_routing_instructions",

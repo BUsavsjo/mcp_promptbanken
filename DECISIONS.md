@@ -36,6 +36,115 @@ inloggade användare sedan skrivverktyg, och efter beta kontrolleras Pro per
 skrivverktyg. Full design finns i
 `docs/superpowers/specs/2026-09-05-connect-creator-library-design.md`.
 
+## 2026-09-15 - Sökranking: fyllnadsord, ordkantsmatchning, evidensbaserade synonymer
+
+### Beslut
+`server/search_ranking.py` utökad med tre punktinsatser, alla begränsade till
+rankingen -- inget i det publicerade `search_templates`-kontraktet ändrat:
+- `_SEARCH_STOPWORDS` fick sju ord till (`behöver`, `faktiskt`, `inför`,
+  `ligga`, `mycket`, `först`, `ny`) som visade sig få en hög IDF-vikt av en
+  slump (sällsynta i katalogens löptext utan att vara domänspecifika).
+- `_matcher()` kräver nu en ordkant i minst ena änden för ord längre än tre
+  tecken, inte fri substräng -- stoppar mitt-i-ord-kollisioner ("fått" i
+  "sammanfattning") men behåller sammansättningsträffar ("karta" i
+  "processkarta").
+- En ny `_SYNONYMS`-tabell (7 rader) bygger broar mellan vardagsord och
+  taggar som redan finns i katalogen (t.ex. `statistik -> data`,
+  `bakom -> orsak`), viktad som en stamträff -- kan aldrig slå en riktig
+  ordträff. Ingen ny mallvokabulär uppfanns, bara befintliga taggar nådda via
+  ett annat ord.
+- Oavgjort-brytare: lika poäng avgörs nu av kortast titel/taggfält (mest
+  koncentrerad träff), inte listordning.
+
+### Varför
+Ett nytt användartest 2026-09-15 gav fem konkreta problemfall (se README för
+testrapportens exakta frågor). Nedbrytning term för term mot
+`tests/fixtures/open_catalog_2026-09-14.json` visade att felen inte var ett
+kataloginnehållsproblem -- rätt mallar fanns nästan alltid, poängen bara nådde
+fel mallar. Ett fall (test 5, prioritering) kontrollerades explicit mot
+kataloggap-hypotesen innan någon ändring gjordes; `Prioriteringsstöd` fanns
+redan och behövde bara nå fram.
+
+### Kvarstår
+Ett testfall ("Från styrning till vardag" för en ny rutin) förbättrades men
+nådde inte topp 1-2 -- se TODO.md. Löses inte av fler stoppord/synonymer utan
+kräver riktig böjningshantering (lemmatisering).
+
+## 2026-09-14 - Uppgiften routas före rollen, och roller kan sättas som innehåll
+
+### Beslut
+Routingen utgår från användarens uppgift. Rollen används när uppgiften är
+oklar eller användaren utforskar ("vad finns för min roll?"), och annars bara
+som sekundär rankingsignal. `get_client_routing_instructions` säger nu det,
+och att workflows hittas som hela paket via
+`list_packages(package_type='workflow')` och `list_package_prompts`.
+
+Banken är bred för yrkespersoner. Workflowen mappas därför till många yrken,
+och vokabulären utökas med bland annat projektledare, systemförvaltare,
+produktägare och entreprenör. Ovanpå den statiska kartan läses roller ur
+paketets målgrupp (`audience_label`, "Vem det är för" på webben), som sätts
+med admin-MCP. Nya paket och nya yrken når då rätt person utan kodändring.
+Målgruppen lägger bara till roller; universella paket förblir universella.
+
+### Varför
+Routingtestet 2026-09-14 visade att `recommend_packages(role="samordnare")`
+aldrig hittade researchworkflowet, och att fyra publicerade workflows saknades
+i rollkartan och inte kunde rekommenderas alls. Bootstrapen sa "börja med
+recommend_packages(role) om rollen är känd", vilket styrde klienten fel även
+när uppgiften var tydlig.
+
+Målgruppen valdes framför paketets `tags`, eftersom taggarna visas som länkar
+på de publika paketsidorna och tekniska rolltaggar skulle synas för besökare.
+`audience_label` är redan en läsbar målgruppstext och kräver ingen migration.
+
+### Sökrankingen
+`search_templates` rankar på uppgiften: sällsynta ord väger tyngst, å/ä/ö
+vikas, långa ord matchar sin stam och paketens titel/sammanfattning räknas
+svagt. Ett workflow lyfts som helhet när flera av dess steg dominerar
+träffarna, men bara om inget annat paket väger mer — en specialistcollection
+som bär svaret behåller ledningen. Rollen är en faktor, inte ett tillägg, så
+den bryter jämna lägen men kör aldrig om en tydlig textträff.
+
+Rankingen ligger i en egen modul (`server/search_ranking.py`) för att kunna
+testas mot en katalogfixture utan servern. Ett fall som saknar gemensamma ord
+med rätt workflow löses med innehåll via admin-MCP, inte med bredare matchning.
+
+### Release-gate
+OpenAI tillåter buggfixar utan ny version om verktygen matchar sina
+publicerade definitioner och sitt beteende. Inget av detta ändrar
+tool-definitionerna; `test_open_1_2_2_contract_snapshot.py` jämför dem fält
+för fält mot 1.2.2-snapshoten. Ordningen för `chef` hålls så att
+submissionens testfall 1 (förändringsledning, beslutsberedning, ledarskap)
+fortfarande leder.
+
+## 2026-09-08 - Promptbanken Open 1.2.2 låser hela tool-definitionen
+
+### Beslut
+De nio publika verktygens godkända 1.2.2-definitioner är ett versionslåst
+kontrakt. `mcp-contract.json` pekar därför på en lokal snapshot som jämför
+exakt `description`, `inputSchema`, `outputSchema`, `annotations` och `_meta`
+mot `tools/list`.
+
+`search_templates.area` behåller de 17 enumvärden som ingick i OpenAI-
+granskningen av 1.2.2. Publicering av nya katalogpaket får inte längre ändra
+tool-schemat automatiskt. Nya områden är fortfarande sökbara som innehåll, men
+läggs inte till i area-enumen förrän en medveten ny appversion granskas.
+
+En liveavvikelse ska rättas i servern eller hanteras som en ny gransknings-
+version. Den godkända snapshoten får aldrig skrivas om från live-serverns svar
+bara för att göra testet grönt.
+
+### Varför
+Det tidigare kontraktstestet rapporterade 53/53 grönt trots att produktionens
+`search_templates.area.enum` hade vuxit från 17 till 20 värden när `hr`,
+`behov-till-effekt` och `fran-ide-till-artikel` publicerades. Testet låste bara
+verktygsnamn, titlar och några metadatafält. Det nya testet fångar samma drift
+som `search_templates.inputSchema.properties.area.enum`.
+
+Beslutet 2026-08-30 att katalogens `area` härleds från paketets slug gäller
+fortsatt svarsdata och intern routing, men inte vilka värden den frysta
+1.2.2-definitionen annonserar i `tools/list`.
+
 ## 2026-08-30 - `area` är paketets slug, inte en egen kategori — och workflow slutar vid effektuppföljning
 
 ### Beslut 1: ingen separat områdestaxonomi
