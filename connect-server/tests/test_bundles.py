@@ -9,8 +9,8 @@ from connect_service.work_layer import NotFound, ToolInputError, WorkLayer
 from tests.fakes import TOKEN, MemoryLibrary
 from tests.test_skills import OFFERT, OTHER, create, rid
 
-SKILL_CAT = str(uuid.uuid4())
-PROMPT_CAT = str(uuid.uuid4())
+SKILL_ID = str(uuid.uuid4())
+PROMPT_ID = str(uuid.uuid4())
 
 
 class BundleLibrary(MemoryLibrary):
@@ -19,8 +19,8 @@ class BundleLibrary(MemoryLibrary):
         self.bundles: dict[str, dict] = {}
         self.products = {
             TOKEN: [
-                {"product_kind": "skill", "catalog_id": SKILL_CAT, "slug": "offertgranskaren", "name": "Offertgranskaren", "latest_version": 2},
-                {"product_kind": "prompt", "catalog_id": PROMPT_CAT, "slug": "sammanfatta", "name": "Sammanfatta", "latest_version": 1},
+                {"product_kind": "skill", "id": SKILL_ID, "slug": "offertgranskaren", "name": "Offertgranskaren", "latest_version": 2, "published": True},
+                {"product_kind": "prompt", "id": PROMPT_ID, "slug": None, "name": "Sammanfatta", "latest_version": None, "published": False},
             ]
         }
         self.bundle_writes: list[str] = []
@@ -35,9 +35,12 @@ class BundleLibrary(MemoryLibrary):
         b = self.bundles.get(bundle_id)
         if b is None or b["owner"] != access_token:
             return None
-        latest = {p["catalog_id"]: p for p in self.products.get(access_token, [])}
+        products = {p["id"]: p for p in self.products.get(access_token, [])}
         return {"id": b["id"], "title": b["title"], "summary": b["summary"], "items": [
-            {**i, "name": latest[i["catalog_id"]]["name"], "latest_version": latest[i["catalog_id"]]["latest_version"]} for i in b["items"]]}
+            {"kind": i["kind"], "id": i["id"], "version": i.get("version"), "name": products[i["id"]]["name"],
+             "latest_version": products[i["id"]]["latest_version"],
+             "published": products[i["id"]]["published"] and i.get("version") in (None, products[i["id"]]["latest_version"])}
+            for i in b["items"]]}
 
     def create_my_bundle(self, *, access_token, title, summary, request_id):
         bid = str(uuid.uuid4())
@@ -51,11 +54,11 @@ class BundleLibrary(MemoryLibrary):
         return {"id": bundle_id}
 
     def set_my_bundle_items(self, *, access_token, bundle_id, items, request_id):
-        own = {p["catalog_id"] for p in self.products.get(access_token, [])}
-        if any(i["catalog_id"] not in own for i in items):
+        own = {p["id"] for p in self.products.get(access_token, [])}
+        if any(i["id"] not in own for i in items):
             from connect_service.data import ConnectWriteError
 
-            raise ConnectWriteError("Post 1: produkten finns inte som din egen publicerade produkt i den versionen.", kind="validation")
+            raise ConnectWriteError("Post 1: produkten finns inte bland dina egna prompter och arbetssätt.", kind="validation")
         self.bundles[bundle_id]["items"] = [dict(i) for i in items]
         self.bundle_writes.append("items")
         return {"id": bundle_id, "item_count": len(items)}
@@ -64,8 +67,8 @@ class BundleLibrary(MemoryLibrary):
         if slug != "upphandling":
             return None
         return {"slug": slug, "version": 1, "name": "Upphandling", "items": [
-            {"kind": "skill", "catalog_id": SKILL_CAT, "version": 1, "slug": "offertgranskaren", "name": "Offertgranskaren"},
-            {"kind": "prompt", "catalog_id": PROMPT_CAT, "version": 1, "slug": "sammanfatta", "name": "Sammanfatta"}]}
+            {"kind": "skill", "catalog_id": str(uuid.uuid4()), "version": 1, "slug": "offertgranskaren", "name": "Offertgranskaren"},
+            {"kind": "prompt", "catalog_id": str(uuid.uuid4()), "version": 1, "slug": "sammanfatta", "name": "Sammanfatta"}]}
 
 
 @pytest.fixture()
@@ -78,15 +81,17 @@ def layer(library):
     return WorkLayer(SupportCatalog(), library)
 
 
-def test_bundle_listing_shows_addable_own_published_products(layer):
+def test_bundle_listing_shows_own_products_published_or_not(layer):
     result = layer.list_bundles(TOKEN)
     assert result["items"] == []
-    assert {p["catalog_id"] for p in result["addable_products"]} == {SKILL_CAT, PROMPT_CAT}
+    products = {p["id"]: p for p in result["addable_products"]}
+    assert products["skill:offertgranskaren"]["published"] is True
+    assert products[PROMPT_ID]["published"] is False
     assert "note" in layer.list_bundles(OTHER)
 
 
 def test_save_bundle_previews_then_saves_with_pinned_latest_versions(layer, library):
-    args = {"title": "Upphandling", "items": [{"kind": "skill", "catalog_id": SKILL_CAT}, {"kind": "prompt", "catalog_id": PROMPT_CAT}]}
+    args = {"title": "Upphandling", "items": [{"kind": "skill", "id": "skill:offertgranskaren"}, {"kind": "prompt", "id": PROMPT_ID}]}
     preview = layer.save_bundle(TOKEN, args)
     assert preview["status"] == "preview" and "Offertgranskaren (version 2)" in preview["confirm_text"]
     assert "Inget innehåll kopieras" in preview["confirm_text"]
@@ -94,18 +99,19 @@ def test_save_bundle_previews_then_saves_with_pinned_latest_versions(layer, libr
     saved = layer.save_bundle(TOKEN, {**args, "confirmed": True, "request_id": rid()})
     assert saved["status"] == "saved" and saved["items"] == 2
     bundle = layer.get_bundle(TOKEN, {"id": saved["id"]})
-    assert [i["version"] for i in bundle["items"]] == [2, 1]
+    assert [i["version"] for i in bundle["items"]] == [2, None]
+    assert "Inte publicerade än: Sammanfatta" in bundle["note"]
 
 
 def test_bundle_notes_newer_versions_without_changing(layer, library):
-    saved = layer.save_bundle(TOKEN, {"title": "B", "items": [{"kind": "skill", "catalog_id": SKILL_CAT, "version": 1}], "confirmed": True, "request_id": rid()})
+    saved = layer.save_bundle(TOKEN, {"title": "B", "items": [{"kind": "skill", "id": SKILL_ID, "version": 1}], "confirmed": True, "request_id": rid()})
     bundle = layer.get_bundle(TOKEN, {"id": saved["id"]})
     assert bundle["items"][0]["version"] == 1 and "Nyare version finns för: Offertgranskaren" in bundle["note"]
 
 
 def test_bundle_rejects_foreign_products_and_other_users(layer):
     with pytest.raises(ToolInputError):
-        layer.save_bundle(TOKEN, {"title": "X", "items": [{"kind": "skill", "catalog_id": str(uuid.uuid4())}]})
+        layer.save_bundle(TOKEN, {"title": "X", "items": [{"kind": "skill", "id": str(uuid.uuid4())}]})
     saved = layer.save_bundle(TOKEN, {"title": "Min", "confirmed": True, "request_id": rid()})
     with pytest.raises(NotFound):
         layer.get_bundle(OTHER, {"id": saved["id"]})

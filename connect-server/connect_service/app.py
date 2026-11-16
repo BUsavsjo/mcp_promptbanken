@@ -142,12 +142,18 @@ def _limit(arguments: Mapping[str, object]) -> int | None:
 TOOL_PROFILES = ("core", "full")
 
 
+# Egna prompter ingår i standardprofilen: Creator säger att prompter kan skapas
+# direkt från AI:n via Connect.
+CORE_LIBRARY_TOOLS = ("list_my_library", "get_my_library_prompt", "create_my_prompt", "update_my_prompt")
+
+
 def _tool_definitions(profile: str = "full") -> list[dict[str, object]]:
-    """core = de sju verktygen för specialister och personliga arbetssätt.
-    full = även Creator-biblioteket (prompter, paket, delningar)."""
+    """core = specialister, arbetssätt, publicering, bundles och egna prompter.
+    full = även resten av Creator-biblioteket (paket, delningar, Open-referenser)."""
+    library = _library_tool_definitions()
     if profile == "core":
-        return wl.tool_definitions()
-    return [*wl.tool_definitions(), *_library_tool_definitions()]
+        return [*wl.tool_definitions(), *[tool for tool in library if tool["name"] in CORE_LIBRARY_TOOLS]]
+    return [*wl.tool_definitions(), *library]
 
 
 def _library_tool_definitions() -> list[dict[str, object]]:
@@ -204,7 +210,11 @@ def _library_tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "create_my_prompt",
-            "description": "Skapar ett nytt privat promptutkast i ditt Creator-bibliotek efter uttrycklig bekräftelse.",
+            "description": (
+                "Sparar en ny privat prompt i användarens Promptbanken-bibliotek ('spara en prompt som …'). Visa först "
+                "titel och prompttext för användaren och spara bara efter ett uttryckligt ja (confirmed: true och nytt "
+                "request_id). Prompten kan sedan användas, läggas i en bundle eller skickas till Promptbanken."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {

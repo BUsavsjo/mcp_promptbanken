@@ -230,3 +230,9 @@ def catalog_entry(row: Mapping[str, object]) -> dict[str, object]:
         "creator": row.get("creator_display_name"),
         "source": "promptbanken_catalog",
     }
+
+
+def skill_id_for(row: Mapping[str, object]) -> str:
+    """skill:-id för en bundlebar produkt. Saknas slug används uuid."""
+    slug = row.get("slug")
+    return skill_id(slug) if slug else str(row.get("id"))

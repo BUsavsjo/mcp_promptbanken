@@ -247,6 +247,10 @@ CORE = {
     "get_my_bundle",
     "save_my_bundle",
     "list_published_skills",
+    "list_my_library",
+    "get_my_library_prompt",
+    "create_my_prompt",
+    "update_my_prompt",
 }
 
 
@@ -281,7 +285,7 @@ def test_core_profile_lists_exactly_the_core_tools(library):
 
 
 def test_core_profile_refuses_library_tools(library):
-    response = _rpc(_core_client(library), "tools/call", {"name": "list_my_library", "arguments": {}})
+    response = _rpc(_core_client(library), "tools/call", {"name": "list_my_packages", "arguments": {}})
     assert response["error"]["code"] == -32601
     assert "finns inte" in response["error"]["message"]
 

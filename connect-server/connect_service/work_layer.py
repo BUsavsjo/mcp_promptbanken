@@ -452,8 +452,8 @@ def skill_tool_definitions() -> list[dict[str, object]]:
         {
             "name": "list_my_bundles",
             "description": (
-                "Listar användarens bundles (samlingar av egna publicerade prompter och arbetssätt) och vilka egna "
-                "publicerade produkter som kan läggas i en bundle."
+                "Listar användarens bundles (samlingar av egna prompter och arbetssätt) och vilka egna produkter som kan "
+                "läggas i en bundle, med uppgift om de är publicerade."
             ),
             "inputSchema": {"type": "object", "properties": {}},
         },
@@ -466,9 +466,11 @@ def skill_tool_definitions() -> list[dict[str, object]]:
             "name": "save_my_bundle",
             "description": (
                 "Skapar eller ändrar en egen bundle. En bundle innehåller egna publicerade prompter och arbetssätt med låst "
-                "version och kopierar inget innehåll. items ersätter hela innehållet i angiven ordning: {kind, catalog_id, "
-                "version} (version utelämnad = senaste publicerade). Utan confirmed: förhandsvisning. Med confirmed: true "
-                "efter ett uttryckligt ja och nytt request_id: sparar och verifierar."
+                "version och kopierar inget innehåll. items ersätter hela innehållet i angiven ordning: {kind, id, version} "
+                "där id är ett egen prompts id eller ett arbetssätts skill:-id (version gäller arbetssätt, utelämnad = "
+                "senaste). Produkterna behöver inte vara publicerade för att ingå; för att skicka in bundlen måste de vara "
+                "det. Utan confirmed: förhandsvisning. Med confirmed: true efter ett uttryckligt ja och nytt request_id: "
+                "sparar och verifierar."
             ),
             "inputSchema": {
                 "type": "object",
@@ -483,10 +485,10 @@ def skill_tool_definitions() -> list[dict[str, object]]:
                             "type": "object",
                             "properties": {
                                 "kind": {"type": "string", "enum": ["prompt", "skill"]},
-                                "catalog_id": {"type": "string", "format": "uuid"},
+                                "id": {"type": "string", "description": "Promptens id eller arbetssättets skill:-id."},
                                 "version": {"type": "integer"},
                             },
-                            "required": ["kind", "catalog_id"],
+                            "required": ["kind", "id"],
                         },
                     },
                     "confirmed": _CONFIRMED,
@@ -1258,16 +1260,25 @@ class WorkLayer:
 
     # ------------------------------------------------------------ bundles
 
-    def list_bundles(self, token: str) -> dict[str, object]:
-        bundles = [dict(row) for row in self._library.list_my_bundles(access_token=token)]
-        products = [
-            {"kind": row.get("product_kind"), "catalog_id": str(row.get("catalog_id")), "name": row.get("name"),
-             "latest_version": row.get("latest_version")}
+    def _bundleable(self, token: str) -> list[dict[str, object]]:
+        return [
+            {
+                "kind": row.get("product_kind"),
+                "id": (sk.skill_id_for(row) if row.get("product_kind") == "skill" else str(row.get("id"))),
+                "uuid": str(row.get("id")),
+                "name": row.get("name"),
+                "latest_version": row.get("latest_version"),
+                "published": bool(row.get("published")),
+            }
             for row in self._library.list_my_bundleable_products(access_token=token)
         ]
+
+    def list_bundles(self, token: str) -> dict[str, object]:
+        bundles = [dict(row) for row in self._library.list_my_bundles(access_token=token)]
+        products = [{k: v for k, v in p.items() if k != "uuid"} for p in self._bundleable(token)]
         result: dict[str, object] = {"items": bundles, "addable_products": products}
         if not products:
-            result["note"] = "Bara egna publicerade prompter och arbetssätt kan ingå i en bundle. Skicka in och få något publicerat först."
+            result["note"] = "Skapa en prompt eller ett arbetssätt först; sedan kan de samlas i en bundle."
         return result
 
     def get_bundle(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
@@ -1278,10 +1289,17 @@ class WorkLayer:
         if bundle is None:
             raise NotFound()
         result = dict(bundle)
-        outdated = [item.get("name") for item in bundle.get("items", []) or []
-                    if item.get("latest_version") and item.get("version") != item.get("latest_version")]
+        items = bundle.get("items", []) or []
+        outdated = [item.get("name") for item in items
+                    if item.get("kind") == "skill" and item.get("latest_version") and item.get("version") != item.get("latest_version")]
+        unpublished = [item.get("name") for item in items if not item.get("published")]
+        notes = []
         if outdated:
-            result["note"] = "Nyare version finns för: " + ", ".join(str(name) for name in outdated) + ". Bundlen ändras inte förrän du uppdaterar den."
+            notes.append("Nyare version finns för: " + ", ".join(str(n) for n in outdated) + ". Bundlen ändras inte förrän du uppdaterar den.")
+        if unpublished:
+            notes.append("Inte publicerade än: " + ", ".join(str(n) for n in unpublished) + ". De måste publiceras innan bundlen kan skickas in.")
+        if notes:
+            result["note"] = " ".join(notes)
         return result
 
     def save_bundle(self, token: str, arguments: Mapping[str, object]) -> dict[str, object]:
@@ -1304,31 +1322,31 @@ class WorkLayer:
         if items is not None:
             if not isinstance(items, list) or len(items) > 30:
                 raise ToolInputError("items måste vara en lista med högst 30 produkter.")
-            available = {
-                (row.get("product_kind"), str(row.get("catalog_id"))): row
-                for row in self._library.list_my_bundleable_products(access_token=token)
-            }
+            available = {}
+            for product in self._bundleable(token):
+                available[(product["kind"], product["id"])] = product
+                available[(product["kind"], product["uuid"])] = product
             resolved = []
             for item in items:
                 if not isinstance(item, Mapping):
-                    raise ToolInputError("Varje produkt anges som {kind, catalog_id, version}.")
-                key = (item.get("kind"), str(item.get("catalog_id")))
-                product = available.get(key)
+                    raise ToolInputError("Varje produkt anges som {kind, id, version}.")
+                product = available.get((item.get("kind"), str(item.get("id"))))
+                if product is None:
+                    raise ToolInputError(f"{item.get('id')} är inte en av dina egna {'arbetssätt' if item.get('kind') == 'skill' else 'prompter'}.")
                 version = item.get("version")
-                if product is None and version is None:
-                    raise ToolInputError(f"Produkten {item.get('catalog_id')} är inte din egen publicerade {item.get('kind')}.")
-                resolved.append({
-                    "kind": item.get("kind"), "catalog_id": str(item.get("catalog_id")),
-                    "version": version if isinstance(version, int) and not isinstance(version, bool) else product.get("latest_version"),
-                    "name": product.get("name") if product else None,
-                })
+                if product["kind"] == "skill":
+                    version = version if isinstance(version, int) and not isinstance(version, bool) else product.get("latest_version")
+                else:
+                    version = None
+                resolved.append({"kind": product["kind"], "id": product["uuid"], "version": version, "name": product["name"]})
         if current is None and resolved is None:
             resolved = []
         name = (title or (current or {}).get("title"))
         parts = [f"{'Ny bundle' if current is None else 'Ändrar bundlen'}: ”{name}”."]
         if resolved is not None:
-            parts.append("Innehåll: " + (", ".join(f"{r['name'] or r['catalog_id']} (version {r['version']})" for r in resolved) or "inga produkter än") + ".")
-        confirm_text = " ".join(parts) + " Inget innehåll kopieras; produkterna låses i angiven version. Vill du spara det?"
+            parts.append("Innehåll: " + (", ".join(
+                f"{r['name']}" + (f" (version {r['version']})" if r["version"] else "") for r in resolved) or "inga produkter än") + ".")
+        confirm_text = " ".join(parts) + " Inget innehåll kopieras. Vill du spara det?"
         if arguments.get("confirmed") is not True:
             return {"status": "preview", "id": bundle_id, "confirm_text": confirm_text,
                     "message": "Inget är sparat. Visa confirm_text och spara med confirmed: true och nytt request_id efter ett ja."}
@@ -1345,7 +1363,7 @@ class WorkLayer:
         if resolved is not None:
             self._library.set_my_bundle_items(
                 access_token=token, bundle_id=str(bundle_id),
-                items=[{"kind": r["kind"], "catalog_id": r["catalog_id"], "version": r["version"]} for r in resolved],
+                items=[{"kind": r["kind"], "id": r["id"], **({"version": r["version"]} if r["version"] else {})} for r in resolved],
                 request_id=str(uuid5(UUID(request_id), "bundle-items")),
             )
         check = self._library.get_my_bundle(access_token=token, bundle_id=str(bundle_id))
