@@ -103,6 +103,23 @@ def test_save_bundle_previews_then_saves_with_pinned_latest_versions(layer, libr
     assert "Inte publicerade än: Sammanfatta" in bundle["note"]
 
 
+def test_bundle_tool_descriptions_allow_own_private_products():
+    from connect_service import work_layer as wl
+
+    tools = {t["name"]: t["description"] for t in wl.tool_definitions()}
+    save = tools["save_my_bundle"]
+    assert "egna publicerade prompter" not in save  # den gamla, motsägelsefulla formuleringen
+    assert "både privata och publicerade" in save
+    assert "Bara användarens egna" in save
+    assert "Bundlen förblir privat" in save and "submit_to_promptbanken" in save
+    assert "både privata och publicerade" in tools["list_my_bundles"]
+
+
+def test_bundle_preview_says_it_stays_private(layer):
+    preview = layer.save_bundle(TOKEN, {"title": "P", "items": [{"kind": "prompt", "id": PROMPT_ID}]})
+    assert "Bundlen är privat och publiceras inte" in preview["confirm_text"]
+
+
 def test_bundle_notes_newer_versions_without_changing(layer, library):
     saved = layer.save_bundle(TOKEN, {"title": "B", "items": [{"kind": "skill", "id": SKILL_ID, "version": 1}], "confirmed": True, "request_id": rid()})
     bundle = layer.get_bundle(TOKEN, {"id": saved["id"]})

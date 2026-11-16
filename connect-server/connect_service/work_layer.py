@@ -453,7 +453,7 @@ def skill_tool_definitions() -> list[dict[str, object]]:
             "name": "list_my_bundles",
             "description": (
                 "Listar användarens bundles (samlingar av egna prompter och arbetssätt) och vilka egna produkter som kan "
-                "läggas i en bundle, med uppgift om de är publicerade."
+                "läggas i en bundle (addable_products), både privata och publicerade, med uppgift om de är publicerade."
             ),
             "inputSchema": {"type": "object", "properties": {}},
         },
@@ -465,12 +465,14 @@ def skill_tool_definitions() -> list[dict[str, object]]:
         {
             "name": "save_my_bundle",
             "description": (
-                "Skapar eller ändrar en egen bundle. En bundle innehåller egna publicerade prompter och arbetssätt med låst "
-                "version och kopierar inget innehåll. items ersätter hela innehållet i angiven ordning: {kind, id, version} "
-                "där id är ett egen prompts id eller ett arbetssätts skill:-id (version gäller arbetssätt, utelämnad = "
-                "senaste). Produkterna behöver inte vara publicerade för att ingå; för att skicka in bundlen måste de vara "
-                "det. Utan confirmed: förhandsvisning. Med confirmed: true efter ett uttryckligt ja och nytt request_id: "
-                "sparar och verifierar."
+                "Skapar eller ändrar en egen, privat bundle. En bundle samlar användarens egna prompter och arbetssätt, "
+                "både privata och publicerade, med låst version och kopierar inget innehåll. Bara användarens egna "
+                "produkter kan ingå (se addable_products i list_my_bundles). items ersätter hela innehållet i angiven "
+                "ordning: {kind, id, version} där id är en egen prompts id eller ett arbetssätts skill:-id (version gäller "
+                "arbetssätt, utelämnad = senaste). Bundlen förblir privat: den publiceras inte av att sparas. För att "
+                "publicera den skickas den in med submit_to_promptbanken och granskas, och då måste alla produkter i "
+                "den vara publicerade. Utan confirmed: förhandsvisning. Med confirmed: true efter ett uttryckligt ja och "
+                "nytt request_id: sparar och verifierar."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1346,7 +1348,7 @@ class WorkLayer:
         if resolved is not None:
             parts.append("Innehåll: " + (", ".join(
                 f"{r['name']}" + (f" (version {r['version']})" if r["version"] else "") for r in resolved) or "inga produkter än") + ".")
-        confirm_text = " ".join(parts) + " Inget innehåll kopieras. Vill du spara det?"
+        confirm_text = " ".join(parts) + " Inget innehåll kopieras. Bundlen är privat och publiceras inte av att sparas. Vill du spara det?"
         if arguments.get("confirmed") is not True:
             return {"status": "preview", "id": bundle_id, "confirm_text": confirm_text,
                     "message": "Inget är sparat. Visa confirm_text och spara med confirmed: true och nytt request_id efter ett ja."}
