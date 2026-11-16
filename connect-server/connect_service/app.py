@@ -19,7 +19,7 @@ from connect_service.supports import SupportCatalog
 from connect_service import work_layer as wl
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-SERVER_VERSION = "0.6.0"
+SERVER_VERSION = "0.7.0"
 
 tool_logger = logging.getLogger("connect.tools")
 _SAFE_TARGET = re.compile(r"^(?:skill:|mitt:|katalog:)?[a-z0-9][a-z0-9-]{0,63}$")
@@ -371,7 +371,7 @@ def create_app(
             )
 
         if method == "tools/list":
-            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"tools": exposed_tools}})
+            return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"tools": _personal_tool_list(layer, token, exposed_tools)}})
 
         if method == "prompts/list":
             return JSONResponse({"jsonrpc": "2.0", "id": request_id, "result": {"prompts": prompt_list(token)}})
@@ -622,6 +622,31 @@ def create_app(
     )
 
 
+def _personal_tool_list(layer: wl.WorkLayer, token: str, tools: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Lägger användarens aktiva arbetssätt (namn och när de används) i beskrivningen av get_connect_context.
+
+    Klienter väljer verktyg utifrån verktygslistan. Med de egna arbetssätten där kan klienten se att
+    Connect har ett stöd för uppgiften innan den svarar. Bara namn och en kort use_when, aldrig
+    instruktioner. Fel här får aldrig stoppa verktygslistan.
+    """
+    try:
+        skills = [row for row in layer._skills(token) if row.get("is_active", True)][:8]
+    except Exception:  # noqa: BLE001
+        skills = []
+    if not skills:
+        return tools
+    def short(text: object, limit: int) -> str:
+        value = " ".join(str(text or "").split())
+        return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
+    listing = "; ".join(f"{short(row.get('name'), 40)} ({short(row.get('use_when'), 70)})" for row in skills)
+    out = []
+    for tool in tools:
+        if tool.get("name") == "get_connect_context":
+            tool = {**tool, "description": f"{tool['description']} Användarens egna arbetssätt: {listing}."}
+        out.append(tool)
+    return out
+
+
 def _work_layer_call(
     layer: wl.WorkLayer, name: str, arguments: Mapping[str, object], token: str, subject: str
 ) -> Mapping[str, object]:
@@ -636,8 +661,8 @@ def _work_layer_call(
     if name == "get_open_item":
         kind = arguments.get("kind")
         ref = arguments.get("ref")
-        if kind not in {"prompt", "package", "skill"} or not isinstance(ref, str) or not ref.strip():
-            raise wl.ToolInputError("Ange kind (prompt, package eller skill) och ref.")
+        if kind not in {"prompt", "package", "skill", "bundle"} or not isinstance(ref, str) or not ref.strip():
+            raise wl.ToolInputError("Ange kind (prompt, package, skill eller bundle) och ref.")
         return layer.open_item(token, str(kind), ref.strip())
     if name == "save_my_profile":
         return layer.save_profile(token, arguments)
@@ -670,4 +695,10 @@ def _work_layer_call(
         return layer.withdraw(token, arguments)
     if name == "list_published_skills":
         return layer.published_skills(token)
+    if name == "list_my_bundles":
+        return layer.list_bundles(token)
+    if name == "get_my_bundle":
+        return layer.get_bundle(token, arguments)
+    if name == "save_my_bundle":
+        return layer.save_bundle(token, arguments)
     raise wl.ToolInputError("Okänt verktyg.")

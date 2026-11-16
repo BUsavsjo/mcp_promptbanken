@@ -1,0 +1,148 @@
+"""Bundles i Connect och egna arbetssätt i verktygslistan."""
+
+import uuid
+
+import pytest
+
+from connect_service.supports import SupportCatalog
+from connect_service.work_layer import NotFound, ToolInputError, WorkLayer
+from tests.fakes import TOKEN, MemoryLibrary
+from tests.test_skills import OFFERT, OTHER, create, rid
+
+SKILL_CAT = str(uuid.uuid4())
+PROMPT_CAT = str(uuid.uuid4())
+
+
+class BundleLibrary(MemoryLibrary):
+    def __init__(self) -> None:
+        super().__init__()
+        self.bundles: dict[str, dict] = {}
+        self.products = {
+            TOKEN: [
+                {"product_kind": "skill", "catalog_id": SKILL_CAT, "slug": "offertgranskaren", "name": "Offertgranskaren", "latest_version": 2},
+                {"product_kind": "prompt", "catalog_id": PROMPT_CAT, "slug": "sammanfatta", "name": "Sammanfatta", "latest_version": 1},
+            ]
+        }
+        self.bundle_writes: list[str] = []
+
+    def list_my_bundleable_products(self, *, access_token):
+        return [dict(p) for p in self.products.get(access_token, [])]
+
+    def list_my_bundles(self, *, access_token):
+        return [{"id": b["id"], "title": b["title"], "item_count": len(b["items"])} for b in self.bundles.values() if b["owner"] == access_token]
+
+    def get_my_bundle(self, *, access_token, bundle_id):
+        b = self.bundles.get(bundle_id)
+        if b is None or b["owner"] != access_token:
+            return None
+        latest = {p["catalog_id"]: p for p in self.products.get(access_token, [])}
+        return {"id": b["id"], "title": b["title"], "summary": b["summary"], "items": [
+            {**i, "name": latest[i["catalog_id"]]["name"], "latest_version": latest[i["catalog_id"]]["latest_version"]} for i in b["items"]]}
+
+    def create_my_bundle(self, *, access_token, title, summary, request_id):
+        bid = str(uuid.uuid4())
+        self.bundles[bid] = {"id": bid, "owner": access_token, "title": title, "summary": summary, "items": []}
+        self.bundle_writes.append("create")
+        return {"id": bid}
+
+    def update_my_bundle(self, *, access_token, bundle_id, title, summary, request_id):
+        self.bundles[bundle_id].update(title=title, summary=summary)
+        self.bundle_writes.append("update")
+        return {"id": bundle_id}
+
+    def set_my_bundle_items(self, *, access_token, bundle_id, items, request_id):
+        own = {p["catalog_id"] for p in self.products.get(access_token, [])}
+        if any(i["catalog_id"] not in own for i in items):
+            from connect_service.data import ConnectWriteError
+
+            raise ConnectWriteError("Post 1: produkten finns inte som din egen publicerade produkt i den versionen.", kind="validation")
+        self.bundles[bundle_id]["items"] = [dict(i) for i in items]
+        self.bundle_writes.append("items")
+        return {"id": bundle_id, "item_count": len(items)}
+
+    def get_published_bundle(self, *, access_token, slug, version=None):
+        if slug != "upphandling":
+            return None
+        return {"slug": slug, "version": 1, "name": "Upphandling", "items": [
+            {"kind": "skill", "catalog_id": SKILL_CAT, "version": 1, "slug": "offertgranskaren", "name": "Offertgranskaren"},
+            {"kind": "prompt", "catalog_id": PROMPT_CAT, "version": 1, "slug": "sammanfatta", "name": "Sammanfatta"}]}
+
+
+@pytest.fixture()
+def library():
+    return BundleLibrary()
+
+
+@pytest.fixture()
+def layer(library):
+    return WorkLayer(SupportCatalog(), library)
+
+
+def test_bundle_listing_shows_addable_own_published_products(layer):
+    result = layer.list_bundles(TOKEN)
+    assert result["items"] == []
+    assert {p["catalog_id"] for p in result["addable_products"]} == {SKILL_CAT, PROMPT_CAT}
+    assert "note" in layer.list_bundles(OTHER)
+
+
+def test_save_bundle_previews_then_saves_with_pinned_latest_versions(layer, library):
+    args = {"title": "Upphandling", "items": [{"kind": "skill", "catalog_id": SKILL_CAT}, {"kind": "prompt", "catalog_id": PROMPT_CAT}]}
+    preview = layer.save_bundle(TOKEN, args)
+    assert preview["status"] == "preview" and "Offertgranskaren (version 2)" in preview["confirm_text"]
+    assert "Inget innehåll kopieras" in preview["confirm_text"]
+    assert library.bundle_writes == []
+    saved = layer.save_bundle(TOKEN, {**args, "confirmed": True, "request_id": rid()})
+    assert saved["status"] == "saved" and saved["items"] == 2
+    bundle = layer.get_bundle(TOKEN, {"id": saved["id"]})
+    assert [i["version"] for i in bundle["items"]] == [2, 1]
+
+
+def test_bundle_notes_newer_versions_without_changing(layer, library):
+    saved = layer.save_bundle(TOKEN, {"title": "B", "items": [{"kind": "skill", "catalog_id": SKILL_CAT, "version": 1}], "confirmed": True, "request_id": rid()})
+    bundle = layer.get_bundle(TOKEN, {"id": saved["id"]})
+    assert bundle["items"][0]["version"] == 1 and "Nyare version finns för: Offertgranskaren" in bundle["note"]
+
+
+def test_bundle_rejects_foreign_products_and_other_users(layer):
+    with pytest.raises(ToolInputError):
+        layer.save_bundle(TOKEN, {"title": "X", "items": [{"kind": "skill", "catalog_id": str(uuid.uuid4())}]})
+    saved = layer.save_bundle(TOKEN, {"title": "Min", "confirmed": True, "request_id": rid()})
+    with pytest.raises(NotFound):
+        layer.get_bundle(OTHER, {"id": saved["id"]})
+    with pytest.raises(NotFound):
+        layer.save_bundle(OTHER, {"id": saved["id"], "title": "Kapad", "confirmed": True, "request_id": rid()})
+
+
+def test_empty_bundle_cannot_be_submitted(layer):
+    saved = layer.save_bundle(TOKEN, {"title": "Tom", "confirmed": True, "request_id": rid()})
+    with pytest.raises(ToolInputError):
+        layer.submit(TOKEN, {"kind": "bundle", "id": saved["id"]})
+
+
+def test_published_bundle_points_to_catalog_skills(layer):
+    bundle = layer.open_item(TOKEN, "bundle", "upphandling")
+    assert bundle["items"][0]["use_with"] == "katalog:offertgranskaren"
+    assert bundle["items"][1]["use_with"] is None
+    with pytest.raises(NotFound):
+        layer.open_item(TOKEN, "bundle", "saknas")
+
+
+def test_tools_list_names_own_active_ways_of_working(library):
+    from tests.test_work_layer import call, http_client
+
+    WorkLayer(SupportCatalog(), library).create_skill(TOKEN, {"skill": OFFERT, "confirmed": True, "request_id": rid()})
+    client = http_client(library)
+    tools = {t["name"]: t for t in call(client, "tools/list").json()["result"]["tools"]}
+    description = tools["get_connect_context"]["description"]
+    assert "Användarens egna arbetssätt: Offertgranskaren (När användaren vill granska" in description
+    assert "references/checklista.md" not in description  # inga instruktioner i listan
+    assert "Användarens egna arbetssätt" not in tools["get_support"]["description"]
+
+
+def test_tools_list_without_skills_is_unchanged(library):
+    from connect_service import work_layer as wl
+    from tests.test_work_layer import call, http_client
+
+    tools = {t["name"]: t for t in call(http_client(library), "tools/list").json()["result"]["tools"]}
+    base = {t["name"]: t for t in wl.tool_definitions()}
+    assert tools["get_connect_context"]["description"] == base["get_connect_context"]["description"]

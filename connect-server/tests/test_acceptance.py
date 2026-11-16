@@ -243,6 +243,9 @@ CORE = {
     "submit_to_promptbanken",
     "get_submission_status",
     "withdraw_submission",
+    "list_my_bundles",
+    "get_my_bundle",
+    "save_my_bundle",
     "list_published_skills",
 }
 
@@ -296,7 +299,7 @@ def test_core_profile_still_saves_and_uses_a_new_way_of_working(library):
 
 def test_full_profile_keeps_the_library_tools(library):
     tools = _rpc(_core_client(library, "full"), "tools/list")["result"]["tools"]
-    assert len(tools) == 36
+    assert len(tools) == 39
 
 
 def test_catalog_search_mapping_points_to_get_open_item():

@@ -400,6 +400,45 @@ class SupabaseConnectRepository:
 
     # ------------------------------------------------------------ inskick och katalog
 
+    # ------------------------------------------------------------ bundles
+
+    def list_my_bundles(self, *, access_token: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_my_bundles")
+
+    def list_my_bundleable_products(self, *, access_token: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_my_bundleable_products")
+
+    def get_my_bundle(self, *, access_token: str, bundle_id: str) -> Mapping[str, object] | None:
+        try:
+            return self._rpc_object(access_token, "get_my_bundle", {"p_bundle_id": bundle_id})
+        except ConnectWriteError as error:
+            if error.kind == "validation":
+                return None
+            raise
+
+    def create_my_bundle(self, *, access_token: str, title: str, summary: str | None, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "create_my_bundle", {"p_title": title, "p_summary": summary, "p_request_id": request_id})
+
+    def update_my_bundle(self, *, access_token: str, bundle_id: str, title: str, summary: str | None, request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "update_my_bundle", {"p_bundle_id": bundle_id, "p_title": title, "p_summary": summary, "p_request_id": request_id})
+
+    def set_my_bundle_items(self, *, access_token: str, bundle_id: str, items: list[Mapping[str, object]], request_id: str) -> Mapping[str, object]:
+        return self._connect_write(access_token, "set_my_bundle_items", {"p_bundle_id": bundle_id, "p_items": list(items), "p_request_id": request_id})
+
+    def list_published_bundles(self, *, access_token: str) -> list[Mapping[str, object]]:
+        return self._rpc(access_token, "list_published_bundles")
+
+    def get_published_bundle(self, *, access_token: str, slug: str, version: int | None = None) -> Mapping[str, object] | None:
+        payload: dict[str, object] = {"p_slug": slug}
+        if version is not None:
+            payload["p_version"] = version
+        try:
+            return self._rpc_object(access_token, "get_published_bundle", payload)
+        except ConnectWriteError as error:
+            if error.kind == "validation":
+                return None
+            raise
+
     def submit_to_promptbanken(self, *, access_token: str, kind: str, product_id: str, consent_distribution: bool, rights_attested: bool, request_id: str) -> Mapping[str, object]:
         return self._connect_write(
             access_token,
